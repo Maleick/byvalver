@@ -1,4 +1,5 @@
 #include "strategy.h"
+#include "new_strategies.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
@@ -25,12 +26,22 @@ void register_strategy(strategy_t *strategy) {
 }
 
 void register_mov_strategies(); // Forward declaration
+void register_arithmetic_const_generation_strategies(); // Forward declaration - Arithmetic/Bitwise constant generation
 void register_arithmetic_strategies(); // Forward declaration
+void register_salc_rep_stosb_strategies(); // Forward declaration - SALC + REP STOSB for null-filled buffers
+void register_xor_zero_reg_strategies(); // Forward declaration - XOR reg, reg for zeroing registers
 void register_memory_strategies(); // Forward declaration
 void register_jump_strategies(); // Forward declaration
 void register_general_strategies(); // Forward declaration
 void register_anti_debug_strategies(); // Forward declaration
 void register_shift_strategy(); // Forward declaration
+void register_push_immediate_strategies(); // Forward declaration - PUSH immediate null elimination
+void register_lea_displacement_strategies(); // Forward declaration - LEA displacement null elimination
+void register_xchg_immediate_loading_strategies(); // Forward declaration - XCHG-based immediate loading
+void register_string_instruction_strategies(); // Forward declaration - String instruction null construction
+void register_conditional_flag_strategies(); // Forward declaration - Conditional flag manipulation
+void register_peb_api_hashing_strategies(); // Forward declaration - PEB traversal & API hashing
+void register_stack_string_const_strategies(); // Forward declaration - Stack-based string/constant construction
 void register_peb_strategies(); // Forward declaration
 void register_conservative_strategies(); // Forward declaration
 // void register_lea_strategies(); // Forward declaration
@@ -86,6 +97,7 @@ void register_register_chaining_strategies(); // Forward declaration - Register 
 void register_linux_socketcall_strategies(); // Forward declaration - Linux socketcall multiplexer pattern - Priority 72-75
 void register_linux_string_push_strategies(); // Forward declaration - Linux string construction via PUSH - Priority 68-70
 void register_syscall_number_strategies(); // Forward declaration - Linux syscall number encoding strategies - Priority 77-78
+void register_new_strategies(); // Forward declaration - New strategies for specific null-byte patterns
 
 void init_strategies() {
     #ifdef DEBUG
@@ -97,8 +109,11 @@ void init_strategies() {
     init_advanced_transformations();      // Initialize the can_handle functions
     register_indirect_call_strategies();  // Register indirect CALL/JMP strategies (priority 100)
     register_sldt_replacement_strategy();  // Register SLDT replacement strategy (priority 95)
+    register_push_immediate_strategies();  // Register PUSH immediate null elimination strategies (priority 75)
+    register_lea_displacement_strategies();  // Register LEA displacement null elimination strategies (priority 80)
     register_sequence_preservation_strategies();  // Register sequence preservation strategies
     register_context_preservation_strategies();  // Register context preservation strategies
+    register_string_instruction_strategies();  // Register string instruction null construction strategies (priority 45)
     register_lea_strategies();  // Register LEA strategies
     //     register_enhanced_conservative_mov_strategy();  // Register enhanced conservative strategy
     register_conservative_strategies();  // Register conservative strategies
@@ -111,7 +126,9 @@ void init_strategies() {
     register_conditional_jump_offset_strategies();  // Register conditional jump null-offset strategies (priority 150)
     register_getpc_strategies();  // Register GET PC (CALL/POP) strategies
     register_mov_strategies();  // Register all MOV strategies
+    register_xor_zero_reg_strategies();  // Register XOR register zeroing strategies (priority 100)
     register_arithmetic_strategies();  // Register all arithmetic strategies
+    register_arithmetic_const_generation_strategies();  // Register arithmetic/bitwise constant generation strategies (priority 75)
     register_adc_strategies();  // Register ADC (Add with Carry) strategies (priority 69-70)
     register_sbb_strategies();  // Register SBB (Subtract with Borrow) strategies (priority 69-70)
     register_setcc_strategies();  // Register SETcc (Conditional Set) strategies (priority 70-75)
@@ -119,15 +136,18 @@ void init_strategies() {
     register_fpu_strategies();  // Register x87 FPU strategies (priority 60)
     register_sldt_strategies();  // Register SLDT strategies (priority 60)
     register_xchg_strategies();  // Register XCHG strategies (priority 60)
+    register_xchg_immediate_loading_strategies();  // Register XCHG immediate loading strategies (priority 60)
     register_cmp_memory_disp_null_strategy();  // Register CMP memory displacement null strategies (priority 55)
     register_memory_strategies();  // Register all memory strategies
     register_cmp_strategies();  // Register CMP strategies (priority 85-88)
+    register_stack_string_const_strategies();  // Register stack-based string/constant construction strategies (priority 85)
     register_retf_strategies();  // Register RETF immediate strategies (priority 85)
     // register_custom_hash_strategies(); // DISABLED - broken implementation that introduces nulls instead of removing them
     register_memory_displacement_strategies(); // Register memory displacement null handling strategies (priority 82-85)
     // register_api_hashing_strategies(); // DISABLED - doesn't properly handle memory operands in CMP instructions
     // register_test_strategies(); // EXCLUDED FROM BUILD  // Register TEST strategies (priority 82)
     register_bt_strategies();  // Register BT (bit test) strategies (priority 80)
+    register_conditional_flag_strategies();  // Register conditional flag manipulation strategies (priority 90)
     register_jump_strategies();  // Register all jump strategies
     register_loop_strategies();  // Register all LOOP family strategies (priority 75-80)
     register_general_strategies();  // Register all general strategies
@@ -149,12 +169,15 @@ void init_strategies() {
     register_salc_strategies(); // Register SALC AL zeroing optimization strategies (priority 91)
     register_xchg_preservation_strategies(); // Register PUSH immediate optimization strategies (priority 86)
     register_stack_string_strategies(); // Register stack-based string construction strategies (priority 85)
+    register_salc_rep_stosb_strategies(); // Register SALC + REP STOSB strategies (priority 65)
     register_syscall_strategies(); // Register Windows syscall direct invocation strategies (priority 95)
     register_unicode_string_strategies(); // Register Unicode (UTF-16) string handling strategies (priority 74-78)
     register_byte_construct_strategy(); // Register byte construction strategy
     // register_anti_debug_strategies();  // DISABLED - causes issues with non-NOP instructions
     register_shift_strategy();  // Register shift-based strategy
+    register_peb_api_hashing_strategies();  // Register PEB API hashing strategies (priority 95)
     // register_peb_strategies();  // ALSO DISABLE THIS - was causing inappropriate application to non-NOP instructions
+    register_new_strategies(); // Register new strategies for specific null-byte patterns
 
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Registered %d strategies\n", strategy_count);
@@ -268,12 +291,6 @@ void register_ror13_hash_strategies() {
     register_strategy(&ror13_hash_strategy);
 }
 
-// Register the enhanced stack string strategy
-void register_stack_string_strategies() {
-    extern strategy_t enhanced_stack_string_strategy;
-    register_strategy(&enhanced_stack_string_strategy);
-}
-
 // Register the syscall strategy
 void register_syscall_strategies() {
     extern strategy_t syscall_number_mov_strategy;
@@ -351,3 +368,18 @@ void register_syscall_number_strategies() {
     register_strategy(&syscall_number_byte_based_strategy);
     register_strategy(&syscall_number_push_pop_strategy);
 }
+
+// Register the new strategies
+void register_new_strategies() {
+    register_strategy(&transform_mov_reg_mem_self);
+    register_strategy(&transform_add_mem_reg8);
+}
+
+
+
+
+
+
+
+
+

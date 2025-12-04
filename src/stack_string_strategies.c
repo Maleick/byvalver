@@ -195,3 +195,8 @@ strategy_t enhanced_stack_string_strategy = {
     .generate = generate_stack_string_null_free,
     .priority = 85  // High priority for stack string strategy
 };
+
+// Register function for the stack string strategy
+void register_stack_string_strategies() {
+    register_strategy(&enhanced_stack_string_strategy);
+}

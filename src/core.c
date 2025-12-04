@@ -1,5 +1,6 @@
 #include "core.h"
 #include "utils.h"
+#include "new_strategies.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -413,6 +414,7 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     fprintf(stderr, "[DISASM] Disassembled %zu instructions from %zu bytes\n", count, size);
     if (count == 0 || insn_array == NULL) {
         fprintf(stderr, "[ERROR] cs_disasm returned 0 instructions or NULL array!\n");
+        fprintf(stderr, "[ERROR] Input file does not appear to contain valid x86 shellcode.\n");
         cs_close(&handle);
         return new_shellcode;
     }

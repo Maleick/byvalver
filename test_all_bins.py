@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Comprehensive test script to run byvalver on all .bin files in BIG_BIN directory
-and collect detailed statistics and results.
+and collect detailed statistics and results for both biphasic and non-biphasic modes.
 """
 
 import subprocess
@@ -10,6 +10,7 @@ import json
 import time
 from pathlib import Path
 from datetime import datetime
+import tempfile
 
 # Configuration
 BIG_BIN_DIR = os.path.expanduser("~/RUBBISH/BIG_BIN")
@@ -36,7 +37,15 @@ def get_bin_files():
             })
     return bin_files
 
-def run_byvalver(bin_path, timeout=120):
+def analyze_shellcode_for_nulls(shellcode_data):
+    """Analyze shellcode data to count null bytes."""
+    null_count = 0
+    for byte in shellcode_data:
+        if byte == 0:
+            null_count += 1
+    return null_count
+
+def run_byvalver(input_path, output_path, args=None, timeout=120):
     """Run byvalver on a single binary and capture results."""
     result = {
         'success': False,
@@ -44,14 +53,24 @@ def run_byvalver(bin_path, timeout=120):
         'error': '',
         'exit_code': None,
         'execution_time': 0,
-        'timed_out': False
+        'timed_out': False,
+        'output_data': None,
+        'nulls_remaining': -1,  # -1 means not determined yet
+        'nulls_in_original': -1
     }
 
     start_time = time.time()
 
+    # Prepare command
+    cmd = [BYVALVER_BIN]
+    if args:
+        cmd.extend(args)
+    # Use only input path and explicitly specify output with -o flag to avoid confusion
+    cmd.extend([input_path, "-o", output_path])
+
     try:
         process = subprocess.run(
-            [BYVALVER_BIN, bin_path],
+            cmd,
             capture_output=True,
             text=True,
             timeout=timeout
@@ -60,13 +79,34 @@ def run_byvalver(bin_path, timeout=120):
         result['exit_code'] = process.returncode
         result['output'] = process.stdout
         result['error'] = process.stderr
-        result['success'] = (process.returncode == 0)
+
+        # Check if process exited successfully
+        if process.returncode == 0:
+            # Read the output file to check for nulls
+            if os.path.exists(output_path):
+                with open(output_path, 'rb') as f:
+                    result['output_data'] = f.read()
+                    result['nulls_remaining'] = analyze_shellcode_for_nulls(result['output_data'])
+
+                # Also analyze original file for comparison
+                with open(input_path, 'rb') as f:
+                    original_data = f.read()
+                    result['nulls_in_original'] = analyze_shellcode_for_nulls(original_data)
+
+                # Determine true success - process must exit 0 AND eliminate all nulls
+                result['success'] = (process.returncode == 0 and result['nulls_remaining'] == 0)
+            else:
+                # Output file wasn't created, so it's not successful
+                result['success'] = False
+        else:
+            result['success'] = False
 
     except subprocess.TimeoutExpired:
         result['timed_out'] = True
         result['error'] = f"Process timed out after {timeout} seconds"
     except Exception as e:
         result['error'] = str(e)
+        result['success'] = False
 
     result['execution_time'] = time.time() - start_time
     return result
@@ -100,11 +140,13 @@ def parse_byvalver_output(output, error):
         if '[TRACE] Using strategy' in line:
             if "'" in line:
                 strategy_name = line.split("'")[1]
-                stats['strategies_applied'].append(strategy_name)
+                if strategy_name not in stats['strategies_applied']:
+                    stats['strategies_applied'].append(strategy_name)
 
         if '[WARNING]' in line:
             warning = line.split('[WARNING]')[1].strip()[:100]
-            stats['warnings'].append(warning)
+            if warning not in stats['warnings']:
+                stats['warnings'].append(warning)
 
         if 'has_null=1' in line:
             stats['null_bytes_found'] += 1
@@ -118,6 +160,7 @@ def main():
     """Main test execution."""
     print("=" * 80)
     print("BYVALVER .BIN FILES COMPREHENSIVE ASSESSMENT")
+    print("Testing both with and without --biphasic flag")
     print("=" * 80)
     print()
 
@@ -148,14 +191,22 @@ def main():
     # Statistics
     stats = {
         'total': total_count,
-        'successful': 0,
-        'failed': 0,
-        'timed_out': 0,
-        'errors': 0,
-        'total_instructions': 0,
-        'total_null_bytes_found': 0,
-        'files_with_nulls': 0,
-        'strategies_used': {}
+        'successful_biphasic': 0,
+        'failed_biphasic': 0,
+        'timed_out_biphasic': 0,
+        'errors_biphasic': 0,
+        'successful_non_biphasic': 0,
+        'failed_non_biphasic': 0,
+        'timed_out_non_biphasic': 0,
+        'errors_non_biphasic': 0,
+        'total_instructions_biphasic': 0,
+        'total_instructions_non_biphasic': 0,
+        'total_null_bytes_found_biphasic': 0,
+        'total_null_bytes_found_non_biphasic': 0,
+        'files_with_nulls_biphasic': 0,
+        'files_with_nulls_non_biphasic': 0,
+        'strategies_used_biphasic': {},
+        'strategies_used_non_biphasic': {}
     }
 
     # Run tests
@@ -167,54 +218,145 @@ def main():
         path = bin_file['path']
         size = bin_file['size']
 
-        print(f"[{idx}/{total_count}] Testing: {name} ({size/1024:.1f} KB)...", end=' ', flush=True)
-
-        # Run byvalver
-        test_result = run_byvalver(path)
-
-        # Parse output for statistics
-        parsed_stats = parse_byvalver_output(test_result['output'], test_result['error'])
-
-        # Update statistics
-        if test_result['timed_out']:
-            stats['timed_out'] += 1
-            status = "TIMEOUT"
-        elif test_result['success']:
-            stats['successful'] += 1
-            status = "SUCCESS"
-        elif test_result['error']:
-            stats['errors'] += 1
-            status = "ERROR"
-        else:
-            stats['failed'] += 1
-            status = "FAILED"
-
-        # Aggregate stats
-        stats['total_instructions'] += parsed_stats['instructions_disassembled']
-        stats['total_null_bytes_found'] += parsed_stats['null_bytes_found']
-
-        if parsed_stats['null_bytes_found'] > 0:
-            stats['files_with_nulls'] += 1
-
-        for strategy in parsed_stats['strategies_applied']:
-            stats['strategies_used'][strategy] = stats['strategies_used'].get(strategy, 0) + 1
-
-        print(f"{status} ({test_result['execution_time']:.3f}s, {parsed_stats['instructions_disassembled']} insns, {parsed_stats['null_bytes_found']} nulls)")
-
-        # Store detailed result
-        results['tests'].append({
+        print(f"[{idx}/{total_count}] Testing: {name} ({size/1024:.1f} KB)")
+        
+        file_result = {
             'index': idx,
             'filename': name,
             'path': path,
             'size_bytes': size,
-            'status': status,
-            'execution_time': test_result['execution_time'],
-            'exit_code': test_result['exit_code'],
-            'timed_out': test_result['timed_out'],
-            'output': test_result['output'],
-            'error': test_result['error'][:2000] if test_result['error'] else '',  # Truncate long outputs
-            'parsed_stats': parsed_stats
-        })
+            'biphasic_test': None,
+            'non_biphasic_test': None
+        }
+
+        # Test with biphasic mode
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.bin') as biphasic_out:
+            biphasic_out_path = biphasic_out.name
+
+        print(f"  Testing biphasic mode...", end=' ', flush=True)
+        biphasic_result = run_byvalver(path, biphasic_out_path, ['--biphasic'])
+        
+        # Parse output for statistics
+        biphasic_parsed_stats = parse_byvalver_output(biphasic_result['output'], biphasic_result['error'])
+        biphasic_result['parsed_stats'] = biphasic_parsed_stats
+
+        # Determine status for biphasic test
+        if biphasic_result['timed_out']:
+            biphasic_status = "TIMEOUT"
+            stats['timed_out_biphasic'] += 1
+        elif biphasic_result['success']:
+            biphasic_status = "SUCCESS"  # Process completed AND nulls eliminated
+            stats['successful_biphasic'] += 1
+        elif biphasic_result['exit_code'] == 0 and biphasic_result['nulls_remaining'] > 0:
+            biphasic_status = "NULLS_REMAINING"  # Process completed but nulls remain
+            stats['failed_biphasic'] += 1
+        elif biphasic_result['exit_code'] != 0:
+            biphasic_status = "ERROR"
+            stats['errors_biphasic'] += 1
+        else:
+            biphasic_status = "FAILED"
+            stats['failed_biphasic'] += 1
+
+        biphasic_time = biphasic_result['execution_time']
+        biphasic_nulls = biphasic_result['nulls_remaining']
+        biphasic_original_nulls = biphasic_result['nulls_in_original']
+        biphasic_instructions = biphasic_parsed_stats['instructions_disassembled']
+
+        print(f"{biphasic_status} ({biphasic_time:.3f}s, {biphasic_instructions} insns, {biphasic_original_nulls}->{biphasic_nulls} nulls)")
+
+        # Update biphasic stats
+        stats['total_instructions_biphasic'] += biphasic_instructions
+        stats['total_null_bytes_found_biphasic'] += biphasic_nulls
+
+        if biphasic_nulls > 0:
+            stats['files_with_nulls_biphasic'] += 1
+
+        for strategy in biphasic_parsed_stats['strategies_applied']:
+            stats['strategies_used_biphasic'][strategy] = stats['strategies_used_biphasic'].get(strategy, 0) + 1
+
+        # Clean up biphasic output file
+        try:
+            os.unlink(biphasic_out_path)
+        except:
+            pass
+
+        # Test without biphasic mode
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.bin') as non_biphasic_out:
+            non_biphasic_out_path = non_biphasic_out.name
+
+        print(f"  Testing non-biphasic mode...", end=' ', flush=True)
+        non_biphasic_result = run_byvalver(path, non_biphasic_out_path)
+        
+        # Parse output for statistics
+        non_biphasic_parsed_stats = parse_byvalver_output(non_biphasic_result['output'], non_biphasic_result['error'])
+        non_biphasic_result['parsed_stats'] = non_biphasic_parsed_stats
+
+        # Determine status for non-biphasic test
+        if non_biphasic_result['timed_out']:
+            non_biphasic_status = "TIMEOUT"
+            stats['timed_out_non_biphasic'] += 1
+        elif non_biphasic_result['success']:
+            non_biphasic_status = "SUCCESS"  # Process completed AND nulls eliminated
+            stats['successful_non_biphasic'] += 1
+        elif non_biphasic_result['exit_code'] == 0 and non_biphasic_result['nulls_remaining'] > 0:
+            non_biphasic_status = "NULLS_REMAINING"  # Process completed but nulls remain
+            stats['failed_non_biphasic'] += 1
+        elif non_biphasic_result['exit_code'] != 0:
+            non_biphasic_status = "ERROR"
+            stats['errors_non_biphasic'] += 1
+        else:
+            non_biphasic_status = "FAILED"
+            stats['failed_non_biphasic'] += 1
+
+        non_biphasic_time = non_biphasic_result['execution_time']
+        non_biphasic_nulls = non_biphasic_result['nulls_remaining']
+        non_biphasic_original_nulls = non_biphasic_result['nulls_in_original']
+        non_biphasic_instructions = non_biphasic_parsed_stats['instructions_disassembled']
+
+        print(f"  {non_biphasic_status} ({non_biphasic_time:.3f}s, {non_biphasic_instructions} insns, {non_biphasic_original_nulls}->{non_biphasic_nulls} nulls)")
+
+        # Update non-biphasic stats
+        stats['total_instructions_non_biphasic'] += non_biphasic_instructions
+        stats['total_null_bytes_found_non_biphasic'] += non_biphasic_nulls
+
+        if non_biphasic_nulls > 0:
+            stats['files_with_nulls_non_biphasic'] += 1
+
+        for strategy in non_biphasic_parsed_stats['strategies_applied']:
+            stats['strategies_used_non_biphasic'][strategy] = stats['strategies_used_non_biphasic'].get(strategy, 0) + 1
+
+        # Clean up non-biphasic output file
+        try:
+            os.unlink(non_biphasic_out_path)
+        except:
+            pass
+
+        # Store detailed results
+        file_result['biphasic_test'] = {
+            'status': biphasic_status,
+            'execution_time': biphasic_time,
+            'exit_code': biphasic_result['exit_code'],
+            'timed_out': biphasic_result['timed_out'],
+            'output': biphasic_result['output'],
+            'error': biphasic_result['error'][:2000] if biphasic_result['error'] else '',
+            'nulls_remaining': biphasic_nulls,
+            'nulls_in_original': biphasic_original_nulls,
+            'parsed_stats': biphasic_parsed_stats
+        }
+
+        file_result['non_biphasic_test'] = {
+            'status': non_biphasic_status,
+            'execution_time': non_biphasic_time,
+            'exit_code': non_biphasic_result['exit_code'],
+            'timed_out': non_biphasic_result['timed_out'],
+            'output': non_biphasic_result['output'],
+            'error': non_biphasic_result['error'][:2000] if non_biphasic_result['error'] else '',
+            'nulls_remaining': non_biphasic_nulls,
+            'nulls_in_original': non_biphasic_original_nulls,
+            'parsed_stats': non_biphasic_parsed_stats
+        }
+
+        results['tests'].append(file_result)
 
     # Save results
     print()
@@ -230,53 +372,93 @@ def main():
     summary = []
     summary.append("=" * 80)
     summary.append("BYVALVER .BIN FILES ASSESSMENT SUMMARY")
+    summary.append("Testing both with and without --biphasic flag")
     summary.append("=" * 80)
     summary.append("")
     summary.append(f"Test Date: {results['metadata']['test_date']}")
     summary.append(f"Total Files Tested: {total_count}")
     summary.append(f"Total Size: {total_size / (1024*1024):.2f} MB")
     summary.append("")
-    summary.append("RESULTS:")
-    summary.append(f"  Successful: {stats['successful']} ({stats['successful']/total_count*100:.1f}%)")
-    summary.append(f"  Failed:     {stats['failed']} ({stats['failed']/total_count*100:.1f}%)")
-    summary.append(f"  Errors:     {stats['errors']} ({stats['errors']/total_count*100:.1f}%)")
-    summary.append(f"  Timeouts:   {stats['timed_out']} ({stats['timed_out']/total_count*100:.1f}%)")
+    summary.append("BIPHASIC MODE RESULTS:")
+    summary.append(f"  Successful (all nulls eliminated): {stats['successful_biphasic']} ({stats['successful_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Failed (nulls remain):             {stats['failed_biphasic']} ({stats['failed_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Errors:                            {stats['errors_biphasic']} ({stats['errors_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Timeouts:                          {stats['timed_out_biphasic']} ({stats['timed_out_biphasic']/total_count*100:.1f}%)")
+    summary.append("")
+    summary.append("NON-BIPHASIC MODE RESULTS:")
+    summary.append(f"  Successful (all nulls eliminated): {stats['successful_non_biphasic']} ({stats['successful_non_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Failed (nulls remain):             {stats['failed_non_biphasic']} ({stats['failed_non_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Errors:                            {stats['errors_non_biphasic']} ({stats['errors_non_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Timeouts:                          {stats['timed_out_non_biphasic']} ({stats['timed_out_non_biphasic']/total_count*100:.1f}%)")
     summary.append("")
 
     # Calculate averages
-    avg_time = sum(t['execution_time'] for t in results['tests']) / total_count
-    avg_insns = stats['total_instructions'] / total_count
+    avg_biphasic_time = sum(t['biphasic_test']['execution_time'] for t in results['tests']) / total_count
+    avg_non_biphasic_time = sum(t['non_biphasic_test']['execution_time'] for t in results['tests']) / total_count
 
-    summary.append(f"Average Execution Time: {avg_time:.3f} seconds")
-    summary.append(f"Total Instructions Disassembled: {stats['total_instructions']}")
-    summary.append(f"Average Instructions per File: {avg_insns:.1f}")
+    summary.append(f"Average Execution Time (Biphasic):     {avg_biphasic_time:.3f} seconds")
+    summary.append(f"Average Execution Time (Non-biphasic): {avg_non_biphasic_time:.3f} seconds")
     summary.append("")
 
     # Null byte statistics
     summary.append("NULL BYTE ANALYSIS:")
-    summary.append(f"  Total null bytes found: {stats['total_null_bytes_found']}")
-    summary.append(f"  Files with null bytes: {stats['files_with_nulls']} ({stats['files_with_nulls']/total_count*100:.1f}%)")
+    summary.append(f"  Total null bytes found (biphasic):   {stats['total_null_bytes_found_biphasic']}")
+    summary.append(f"  Files with nulls remaining (biphasic): {stats['files_with_nulls_biphasic']} ({stats['files_with_nulls_biphasic']/total_count*100:.1f}%)")
+    summary.append(f"  Total null bytes found (non-biphasic): {stats['total_null_bytes_found_non_biphasic']}")
+    summary.append(f"  Files with nulls remaining (non-biphasic): {stats['files_with_nulls_non_biphasic']} ({stats['files_with_nulls_non_biphasic']/total_count*100:.1f}%)")
     summary.append("")
 
     # Strategy usage
-    if stats['strategies_used']:
-        summary.append("STRATEGIES APPLIED:")
-        for strategy, count in sorted(stats['strategies_used'].items(), key=lambda x: -x[1]):
-            summary.append(f"  {strategy}: {count} times")
+    summary.append("STRATEGIES APPLIED (BIPHASIC):")
+    for strategy, count in sorted(stats['strategies_used_biphasic'].items(), key=lambda x: -x[1])[:20]:  # Top 20
+        summary.append(f"  {strategy}: {count} times")
+    summary.append("")
+
+    summary.append("STRATEGIES APPLIED (NON-BIPHASIC):")
+    for strategy, count in sorted(stats['strategies_used_non_biphasic'].items(), key=lambda x: -x[1])[:20]:  # Top 20
+        summary.append(f"  {strategy}: {count} times")
+    summary.append("")
+
+    # Compare modes
+    summary.append("MODE COMPARISON:")
+    better_biphasic = 0
+    better_non_biphasic = 0
+    same_result = 0
+    for test in results['tests']:
+        biphasic_success = test['biphasic_test']['status'] in ['SUCCESS']
+        non_biphasic_success = test['non_biphasic_test']['status'] in ['SUCCESS']
+        
+        if biphasic_success and not non_biphasic_success:
+            better_biphasic += 1
+        elif non_biphasic_success and not biphasic_success:
+            better_non_biphasic += 1
+        else:
+            same_result += 1
+    
+    summary.append(f"  Biphase better:  {better_biphasic} files ({better_biphasic/total_count*100:.1f}%)")
+    summary.append(f"  Non-biphase better: {better_non_biphasic} files ({better_non_biphasic/total_count*100:.1f}%)")
+    summary.append(f"  Same result:     {same_result} files ({same_result/total_count*100:.1f}%)")
+    summary.append("")
+
+    # List files where biphasic mode was better
+    if better_biphasic > 0:
+        summary.append("FILES WHERE BIPHASIC MODE WAS BETTER:")
+        for test in results['tests']:
+            biphasic_success = test['biphasic_test']['status'] in ['SUCCESS']
+            non_biphasic_success = test['non_biphasic_test']['status'] in ['SUCCESS']
+            if biphasic_success and not non_biphasic_success:
+                summary.append(f"  {test['filename']}: {test['biphasic_test']['status']} vs {test['non_biphasic_test']['status']}")
         summary.append("")
 
-    # List problematic files
-    if stats['failed'] > 0 or stats['errors'] > 0 or stats['timed_out'] > 0:
-        summary.append("ISSUES FOUND:")
-        summary.append("")
+    # List files where non-biphasic mode was better
+    if better_non_biphasic > 0:
+        summary.append("FILES WHERE NON-BIPHASIC MODE WAS BETTER:")
         for test in results['tests']:
-            if test['status'] in ['FAILED', 'ERROR', 'TIMEOUT']:
-                summary.append(f"  {test['filename']}:")
-                summary.append(f"    Status: {test['status']}")
-                summary.append(f"    Time: {test['execution_time']:.3f}s")
-                if test['error']:
-                    summary.append(f"    Error: {test['error'][:200]}")
-                summary.append("")
+            biphasic_success = test['biphasic_test']['status'] in ['SUCCESS']
+            non_biphasic_success = test['non_biphasic_test']['status'] in ['SUCCESS']
+            if non_biphasic_success and not biphasic_success:
+                summary.append(f"  {test['filename']}: {test['non_biphasic_test']['status']} vs {test['biphasic_test']['status']}")
+        summary.append("")
 
     summary.append("=" * 80)
     summary.append(f"Detailed results saved to: {RESULTS_FILE}")

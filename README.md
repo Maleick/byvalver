@@ -1,8 +1,39 @@
-# BYVALVER - Null-Byte Elimination Framework
+<div align="center">
+  <h1>byvalver</h1>
+  <p><b>NULL-BYTE ELIMINATION FRAMEWORK</b></p>
 
-## Project Overview
+  <img src="./images/byvalver_logo.png" alt="byvalver logo" width="400">
+</div>
 
-BYVALVER is an advanced C-based command-line tool designed for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace null-containing instructions with functionally equivalent alternatives.
+<div align="center">
+
+  ![C](https://img.shields.io/badge/c-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white)
+  &nbsp;
+  ![Shellcode](https://img.shields.io/badge/Shellcode-Analysis-%23FF6B6B.svg?style=for-the-badge)
+  &nbsp;
+  ![Cross-Platform](https://img.shields.io/badge/Cross--Platform-Windows%20%7C%20Linux%20%7C%20macOS-%230071C5.svg?style=for-the-badge)
+  &nbsp;
+  ![Security](https://img.shields.io/badge/Security-Hardened-%23000000.svg?style=for-the-badge)
+
+</div>
+
+<p align="center">
+  <a href="#overview">Overview</a> •
+  <a href="#features">Features</a> •
+  <a href="#building-and-setup">Setup</a> •
+  <a href="#usage-guide">Usage</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#development">Development</a> •
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
+
+<hr>
+
+<br>
+
+## OVERVIEW
+
+**byvalver** is an advanced C-based command-line tool designed for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace null-containing instructions with functionally equivalent alternatives.
 
 **Primary Function:** Remove null bytes (`\\x00`) from binary shellcode that would otherwise cause issues with string-based operations or memory management routines.
 
@@ -13,103 +44,43 @@ BYVALVER is an advanced C-based command-line tool designed for automated removal
 - x86/x64 assembly and instruction set knowledge
 - Modular strategy pattern for extensible transformations
 
-## Architecture
+---
 
-### Biphase Processing
-- **Pass 1**: Obfuscation & complexification of shellcode to increase analytical difficulty
-- **Pass 2**: Null-byte elimination on the obfuscated code
-- Clear separation of obfuscation and sanitization concerns
+**byvalver**:
 
-### Strategy Registry System
-BYVALVER implements a comprehensive registry of 80+ transformation strategies that handle different types of x86/x64 instructions:
+1. **ANALYZES** x86/x64 assembly instructions with Capstone
+2. **IDENTIFIES** instructions containing null bytes
+3. **TRANSFORMS** instructions to null-byte-free equivalents
+4. **OUTPUTS** clean shellcode in multiple formats (binary, XOR-encoded, PIC)
 
-#### MOV Instruction Strategies
-- Direct register-to-register MOV transformations
-- MOV with immediate value decomposition
-- MOV through arithmetic operations
-- Memory-based MOV transformations
-- Conditional MOV handling
+`byvalver` tool prioritizes `security`, `robustness`, and `portability`, running seamlessly on Windows, Linux, and macOS.
 
-#### Arithmetic Instruction Strategies
-- ADD/SUB instruction substitution
-- MUL/IMUL transformations
-- AND/OR/XOR equivalent operations
-- INC/DEC replacement patterns
-- Complex arithmetic decomposition
+### 🔧 Advanced Architecture (v2.0)
 
-#### Jump and Control Flow Strategies
-- Conditional jump rewrites
-- Direct jump replacements
-- Call instruction transformations
-- Loop instruction modifications
-- Relative/absolute jump handling
+**byvalver v2.0** features a sophisticated architecture with **comprehensive strategy registry** for improved maintainability, testability, and extensibility:
 
-#### Specialized Strategies
-- API hashing and resolution patterns
-- PEB (Process Environment Block) access transformations
-- Anti-debugging instruction handling
-- FPU (Floating Point Unit) instruction replacement
-- System call instruction modifications
+- ✅ **80+ transformation strategies** for diverse instruction types
+- ✅ **Biphase processing** (obfuscation + null-byte elimination)
+- ✅ **Position Independent Code (PIC) generation** capability
+- ✅ **XOR encoding with decoder stubs**
+- ✅ **Professional-grade code organization**
 
-### Position Independent Code (PIC) Generation
-BYVALVER now features Windows-specific Position Independent Code generation with the following capabilities:
+See [ARCHITECTURE.md](ARCHITECTURE.md) for complete architecture documentation.
 
-- **JMP-CALL-POP technique**: Get current EIP/RIP register value for position-independent access
-- **API Hash Resolution**: Runtime resolution of Windows APIs using hash-based name lookup
-- **PEB-based API Discovery**: Locate kernel32.dll base address and enumerate exported functions
-- **Anti-Debugging Features**: Built-in checks to detect debugging environments
-- **PIC Shellcode Generation**: Convert regular shellcode to position-independent format
+<br>
 
-#### API Hashing Algorithm
-The PIC generation module implements a robust hash algorithm for Windows API resolution:
-- Uses modified djb2 hash function for API names
-- Runtime lookup from kernel32.dll export table
-- No dependency on import address table (IAT)
+## BUILDING AND SETUP
 
-#### Generated PIC Stub Structure
-When using `--pic`, the tool generates:
-1. **JMP-CALL-POP stub** for EIP access
-2. **PEB traversal code** to find kernel32.dll
-3. **Hash-based API resolver** for runtime function calls
-4. **Position-independent payload** with null-byte elimination
+### DEPENDENCIES
 
-#### PIC Generation Strategies
-- Automated EIP-relative addressing
-- Hash-based API resolution (no import table dependencies)
-- Runtime kernel32.dll base address discovery
-- Stack-based string construction for API names
-- Self-contained PIC stubs with minimal dependencies
-
-### Position Independent Code (PIC) Integration
-The PIC generation feature seamlessly integrates with existing functionality:
-
-- Works with biphasic processing (obfuscation + null-byte elimination)
-- Compatible with XOR encoding and decoder stubs
-- Maintains all existing null-byte elimination guarantees
-- Preserves functional equivalence while adding position independence
-
-### XOR-Encoding Capability
-- Automatic prepending of JMP-CALL-POP decoder stub
-- 4-byte XOR key support with encoded length information
-- Multi-byte XOR key cycling for enhanced obfuscation
-- Null-free decoder stub implementation
-
-### Anti-Analysis Features
-- PEB-based debugger detection
-- Timing-based anti-debugging using RDTSC
-- INT3-based debugger identification
-- VM and sandbox detection capabilities
-
-## Installation and Setup
-
-### Dependencies
-- C compiler (e.g., `gcc`)
+- A C compiler (`gcc`, `clang`, or MSVC)
 - [Capstone disassembly library](http://www.capstone-engine.org/) with development headers
 - NASM assembler (`nasm`)
 - `xxd` utility (usually part of `vim-common` package)
 - Make
 
-### Installation of Dependencies
+### INSTALLATION OF DEPENDENCIES
+
 ```bash
 # Ubuntu/Debian
 sudo apt install build-essential nasm xxd pkg-config libcapstone-dev
@@ -120,7 +91,10 @@ brew install capstone nasm
 # Or manually install Capstone from https://github.com/capstone-engine/capstone
 ```
 
-### Build Commands
+### BUILDING
+
+**RECOMMENDED: Makefile Build**
+
 ```bash
 # Build the main executable (default)
 make
@@ -141,9 +115,12 @@ make clean
 make info
 ```
 
-## Usage Guide
+### BASIC USAGE
 
-### Basic Usage
+> **Note**: The build produces the `byvalver` binary which implements the null-byte elimination framework.
+
+**1. PROCESS INPUT SHELLCODE TO REMOVE NULL BYTES**
+
 ```bash
 # Basic usage: process input.bin and output to output.bin
 ./bin/byvalver input.bin output.bin
@@ -153,7 +130,11 @@ make info
 
 # XOR encode output with 4-byte key (hex)
 ./bin/byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
+```
 
+**2. GENERATE POSITION INDEPENDENT CODE**
+
+```bash
 # Generate position-independent code (new feature)
 ./bin/byvalver --pic input.bin output.bin
 
@@ -162,139 +143,241 @@ make info
 
 # Generate PIC code with biphasic processing (obfuscation + null-byte elimination)
 ./bin/byvalver --pic --biphasic input.bin output.bin
+```
 
-# Generate PIC code with biphasic processing and XOR encoding
-./bin/byvalver --pic --biphasic --xor-encode 0x12345678 input.bin output.bin
+**3. PROCESS WITH DETAILED OUTPUT**
 
+```bash
 # Process shellcode with only null-byte elimination
 ./bin/byvalver input.bin output.bin
 ```
 
-### Advanced Usage Examples
+**4. COMBINE MULTIPLE OPTIONS**
+
 ```bash
-# Process with detailed output
+./bin/byvalver --pic --biphasic --xor-encode 0x12345678 input.bin output.bin
+```
+
+Success output:
+```
+[+] Success: Processed shellcode with 0 null bytes remaining.
+```
+
+### ADVANCED USAGE EXAMPLES
+
+**PROCESS WITH DETAILED OUTPUT:**
+
+```bash
 ./bin/byvalver --biphasic input.bin output.bin
+```
 
-# Create XOR-encoded shellcode with custom key
+**CREATE XOR-ENCODED SHELLCODE WITH CUSTOM KEY:**
+
+```bash
 ./bin/byvalver --biphasic --xor-encode 0xDEADBEEF shellcode.bin encoded.bin
+```
 
-# Process without obfuscation but with XOR encoding
+**PROCESS WITHOUT OBFUSCATION BUT WITH XOR ENCODING:**
+
+```bash
 ./bin/byvalver --xor-encode 0x12345678 input.bin output.bin
 ```
 
-## Development Conventions
+<br>
 
-### Architecture Principles
-- **Strategy Pattern**: Each transformation follows a common interface (`can_handle`, `get_size`, `generate`)
-- **Modular Design**: Separate source files for different instruction types and strategies
-- **Null-free Guarantee**: All strategies must produce null-byte free output
-- **Functional Preservation**: All transformations must maintain semantic equivalence
+## FEATURES
 
-### Code Structure
-- `src/`: Main source files organized by instruction strategy type
-- `src/main.c`: Command-line interface and argument parsing
-- `src/core.c`: Core processing engine with disassembly and instruction handling
-- `src/byvalver.h`: Public API header file
-- `src/strategy_registry.c`: Registry for null-elimination strategies
-- `src/obfuscation_strategy_registry.c`: Registry for obfuscation strategies
-- `decoder.asm`: Assembly source for XOR decoder stub
-- `decoder.h`: Generated header containing decoder binary
-- `tests/`: Verification scripts
-- `shellcodes/`: Example shellcode files for testing
+<table>
+<tr>
+<td width="50%">
 
-### Strategy Development
-- New strategies must implement the `strategy_t` interface
-- Strategies are registered in `strategy_registry.c` or `obfuscation_strategy_registry.c`
-- Priority system (higher numbers = higher priority) for conflict resolution
-- Strategies must be thoroughly tested for null-byte introduction
+### CORE CAPABILITIES
 
-### Testing and Verification
-- Python scripts available for verification of null-byte elimination
-- Comprehensive test suite in `test_all_bins.py` for batch processing
-- Semantic verification through CPU state comparison (not implemented in this basic version)
+- **Cross-platform compatibility** (Windows, Linux, macOS)
+- **x86/x64 architecture support** with Capstone framework
+- **Intelligent instruction analysis** via Capstone disassembly
+- **80+ transformation strategies** for diverse instruction types
+- **Biphase processing** (obfuscation + null-byte elimination)
+- **Position Independent Code (PIC) generation**
+- **XOR encoding with decoder stubs**
 
-## Key Features Explained
+</td>
+<td width="50%">
 
-### Advanced Transformation Engine
-- 80+ instruction transformation strategies
-- Handles complex instructions including arithmetic, MOV, conditional jumps, and API calls
-- Support for Windows API resolution patterns with SIB addressing
-- Sophisticated instruction rewriting to eliminate null bytes
+### Security & ANALYSIS
 
-Each transformation strategy implements a standard interface:
+- **PEB-based debugger detection**
+- **Timing-based anti-debugging using RDTSC**
+- **INT3-based debugger identification**
+- **VM and sandbox detection capabilities**
+- **Position-independent API resolution**
+- **Modified djb2 hashing for API names**
+- **Runtime kernel32.dll discovery**
 
-```c
-typedef struct {
-    const char* name;                           // Strategy name for identification
-    int (*can_handle)(cs_insn *insn);          // Function to check if strategy can handle instruction
-    size_t (*get_size)(cs_insn *insn);         // Function to calculate new size
-    void (*generate)(struct buffer *b, cs_insn *insn);  // Function to generate new code
-    int priority;                              // Priority for strategy selection (higher = more preferred)
-} strategy_t;
+</td>
+</tr>
+</table>
+
+<br>
+
+## ARCHITECTURE
+
+`byvalver` features a sophisticated, maintainable codebase with enhanced security and performance:
+
+### CORE PROCESSING COMPONENTS
+
+| Component | Function | Description |
+|-----------|----------|-------------|
+| **Capstone Integration** | Disassembly | Analyzes x86/x64 assembly instructions for null-byte detection |
+| **Strategy Registry System** | Transformation | 80+ strategies handle different instruction types (MOV, arithmetic, jumps, etc.) |
+| **Biphase Processing** | Obfuscation & Elimination | Two-pass approach: first obfuscates, then removes null bytes |
+| **PIC Generation** | Position Independence | Windows-specific PIC with JMP-CALL-POP and API hashing |
+| **XOR Encoding** | Obfuscation | Prepending of decoder stub with 4-byte key support |
+
+### ARCHITECTURE BENEFITS
+
+<table>
+<tr>
+<td><b>MAINTAINABILITY</b></td>
+<td>Strategy pattern design reduces complexity</td>
+</tr>
+<tr>
+<td><b>EXTENSIBILITY</b></td>
+<td>Easy to add new transformation strategies</td>
+</tr>
+<tr>
+<td><b>FUNCTIONAL PRESERVATION</b></td>
+<td>All transformations maintain semantic equivalence</td>
+</tr>
+<tr>
+<td><b>NULL-FREE GUARANTEE</b></td>
+<td>All strategies produce null-byte free output</td>
+</tr>
+<tr>
+<td><b>ANTI-ANALYSIS</b></td>
+<td>Multiple techniques to deter reverse engineering</td>
+</tr>
+</table>
+
+<br>
+
+## USAGE GUIDE
+
+`byvalver` supports multiple processing modes for seamless integration:
+
+### NULL-BYTE ELIMINATION MODE
+
+<details>
+<summary><b>Click to expand basic null-byte elimination</b></summary>
+
+Basic null-byte removal - perfect for direct shellcode usage:
+
+```bash
+./bin/byvalver input.bin output.bin
 ```
 
-The system automatically selects the most appropriate strategy based on priority and applicability.
+</details>
 
-### Biphase Processing Architecture
-The two-pass approach provides enhanced obfuscation:
+### BIPHASIC PROCESSING MODE
 
-**Pass 1 - Obfuscation:**
-- Applies complex patterns to obscure the original intent
-- Increases analytical difficulty for reverse engineers
-- Implements anti-analysis features
-- Adds noise and complexity without changing functionality
+<details>
+<summary><b>Click to expand biphasic processing</b></summary>
 
-**Pass 2 - Null-byte Elimination:**
-- Processes the obfuscated code to remove null bytes
-- Maintains all obfuscation benefits from Pass 1
-- Applies transformation strategies to eliminate nulls
-- Preserves functional equivalence throughout
+Two-pass approach with obfuscation and null-byte elimination:
 
-### XOR Encoding Implementation
-The XOR encoding feature includes a sophisticated decoder stub:
-
-```assembly
-; JMP-CALL-POP Multi-byte XOR decoder stub
-; This stub will be prepended to the encoded shellcode.
-; The XOR key (4 bytes) and encoded shellcode length (4 bytes) will immediately follow the 'call decoder' instruction.
-
-BITS 32
-
-%define NULL_FREE_LENGTH_XOR_KEY 0x11223344
-
-_start:
-    jmp short call_decoder
-
-decoder:
-    pop esi             ; ESI = address of XOR key and encoded length
-    mov ebx, dword [esi] ; Load 4-byte key into EBX
-    mov ecx, dword [esi+4] ; Load encoded shellcode length into ECX
-    xor ecx, NULL_FREE_LENGTH_XOR_KEY ; Decode actual length
-    add esi, 8          ; ESI = start of actual encoded shellcode
-
-    xor edx, edx        ; EDX = 0 (counter for key bytes)
-
-decode_loop:
-    mov eax, ebx        ; Copy key to EAX
-    mov cl, dl          ; CL = DL (current key byte index)
-    shl cl, 3           ; CL = DL * 8
-    shr eax, cl         ; Shift right by (dl * 8) bits
-
-    xor byte [esi], al  ; XOR current shellcode byte with AL
-    inc esi             ; Move to next shellcode byte
-    inc edx             ; Increment key byte counter
-    and edx, 0x03       ; EDX = EDX % 4 (to cycle through 4-byte key)
-    dec ecx             ; Decrement shellcode length counter
-    jnz decode_loop     ; Loop until all bytes are decoded
-
-    jmp esi             ; Jump to decoded shellcode
-
-call_decoder:
-    call decoder
-    ; Encoded shellcode follows here
+```bash
+./bin/byvalver --biphasic input.bin output.bin
 ```
 
-### Anti-Analysis Features
+**Process:**
+- **Pass 1**: Obfuscation & complexification of shellcode to increase analytical difficulty
+- **Pass 2**: Null-byte elimination on the obfuscated code (clear separation of concerns)
+
+</details>
+
+### XOR ENCODING MODE
+
+<details>
+<summary><b>Click to expand XOR encoding</b></summary>
+
+XOR encoding with JMP-CALL-POP decoder stub:
+
+```bash
+./bin/byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
+```
+
+**Features:**
+- Automatic prepending of JMP-CALL-POP decoder stub
+- 4-byte XOR key support with encoded length information
+- Multi-byte XOR key cycling for enhanced obfuscation
+- Null-free decoder stub implementation
+
+</details>
+
+### POSITION INDEPENDENT CODE (PIC) MODE
+
+<details>
+<summary><b>Click to expand PIC generation</b></summary>
+
+Generate position-independent code with API resolution:
+
+```bash
+./bin/byvalver --pic input.bin output.bin
+```
+
+**Capabilities:**
+- **JMP-CALL-POP technique**: Get current EIP/RIP register value for position-independent access
+- **API Hash Resolution**: Runtime resolution of Windows APIs using hash-based name lookup
+- **PEB-based API Discovery**: Locate kernel32.dll base address and enumerate exported functions
+- **Anti-Debugging Features**: Built-in checks to detect debugging environments
+- **PIC Shellcode Generation**: Convert regular shellcode to position-independent format
+
+</details>
+
+<br>
+
+## STRATEGY REGISTRY SYSTEM
+
+BYVALVER implements a comprehensive registry of 80+ transformation strategies that handle different types of x86/x64 instructions:
+
+### MOV INSTRUCTION STRATEGIES
+
+- Direct register-to-register MOV transformations
+- MOV with immediate value decomposition
+- MOV through arithmetic operations
+- Memory-based MOV transformations
+- Conditional MOV handling
+
+### ARITHMETIC INSTRUCTION STRATEGIES
+
+- ADD/SUB instruction substitution
+- MUL/IMUL transformations
+- AND/OR/XOR equivalent operations
+- INC/DEC replacement patterns
+- Complex arithmetic decomposition
+
+### JUMP AND CONTROL FLOW STRATEGIES
+
+- Conditional jump rewrites
+- Direct jump replacements
+- Call instruction transformations
+- Loop instruction modifications
+- Relative/absolute jump handling
+
+### SPECIALIZED STRATEGIES
+
+- API hashing and resolution patterns
+- PEB (Process Environment Block) access transformations
+- Anti-debugging instruction handling
+- FPU (Floating Point Unit) instruction replacement
+- System call instruction modifications
+
+<br>
+
+## DEVELOPMENT
+
+### ANTI-ANALYSIS FEATURES
+
 BYVALVER includes several anti-analysis techniques:
 
 **PEB-based Debugger Detection:**
@@ -312,15 +395,71 @@ BYVALVER includes several anti-analysis techniques:
 - Detects common sandbox characteristics
 - Adjusts behavior in potentially monitored environments
 
-### Extensible Architecture
+### EXTENSIBLE ARCHITECTURE
+
 - Easy addition of new transformation strategies
 - Priority-based strategy selection system
 - Modular codebase for maintainability
 - Comprehensive error handling and reporting
 
-## Testing and Verification
+### ARCHITECTURE PRINCIPLES
+
+- **Strategy Pattern**: Each transformation follows a common interface (`can_handle`, `get_size`, `generate`)
+- **Modular Design**: Separate source files for different instruction types and strategies
+- **Null-free Guarantee**: All strategies must produce null-byte free output
+- **Functional Preservation**: All transformations must maintain semantic equivalence
+
+### STRATEGY DEVELOPMENT
+
+- New strategies must implement the `strategy_t` interface
+- Strategies are registered in `strategy_registry.c` or `obfuscation_strategy_registry.c`
+- Priority system (higher numbers = higher priority) for conflict resolution
+- Strategies must be thoroughly tested for null-byte introduction
+
+<br>
+
+</details>
+
+### SAFE USAGE PRACTICES
+
+<table>
+<tr>
+<td><b>ISOLATION</b></td>
+<td>Run only in VMs or sandboxed environments</td>
+</tr>
+<tr>
+<td><b>NEVER EXECUTE</b></td>
+<td>Do not execute shellcode without analysis</td>
+</tr>
+<tr>
+<td><b>STAY UPDATED</b></td>
+<td>Keep tool updated for security patches</td>
+</tr>
+<tr>
+<td><b>ANALYZE FIRST</b></td>
+<td>Understand transformations before deployment</td>
+</tr>
+</table>
+
+<br>
+
+## COMMAND-LINE OPTIONS
+
+### GENERAL OPTIONS
+
+```
+--biphasic              Enable biphasic processing (obfuscation + null-byte elimination)
+--xor-encode <key>      XOR encode output with 4-byte key (hex)
+--pic                   Generate position-independent code
+--help                  Display usage information and exit
+```
+
+<br>
+
+## TESTING AND VERIFICATION
 
 ### Python-Based Verification
+
 The project includes a comprehensive test suite in `test_all_bins.py` that:
 - Processes all .bin files in a specified directory
 - Collects detailed statistics on processing results
@@ -329,6 +468,7 @@ The project includes a comprehensive test suite in `test_all_bins.py` that:
 - Generates detailed assessment reports
 
 ### Batch Processing Capabilities
+
 The verification system can handle large sets of shellcode files:
 ```bash
 python3 test_all_bins.py
@@ -336,37 +476,49 @@ python3 test_all_bins.py
 
 This will process all .bin files in the BIG_BIN directory and generate detailed reports.
 
-## Project Context
+<br>
 
-BYVALVER is part of a larger offensive toolchain that includes `purl_diver` (shellcode extraction from PE files) and `toxoglosser` (stealthy process injection on Windows). This toolchain represents a modular approach to payload preparation and execution, addressing critical challenges in modern offensive operations including payload generation, obfuscation, integrity preservation, and stealthy execution against advanced defenses.
+## TROUBLESHOULDING
 
-The tool is specifically designed for cybersecurity professionals working in penetration testing, red team operations, and malware research contexts. It enables rapid iteration on payloads by automating the tedious and error-prone process of manual null-byte elimination in shellcode.
+### COMMON ISSUES
 
-## Troubleshooting
+<details>
+<summary><b>Click to expand troubleshooting guide</b></summary>
 
-### Common Issues
-If you encounter issues during build:
+#### Missing Dependencies
+- Run `make check-deps` to verify dependencies
+- Install Capstone library as described in the setup section
 
-**Missing Dependencies:**
-```bash
-make check-deps
-```
-
-**Build Failures:**
+#### Build Failures
 - Check that all dependencies are properly installed
 - Verify the Capstone library is accessible
 - Ensure NASM and xxd utilities are available
 
-### Verification of Results
+#### Null Byte Detection
+- Check that your output file has been properly processed
+- Use hexdump to verify null byte elimination
+
+#### API Resolution Issues
+- Ensure your PIC shellcode targets the correct Windows APIs
+- Verify the hashing algorithm matches your target system
+
+</details>
+
+### VERIFICATION OF RESULTS
+
 After processing, you can verify that null bytes have been eliminated:
+
 ```bash
 # Check for null bytes in output
 hexdump -C output.bin | grep "00 "
 ```
 
-## Contributing
+<br>
 
-### Adding New Strategies
+## CONTRIBUTING
+
+### ADDING NEW STRATEGIES
+
 To add a new transformation strategy:
 
 1. Create a new source file with your strategy implementation
@@ -375,25 +527,47 @@ To add a new transformation strategy:
 4. Test thoroughly to ensure no null bytes are introduced
 5. Verify functional equivalence is maintained
 
-### Testing New Code
+### TESTING NEW CODE
+
 - Always test new strategies against multiple input shellcode samples
 - Verify null-byte elimination is complete
 - Check that functionality is preserved
 - Test with both simple and complex shellcode
 
-## Performance Considerations
+<br>
 
-### Processing Time
+## PERFORMANCE CONSIDERATIONS
+
+### PROCESSING TIME
+
 - Simple shellcode: < 1 second
 - Complex shellcode: Up to several seconds
 - Large shellcode files: May require several minutes
 
-### Memory Usage
+### MEMORY USAGE
+
 - Memory usage scales with input size
 - Recommended to have at least 10x input size in available RAM
 - Some complex transformations may require additional temporary memory
 
-### Output Size
+### OUTPUT SIZE
+
 - Output shellcode may be larger than input due to transformations
 - Size increase depends on the complexity of null-byte elimination required
 - Typically 10-50% size increase for heavily null-contaminated input
+
+<br>
+
+## PROJECT CONTEXT
+
+BYVALVER is part of a larger offensive toolchain that includes `purl_diver` (shellcode extraction from PE files) and `toxoglosser` (stealthy process injection on Windows). This toolchain represents a modular approach to payload preparation and execution, addressing critical challenges in modern offensive operations including payload generation, obfuscation, integrity preservation, and stealthy execution against advanced defenses.
+
+The tool is specifically designed for cybersecurity professionals working in penetration testing, red team operations, and malware research contexts. It enables rapid iteration on payloads by automating the tedious and error-prone process of manual null-byte elimination in shellcode.
+
+<br>
+
+<div align="center">
+  <hr>
+  <p><i>null-byte free and ready!</i></p>
+  <p><b>byvalver</b> - eliminating null bytes since inception!</p>
+</div>

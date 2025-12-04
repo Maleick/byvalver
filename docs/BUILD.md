@@ -131,6 +131,26 @@ To remove everything including the bin directory:
 make clean-all
 ```
 
+## Global Installation
+
+### Install to System
+After building, you can install byvalver globally:
+
+```bash
+# Install the binary to /usr/local/bin
+sudo make install
+
+# Install the man page to /usr/local/share/man/man1
+sudo make install-man
+```
+
+### Uninstall
+To remove the globally installed binary:
+
+```bash
+sudo make uninstall
+```
+
 ## Build Configuration
 
 ### Makefile Structure
@@ -162,6 +182,13 @@ For the biphasic architecture, specific obfuscation modules are included:
 - `obfuscation_strategies.c`
 
 These are used during Pass 1 of the processing pipeline.
+
+#### CLI Module
+The new CLI functionality is included from:
+- `cli.c`
+- `cli.h`
+
+These provide the enhanced command-line interface with proper argument parsing.
 
 #### Dependency Generation
 All source files that depend on the decoder stub automatically have `decoder.h` as a dependency, ensuring proper rebuild when the decoder changes.
@@ -249,147 +276,27 @@ ldconfig -p | grep capstone
 export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 ```
 
-### Permission Issues
-If you encounter permission errors during build:
-```bash
-# Ensure you have write permissions to the project directory
-ls -la
+## Verification
 
-# If needed, change ownership or permissions
-chmod -R u+w /path/to/byvalver
+After building, verify the executable works:
+
+```bash
+# Test basic functionality
+./bin/byvalver --version
+
+# Test help system
+./bin/byvalver --help
+
+# Test with a sample file (if available)
+./bin/byvalver --dry-run some_shellcode.bin
 ```
 
-### Architecture Mismatch
-If you get architecture-related build errors:
+If installed globally:
 ```bash
-# For cross-compilation, specify the target architecture
-make CFLAGS="-m32" LDFLAGS="-m32 -lcapstone"  # For 32-bit build
-make CFLAGS="-m64" LDFLAGS="-m64 -lcapstone"  # For 64-bit build
+byvalver --version
 ```
 
-## Development Workflow
-
-### Verification
-After building, verify the build was successful:
+You can also check the manual page after installing:
 ```bash
-make test
+man byvalver
 ```
-
-This runs a quick verification that the executable was built correctly and can be executed.
-
-### Dependency Check
-Before building, verify all dependencies are available:
-```bash
-make check-deps
-```
-
-This checks for the presence of all required tools and libraries.
-
-### Formatting Code
-To format the codebase (if clang-format is available):
-```bash
-make format
-```
-
-### Static Analysis
-To run static analysis (if cppcheck is available):
-```bash
-make lint
-```
-
-## Cross-Platform Considerations
-
-### Linux
-Full build support with all features enabled. Most distributions have the required packages available through their package managers.
-
-### macOS
-Build works correctly but may require additional configuration for some sanitizer options. Homebrew is the recommended package manager.
-
-### Windows
-Use WSL (Windows Subsystem for Linux) for best results. Native Windows builds would require significant modifications to the build system and may need MinGW or Cygwin.
-
-## Advanced Build Topics
-
-### Adding New Source Files
-The Makefile automatically includes all `.c` files in the `src/` directory. No manual updates to the build system are required when adding new source files, but they must be properly referenced in header files or registry systems.
-
-### Exclusion of Files
-The Makefile specifically excludes:
-- Test files: `test_strategies.c`
-- Obsolete files: various `fix_*.c` and `*_original.c` files
-- Library-specific files: `lib_api.c` (for CLI build)
-- Duplicate implementations: `arithmetic_substitution_strategies.c`
-
-### Strategy Module Registration
-New strategy modules automatically get compiled as part of the build process, but they must be registered in the appropriate registry files (`strategy_registry.c` or `obfuscation_strategy_registry.c`).
-
-### Build Artifacts Location
-All build artifacts are placed in the `bin/` directory:
-- Compiled object files: `bin/*.o`
-- Final executable: `bin/byvalver`
-- Temporary files: `decoder.bin`, `decoder.h` (in project root)
-
-### Decoder Stub Generation
-The decoder stub (`decoder.asm`) is automatically assembled to binary format and converted to a C header file during the build process. Any changes to `decoder.asm` will trigger regeneration of the header.
-
-## Deployment Build
-For creating a distribution-ready build:
-```bash
-make release
-```
-
-The resulting `bin/byvalver` executable can then be copied to other systems with compatible architectures that have Capstone library installed.
-
-For a completely self-contained version:
-```bash
-make static
-```
-
-This creates a statically linked executable that doesn't require external libraries.
-
-## Performance Tuning
-### Compiler Optimizations
-The build system supports various optimization levels:
-- `-O0`: No optimization (debug builds)
-- `-O1`: Basic optimization
-- `-O2`: Standard optimization (default)
-- `-O3`: Aggressive optimization (release builds)
-- `-Os`: Optimize for size
-
-### Architecture-Specific Optimizations
-Use `-march=native` to optimize for the build machine's architecture:
-```bash
-make release CFLAGS="-O3 -march=native -DNDEBUG"
-```
-
-## Debugging Build Issues
-### Verbose Build Output
-To see detailed build commands:
-```bash
-make V=1
-```
-
-### Incremental Build Debugging
-If the build fails, you can build single files to identify the issue:
-```bash
-make bin/core.o    # Compile only core.c
-make bin/main.o    # Compile only main.c
-```
-
-### Clean Rebuild
-To ensure a completely clean rebuild:
-```bash
-make clean-all
-make
-```
-
-## Build Verification Checklist
-Before deploying or sharing the build, verify:
-
-- [ ] All dependencies are installed and accessible
-- [ ] Basic build completes successfully
-- [ ] Debug build compiles without errors
-- [ ] Executable runs and shows help message
-- [ ] Simple test case processes correctly
-- [ ] All optional features compile properly
-- [ ] Clean and rebuild work correctly

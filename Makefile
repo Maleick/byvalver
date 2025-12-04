@@ -20,6 +20,7 @@ ALL_SRCS = $(wildcard $(SRC_DIR)/*.c)
 # - conservative_mov_original.c (old version)
 # - arithmetic_substitution_strategies.c (duplicate with arithmetic_strategies.c)
 # - test_strategies.c (test-only code)
+# - cli.c will be included separately to ensure proper build order
 EXCLUDE_FILES = $(SRC_DIR)/lib_api.c \
                 $(SRC_DIR)/fix_arithmetic_strategies.c \
                 $(SRC_DIR)/fix_general_strategies.c \
@@ -27,6 +28,13 @@ EXCLUDE_FILES = $(SRC_DIR)/lib_api.c \
                 $(SRC_DIR)/conservative_mov_original.c \
                 $(SRC_DIR)/arithmetic_substitution_strategies.c \
                 $(SRC_DIR)/test_strategies.c
+
+# Include CLI files explicitly
+CLI_SRCS = $(SRC_DIR)/cli.c
+NON_CLI_SRCS = $(filter-out $(CLI_SRCS), $(ALL_SRCS))
+
+# Final source list
+SRCS = $(CLI_SRCS) $(NON_CLI_SRCS)
 
 # Obfuscation modules (Pass 1 of biphasic architecture)
 OBFUSCATION_SRCS = $(SRC_DIR)/obfuscation_strategy_registry.c \
@@ -132,6 +140,30 @@ check-deps:
 	@which xxd > /dev/null || (echo "[FAIL] xxd not found" && exit 1)
 	@pkg-config --exists capstone || (echo "[FAIL] libcapstone-dev not found" && exit 1)
 	@echo "[OK] All dependencies present"
+
+# Install target
+install: all
+	@echo "[INSTALL] Installing byvalver..."
+	@mkdir -p /usr/local/bin
+	@cp $(BIN_DIR)/$(TARGET) /usr/local/bin/
+	@chmod 755 /usr/local/bin/$(TARGET)
+	@echo "[OK] Installed to /usr/local/bin/$(TARGET)"
+
+# Install man page
+install-man: byvalver.1
+	@echo "[INSTALL] Installing man page..."
+	@mkdir -p /usr/local/share/man/man1
+	@cp byvalver.1 /usr/local/share/man/man1/
+	@chmod 644 /usr/local/share/man/man1/byvalver.1
+	@echo "[OK] Man page installed to /usr/local/share/man/man1/byvalver.1"
+	@echo "[INFO] Run 'man byvalver' to view the manual page"
+
+# Uninstall target
+uninstall:
+	@echo "[UNINSTALL] Removing byvalver..."
+	@rm -f /usr/local/bin/$(TARGET)
+	@rm -f /usr/local/share/man/man1/byvalver.1
+	@echo "[OK] Uninstalled byvalver"
 
 # Format code (if clang-format is available)
 format:

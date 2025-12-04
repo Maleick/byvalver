@@ -115,47 +115,86 @@ make clean
 make info
 ```
 
+### GLOBAL INSTALLATION
+
+**1. QUICK INSTALLATION**
+
+```bash
+# Install using the installation script
+curl -sSL https://raw.githubusercontent.com/mrnob0dy666/byvalver/main/install.sh | bash
+
+# Or download and run the script manually
+curl -O https://raw.githubusercontent.com/mrnob0dy666/byvalver/main/install.sh
+chmod +x install.sh
+./install.sh
+```
+
+**2. FROM SOURCE**
+
+```bash
+# Clone the repository
+git clone https://github.com/mrnob0dy666/byvalver.git
+cd byvalver
+
+# Install dependencies (Ubuntu/Debian)
+sudo apt install build-essential nasm xxd pkg-config libcapstone-dev
+
+# Build and install
+make release
+sudo make install  # This will install to /usr/local/bin
+```
+
+**3. VERIFICATION**
+
+After installation, verify byvalver is working:
+```bash
+byvalver --version
+byvalver --help
+```
+
+<br>
+
 ### BASIC USAGE
 
-> **Note**: The build produces the `byvalver` binary which implements the null-byte elimination framework.
+> **Note**: After installation, you can run `byvalver` from anywhere in your system.
 
 **1. PROCESS INPUT SHELLCODE TO REMOVE NULL BYTES**
 
 ```bash
 # Basic usage: process input.bin and output to output.bin
-./bin/byvalver input.bin output.bin
+byvalver input.bin output.bin
 
 # Enable biphasic processing (obfuscation + null-byte elimination)
-./bin/byvalver --biphasic input.bin output.bin
+byvalver --biphasic input.bin output.bin
 
 # XOR encode output with 4-byte key (hex)
-./bin/byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
+byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
 ```
 
 **2. GENERATE POSITION INDEPENDENT CODE**
 
 ```bash
 # Generate position-independent code (new feature)
-./bin/byvalver --pic input.bin output.bin
+byvalver --pic input.bin output.bin
 
 # Generate PIC code with XOR encoding
-./bin/byvalver --pic --xor-encode 0x12345678 input.bin output.bin
+byvalver --pic --xor-encode 0x12345678 input.bin output.bin
 
 # Generate PIC code with biphasic processing (obfuscation + null-byte elimination)
-./bin/byvalver --pic --biphasic input.bin output.bin
+byvalver --pic --biphasic input.bin output.bin
 ```
 
 **3. PROCESS WITH DETAILED OUTPUT**
 
 ```bash
 # Process shellcode with only null-byte elimination
-./bin/byvalver input.bin output.bin
+byvalver input.bin output.bin
 ```
 
 **4. COMBINE MULTIPLE OPTIONS**
 
 ```bash
-./bin/byvalver --pic --biphasic --xor-encode 0x12345678 input.bin output.bin
+byvalver --pic --biphasic --xor-encode 0x12345678 input.bin output.bin
 ```
 
 Success output:
@@ -168,20 +207,81 @@ Success output:
 **PROCESS WITH DETAILED OUTPUT:**
 
 ```bash
-./bin/byvalver --biphasic input.bin output.bin
+byvalver --biphasic input.bin output.bin
 ```
 
 **CREATE XOR-ENCODED SHELLCODE WITH CUSTOM KEY:**
 
 ```bash
-./bin/byvalver --biphasic --xor-encode 0xDEADBEEF shellcode.bin encoded.bin
+byvalver --biphasic --xor-encode 0xDEADBEEF shellcode.bin encoded.bin
 ```
 
 **PROCESS WITHOUT OBFUSCATION BUT WITH XOR ENCODING:**
 
 ```bash
-./bin/byvalver --xor-encode 0x12345678 input.bin output.bin
+byvalver --xor-encode 0x12345678 input.bin output.bin
 ```
+
+**USE CONFIGURATION FILE:**
+
+```bash
+byvalver --config ~/.config/byvalver/config input.bin output.bin
+```
+
+**VALIDATE INPUT WITHOUT PROCESSING:**
+
+```bash
+byvalver --dry-run shellcode.bin
+```
+
+**VIEW DETAILED PROCESSING STATISTICS:**
+
+```bash
+byvalver --stats --biphasic shellcode.bin output.bin
+```
+
+<br>
+
+### COMMAND-LINE OPTIONS
+
+#### GENERAL OPTIONS
+
+```
+-h, --help                    Show help message and exit
+-v, --version                 Show version information and exit
+-V, --verbose                 Enable verbose output
+-q, --quiet                   Suppress non-essential output
+--config FILE                 Use custom configuration file
+--no-color                    Disable colored output
+```
+
+#### PROCESSING OPTIONS
+
+```
+--biphasic                    Enable biphasic processing (obfuscation + null-elimination)
+--pic                         Generate position-independent code
+--xor-encode KEY              XOR encode output with 4-byte key (hex)
+--format FORMAT               Output format: raw, c, python, powershell, hexstring
+```
+
+#### ADVANCED OPTIONS
+
+```
+--strategy-limit N            Limit number of strategies to consider per instruction
+--max-size N                  Maximum output size (in bytes)
+--timeout SECONDS             Processing timeout (default: no timeout)
+--dry-run                     Validate input without processing
+--stats                       Show detailed statistics after processing
+```
+
+#### OUTPUT OPTIONS
+
+```
+-o, --output FILE             Output file (alternative to positional argument)
+--validate                    Validate output is null-byte free
+```
+
+<br>
 
 <br>
 
@@ -443,15 +543,94 @@ BYVALVER includes several anti-analysis techniques:
 
 <br>
 
+## GLOBAL INSTALLATION
+
+### QUICK INSTALLATION
+
+**Unix/Linux/macOS:**
+```bash
+# Install using the installation script
+curl -sSL https://raw.githubusercontent.com/mrnob0dy666/byvalver/main/install.sh | bash
+
+# Or download and run the script manually
+curl -O https://raw.githubusercontent.com/mrnob0dy666/byvalver/main/install.sh
+chmod +x install.sh
+./install.sh
+```
+
+**From Source:**
+```bash
+# Clone the repository
+git clone https://github.com/mrnob0dy666/byvalver.git
+cd byvalver
+
+# Install dependencies (Ubuntu/Debian)
+sudo apt install build-essential nasm xxd pkg-config libcapstone-dev
+
+# Build and install
+make release
+sudo make install  # This will install to /usr/local/bin
+```
+
+### PACKAGE MANAGERS
+
+**Homebrew (macOS):**
+```bash
+brew install byvalver  # Coming soon
+```
+
+**AUR (Arch Linux):**
+```bash
+yay -S byvalver  # Coming soon
+```
+
+### VERIFICATION
+
+After installation, verify byvalver is working:
+```bash
+byvalver --version
+byvalver --help
+```
+
+<br>
+
 ## COMMAND-LINE OPTIONS
 
 ### GENERAL OPTIONS
 
 ```
---biphasic              Enable biphasic processing (obfuscation + null-byte elimination)
---xor-encode <key>      XOR encode output with 4-byte key (hex)
---pic                   Generate position-independent code
---help                  Display usage information and exit
+-h, --help                    Show help message and exit
+-v, --version                 Show version information and exit
+-V, --verbose                 Enable verbose output
+-q, --quiet                   Suppress non-essential output
+--config FILE                 Use custom configuration file
+--no-color                    Disable colored output
+```
+
+### PROCESSING OPTIONS
+
+```
+--biphasic                    Enable biphasic processing (obfuscation + null-elimination)
+--pic                         Generate position-independent code
+--xor-encode KEY              XOR encode output with 4-byte key (hex)
+--format FORMAT               Output format: raw, c, python, powershell, hexstring
+```
+
+### ADVANCED OPTIONS
+
+```
+--strategy-limit N            Limit number of strategies to consider per instruction
+--max-size N                  Maximum output size (in bytes)
+--timeout SECONDS             Processing timeout (default: no timeout)
+--dry-run                     Validate input without processing
+--stats                       Show detailed statistics after processing
+```
+
+### OUTPUT OPTIONS
+
+```
+-o, --output FILE             Output file (alternative to positional argument)
+--validate                    Validate output is null-byte free
 ```
 
 <br>

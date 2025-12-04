@@ -1,0 +1,22 @@
+{
+  "defaults": {
+    "biphasic": true,
+    "pic": false,
+    "format": "raw",
+    "arch": "x64"
+  },
+  "processing": {
+    "strategy_limit": 10,
+    "max_size": 1048576,
+    "timeout": 30
+  },
+  "output": {
+    "verbose": false,
+    "color": true,
+    "validate": true
+  },
+  "updates": {
+    "check_on_startup": true,
+    "channel": "stable"
+  }
+}

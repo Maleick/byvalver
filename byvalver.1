@@ -1,0 +1,124 @@
+.TH BYVALVER 1 "December 2025" "byvalver v2.1.0" "User Commands"
+.SH NAME
+byvalver \- Advanced Null-Byte Elimination Framework
+
+.SH SYNOPSIS
+.B byvalver
+.RI [ OPTIONS ]
+.IR input_file
+.RI [ output_file ]
+
+.SH DESCRIPTION
+.B byvalver
+is an advanced C-based command-line tool designed for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace null-containing instructions with functionally equivalent alternatives.
+
+.SH OPTIONS
+
+.SS "General Options"
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit
+.TP
+.BR \-v ", " \-\-version
+Show version information and exit
+.TP
+.BR \-V ", " \-\-verbose
+Enable verbose output
+.TP
+.BR \-q ", " \-\-quiet
+Suppress non-essential output
+.TP
+.BI \-\-config\  FILE
+Use custom configuration file
+.TP
+.BR \-\-no-color
+Disable colored output
+
+.SS "Processing Options"
+.TP
+.BR \-\-biphasic
+Enable biphasic processing (obfuscation + null-elimination)
+.TP
+.BR \-\-pic
+Generate position-independent code
+.TP
+.BI \-\-xor-encode\  KEY
+XOR encode output with 4-byte key (hex)
+.TP
+.BI \-\-format\  FORMAT
+Output format: raw, c, python, powershell, hexstring (default: raw)
+.TP
+.BI \-\-arch\  ARCH
+Target architecture: x86, x64 (default: x64)
+
+.SS "Advanced Options"
+.TP
+.BI \-\-strategy-limit\  N
+Limit number of strategies to consider per instruction
+.TP
+.BI \-\-max-size\  N
+Maximum output size (in bytes)
+.TP
+.BI \-\-timeout\  SECONDS
+Processing timeout (default: no timeout)
+.TP
+.BR \-\-dry-run
+Validate input without processing
+.TP
+.BR \-\-stats
+Show detailed statistics after processing
+
+.SS "Output Options"
+.TP
+.BR \-o ", " \-\-output
+Output file (alternative to positional argument)
+.TP
+.BR \-\-validate
+Validate output is null-byte free
+
+.SH EXAMPLES
+.TP
+.B Basic usage:
+byvalver shellcode.bin output.bin
+.TP
+.B With biphasic processing:
+byvalver --biphasic shellcode.bin output.bin
+.TP
+.B With XOR encoding:
+byvalver --biphasic --xor-encode 0x12345678 shellcode.bin output.bin
+.TP
+.B Generate position-independent code:
+byvalver --pic shellcode.bin output.bin
+
+.SH EXIT CODES
+.TP
+.B 0
+Success
+.TP
+.B 1
+General error
+.TP
+.B 2
+Invalid arguments
+.TP
+.B 3
+Input file error
+.TP
+.B 4
+Processing failed
+.TP
+.B 5
+Output file error
+.TP
+.B 6
+Timeout exceeded
+
+.SH AUTHOR
+Written by the Monad (Mo) for the Advanced Cyber Security Framework.
+
+.SH REPORTING BUGS
+Report bugs to: https://github.com/mrnob0dy666/byvalver/issues
+
+.SH COPYRIGHT
+Copyright \(co The Monad (Mo).
+License: MIT

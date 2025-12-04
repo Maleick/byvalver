@@ -1,12 +1,36 @@
 # BYVALVER Usage Guide
 
-## Command-Line Interface
+## Overview
 
-BYVALVER provides a flexible command-line interface for processing shellcode with different processing modes and options.
+BYVALVER is an advanced command-line tool for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies.
+
+## Installation
+
+### Global Installation
+After building the project, you can install byvalver globally:
+
+```bash
+# Install the binary to /usr/local/bin
+sudo make install
+
+# Install the man page to /usr/local/share/man/man1
+sudo make install-man
+
+# Verify installation
+byvalver --version
+```
+
+### Direct Usage
+If not installed globally, run from the project directory:
+```bash
+./bin/byvalver [OPTIONS] <input_file> [output_file]
+```
+
+## Command-Line Interface
 
 ### Basic Syntax
 ```bash
-./bin/byvalver [OPTIONS] <input_file> [output_file]
+byvalver [OPTIONS] <input_file> [output_file]
 ```
 
 ### Parameters
@@ -14,69 +38,153 @@ BYVALVER provides a flexible command-line interface for processing shellcode wit
 - `input_file`: Path to the input binary file containing shellcode to process
 - `output_file`: Optional. Path to the output binary file. Defaults to `output.bin`
 
-### Options
+## Options
 
-- `--biphasic`: Enable biphasic processing mode (obfuscation + null-byte elimination)
-- `--xor-encode <key>`: XOR encode output with specified 4-byte key (in hex format)
+### General Options
+- `-h, --help`: Show help message and exit
+- `-v, --version`: Show version information and exit
+- `-V, --verbose`: Enable verbose output
+- `-q, --quiet`: Suppress non-essential output
+- `--config FILE`: Use custom configuration file
+- `--no-color`: Disable colored output
 
-### Processing Modes
+### Processing Options
+- `--biphasic`: Enable biphasic processing (obfuscation + null-byte elimination)
+- `--pic`: Generate position-independent code
+- `--xor-encode KEY`: XOR encode output with 4-byte key (hex)
+- `--format FORMAT`: Output format: raw, c, python, powershell, hexstring
 
-#### 1. Standard Mode
+### Advanced Options
+- `--strategy-limit N`: Limit number of strategies to consider per instruction
+- `--max-size N`: Maximum output size (in bytes)
+- `--timeout SECONDS`: Processing timeout (default: no timeout)
+- `--dry-run`: Validate input without processing
+- `--stats`: Show detailed statistics after processing
+
+### Output Options
+- `-o, --output FILE`: Output file (alternative to positional argument)
+- `--validate`: Validate output is null-byte free
+
+## Processing Modes
+
+### 1. Standard Mode
 Basic null-byte elimination without additional obfuscation:
 ```bash
-./bin/byvalver input.bin output.bin
+byvalver input.bin output.bin
 ```
 
 This mode applies transformation strategies to remove null bytes from the shellcode while preserving functionality.
 
-#### 2. Biphasic Mode
+### 2. Biphasic Mode
 Two-pass processing that first obfuscates the shellcode then eliminates null bytes:
 ```bash
-./bin/byvalver --biphasic input.bin output.bin
+byvalver --biphasic input.bin output.bin
 ```
 
 This mode:
 - Pass 1: Applies obfuscation strategies to increase analytical difficulty
 - Pass 2: Eliminates null bytes from the obfuscated code
 
-#### 3. XOR Encoding Mode
+### 3. Position Independent Code (PIC) Mode
+Generates position-independent code with API resolution:
+```bash
+byvalver --pic input.bin output.bin
+```
+
+Features:
+- JMP-CALL-POP technique for position-independent access
+- API hashing and runtime resolution
+- PEB-based API discovery
+- Anti-debugging features
+
+### 4. XOR Encoding Mode
 Adds a decoder stub and XOR-encodes the output with a specified key:
 ```bash
-./bin/byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
+byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
 ```
 
 This mode prepends a JMP-CALL-POP decoder stub that will decode the shellcode at runtime using the provided key.
 
-### Examples
+## Practical Examples
 
-#### Basic Usage
+### Basic Usage
 ```bash
 # Process shellcode and save to default output.bin
-./bin/byvalver shellcode.bin
+byvalver shellcode.bin
 
 # Process shellcode and save to specific output file
-./bin/byvalver shellcode.bin processed_shellcode.bin
+byvalver shellcode.bin processed_shellcode.bin
+
+# Process with explicit output file option
+byvalver shellcode.bin -o processed_shellcode.bin
 ```
 
-#### Biphasic Processing
+### Biphasic Processing
 ```bash
 # Apply obfuscation followed by null-byte elimination
-./bin/byvalver --biphasic shellcode.bin output.bin
+byvalver --biphasic shellcode.bin output.bin
 ```
 
-#### XOR Encoding
+### XOR Encoding
 ```bash
 # Create XOR-encoded shellcode with 4-byte key
-./bin/byvalver --biphasic --xor-encode 0xABCDEF00 shellcode.bin encoded_shellcode.bin
+byvalver --biphasic --xor-encode 0xABCDEF00 shellcode.bin encoded_shellcode.bin
 ```
 
-#### Multiple Options Combined
+### Multiple Options Combined
 ```bash
 # Full-featured processing with biphasic mode and XOR encoding
-./bin/byvalver --biphasic --xor-encode 0x11223344 input.bin output.bin
+byvalver --pic --biphasic --xor-encode 0x11223344 input.bin output.bin
+
+# With detailed statistics and verbose output
+byvalver --biphasic --stats --verbose input.bin output.bin
 ```
 
-### Decoder Stub Architecture
+### Advanced Usage
+```bash
+# Validate input without processing
+byvalver --dry-run shellcode.bin
+
+# Process with size limit and timeout
+byvalver --max-size 500000 --timeout 30 shellcode.bin output.bin
+
+# Use configuration file
+byvalver --config myconfig.json input.bin output.bin
+
+# Process with output format conversion
+byvalver --format python shellcode.bin > shellcode.py
+```
+
+## Configuration Files
+
+BYVALVER supports JSON configuration files for default settings:
+
+```json
+{
+  "defaults": {
+    "biphasic": true,
+    "pic": false,
+    "format": "raw",
+    "arch": "x64"
+  },
+  "processing": {
+    "strategy_limit": 10,
+    "max_size": 1048576,
+    "timeout": 30
+  },
+  "output": {
+    "verbose": false,
+    "color": true,
+    "validate": true
+  },
+  "updates": {
+    "check_on_startup": true,
+    "channel": "stable"
+  }
+}
+```
+
+## Decoder Stub Architecture
 
 When using XOR encoding, BYVALVER generates a JMP-CALL-POP decoder stub with the following characteristics:
 
@@ -86,7 +194,7 @@ When using XOR encoding, BYVALVER generates a JMP-CALL-POP decoder stub with the
 4. **Multi-byte cycling**: The decoder cycles through all 4 bytes of the key for enhanced obfuscation
 5. **Execution flow**: After decoding, execution jumps to the decoded shellcode
 
-### Output Information
+## Output Information
 
 BYVALVER provides detailed output information during processing:
 
@@ -95,7 +203,7 @@ BYVALVER provides detailed output information during processing:
 - **Processing statistics**: Information about strategies applied and transformations made
 - **Status messages**: Progress indicators during obfuscation and null-byte elimination passes
 
-### Error Handling
+## Error Handling
 
 BYVALVER includes comprehensive error handling:
 
@@ -103,15 +211,23 @@ BYVALVER includes comprehensive error handling:
 - **Memory allocation failures**: Graceful handling of insufficient memory conditions
 - **Invalid shellcode**: Detection and reporting of malformed input
 - **Processing failures**: Identification of specific instructions or patterns that cannot be processed
+- **Exit codes**: 
+  - 0: Success
+  - 1: General error
+  - 2: Invalid arguments
+  - 3: Input file error
+  - 4: Processing failed
+  - 5: Output file error
+  - 6: Timeout exceeded
 
-### Performance Considerations
+## Performance Considerations
 
 - **Processing time**: Complex shellcode with many instructions may require significant processing time
 - **Memory usage**: Large shellcode files require proportional memory allocation
 - **Strategy selection**: The tool automatically selects the most appropriate strategies based on instruction patterns and priorities
 - **Size increase**: Null-byte elimination may result in larger output shellcode due to instruction transformations
 
-### Verification
+## Verification
 
 After processing, it's recommended to verify:
 

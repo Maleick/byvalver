@@ -5,92 +5,141 @@
 #include "core.h"
 #include "obfuscation_strategy_registry.h"
 #include "pic_generation.h"
+#include "cli.h"
 #include "../decoder.h" // Include the generated decoder stub header
 
 size_t find_entry_point(const uint8_t *shellcode, size_t size);
 
 int main(int argc, char *argv[]) {
-    int encode_shellcode = 0;
-    int use_biphasic = 0;
-    int use_pic_generation = 0;
-    uint32_t xor_key = 0;
-    char *input_file = NULL;
-    char *output_file = "output.bin";
-    int arg_offset = 1;
-
-    // Parse command-line flags
-    if (argc > 1 && strcmp(argv[1], "--biphasic") == 0) {
-        use_biphasic = 1;
-        arg_offset = 2;
+    // Create and initialize configuration
+    byvalver_config_t *config = config_create_default();
+    if (!config) {
+        fprintf(stderr, "Error: Failed to create default configuration\n");
+        return EXIT_GENERAL_ERROR;
     }
 
-    if (argc > arg_offset && strcmp(argv[arg_offset], "--pic") == 0) {
-        use_pic_generation = 1;
-        arg_offset++;
+    // Parse command-line arguments
+    int parse_result = parse_arguments(argc, argv, config);
+
+    // Handle special requests (help/version) first
+    if (config->help_requested) {
+        print_detailed_help(stdout, argv[0]);
+        config_free(config);
+        return EXIT_SUCCESS;
     }
 
-    if (argc > arg_offset && strcmp(argv[arg_offset], "--xor-encode") == 0) {
-        if (argc < arg_offset + 3) {
-            fprintf(stderr, "Usage: %s [--biphasic] [--pic] --xor-encode <key> <input_file> [output_file]\n", argv[0]);
-            return 1;
+    if (config->version_requested) {
+        print_version(stdout);
+        config_free(config);
+        return EXIT_SUCCESS;
+    }
+
+    // If there was an error parsing arguments, show usage and exit
+    if (parse_result != EXIT_SUCCESS) {
+        if (parse_result != EXIT_SUCCESS) {
+            print_usage(stderr, argv[0]);
         }
-        encode_shellcode = 1;
-        xor_key = (uint32_t)strtol(argv[arg_offset + 1], NULL, 16);
-        input_file = argv[arg_offset + 2];
-        arg_offset += 3;
-    } else {
-        if (argc < arg_offset + 1) {
-            fprintf(stderr, "Usage: %s [--biphasic] [--pic] <input_shellcode_file> [output_file]\n", argv[0]);
-            fprintf(stderr, "\n");
-            fprintf(stderr, "Options:\n");
-            fprintf(stderr, "  --biphasic              Enable biphasic processing (obfuscation + null-elimination)\n");
-            fprintf(stderr, "  --pic                   Generate position-independent code\n");
-            fprintf(stderr, "  --xor-encode <key>      XOR encode output with 4-byte key (hex)\n");
-            fprintf(stderr, "\n");
-            fprintf(stderr, "Examples:\n");
-            fprintf(stderr, "  %s input.bin output.bin\n", argv[0]);
-            fprintf(stderr, "  %s --biphasic input.bin output.bin\n", argv[0]);
-            fprintf(stderr, "  %s --pic input.bin output.bin\n", argv[0]);
-            fprintf(stderr, "  %s --biphasic --xor-encode 0x12345678 input.bin output.bin\n", argv[0]);
-            fprintf(stderr, "  %s --pic --xor-encode 0x12345678 input.bin output.bin\n", argv[0]);
-            return 1;
+        config_free(config);
+        return parse_result;
+    }
+
+    // Load configuration file if specified
+    if (config->config_file) {
+        int config_load_result = load_config_file(config->config_file, config);
+        if (config_load_result != EXIT_SUCCESS) {
+            config_free(config);
+            return config_load_result;
         }
-        input_file = argv[arg_offset];
-        arg_offset++;
     }
 
-    if (argc > arg_offset) {
-        output_file = argv[arg_offset];
+    // Validate that input file is provided
+    if (!config->input_file) {
+        fprintf(stderr, "Error: Input file is required\n\n");
+        print_usage(stderr, argv[0]);
+        config_free(config);
+        return EXIT_INVALID_ARGUMENTS;
     }
 
-    FILE *file = fopen(input_file, "rb");
-    if (!file) { perror("fopen"); return 1; }
+    // Open input file
+    FILE *file = fopen(config->input_file, "rb");
+    if (!file) {
+        perror("fopen input file");
+        config_free(config);
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    // Get file size
     fseek(file, 0, SEEK_END);
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
+
+    if (file_size <= 0) {
+        fprintf(stderr, "Error: Input file is empty or invalid\n");
+        fclose(file);
+        config_free(config);
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    // Check if file size exceeds max allowed size
+    if (config->max_size > 0 && (size_t)file_size > config->max_size) {
+        fprintf(stderr, "Error: Input file size (%ld bytes) exceeds maximum allowed size (%zu bytes)\n",
+                file_size, config->max_size);
+        fclose(file);
+        config_free(config);
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    // Allocate memory for shellcode
     uint8_t *shellcode = malloc(file_size);
-    if (!shellcode) { fprintf(stderr, "Memory allocation failed\n"); fclose(file); return 1; }
+    if (!shellcode) {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        fclose(file);
+        config_free(config);
+        return EXIT_GENERAL_ERROR;
+    }
+
+    // Read shellcode from file
     size_t bytes_read = fread(shellcode, 1, file_size, file);
     if (bytes_read != (size_t)file_size) {
-        fprintf(stderr, "Warning: Could not read complete file\n");
+        fprintf(stderr, "Error: Could not read complete file\n");
+        free(shellcode);
+        fclose(file);
+        config_free(config);
+        return EXIT_INPUT_FILE_ERROR;
     }
+
     fclose(file);
+
+    // In dry-run mode, just exit after reading the file successfully
+    if (config->dry_run) {
+        if (!config->quiet) {
+            printf("✓ Input file validated successfully\n");
+            printf("File size: %ld bytes\n", file_size);
+        }
+        free(shellcode);
+        config_free(config);
+        return EXIT_SUCCESS;
+    }
 
     // Initialize strategy registries
     init_strategies(); // Pass 2: Null-byte elimination strategies
 
-    if (use_biphasic) {
+    if (config->use_biphasic) {
         init_obfuscation_strategies(); // Pass 1: Obfuscation strategies
-        fprintf(stderr, "\n🔄 BIPHASIC MODE ENABLED\n");
-        fprintf(stderr, "   Pass 1: Obfuscation & Complexification\n");
-        fprintf(stderr, "   Pass 2: Null-Byte Elimination\n\n");
+        if (!config->quiet) {
+            fprintf(stderr, "\n🔄 BIPHASIC MODE ENABLED\n");
+            fprintf(stderr, "   Pass 1: Obfuscation & Complexification\n");
+            fprintf(stderr, "   Pass 2: Null-Byte Elimination\n\n");
+        }
     }
 
     // Process shellcode
     struct buffer new_shellcode;
-    if (use_pic_generation) {
-        fprintf(stderr, "\n🏗️  PIC GENERATION MODE ENABLED\n");
-        fprintf(stderr, "   Converting to position-independent code\n\n");
+    if (config->use_pic_generation) {
+        if (!config->quiet) {
+            fprintf(stderr, "\n🏗️  PIC GENERATION MODE ENABLED\n");
+            fprintf(stderr, "   Converting to position-independent code\n\n");
+        }
 
         // Initialize PIC options
         PICOptions pic_opts;
@@ -105,11 +154,12 @@ int main(int argc, char *argv[]) {
         if (pic_ret != 0) {
             fprintf(stderr, "Error: PIC generation failed\n");
             free(shellcode);
-            return 1;
+            config_free(config);
+            return EXIT_PROCESSING_FAILED;
         }
 
         // Now apply null-byte elimination to the PIC shellcode
-        if (use_biphasic) {
+        if (config->use_biphasic) {
             new_shellcode = biphasic_process(pic_result.data, pic_result.size);
         } else {
             new_shellcode = remove_null_bytes(pic_result.data, pic_result.size);
@@ -117,7 +167,7 @@ int main(int argc, char *argv[]) {
 
         // Free PIC result
         pic_free_result(&pic_result);
-    } else if (use_biphasic) {
+    } else if (config->use_biphasic) {
         new_shellcode = biphasic_process(shellcode, file_size);
     } else {
         new_shellcode = remove_null_bytes(shellcode, file_size);
@@ -127,14 +177,17 @@ int main(int argc, char *argv[]) {
     if (new_shellcode.data == NULL && new_shellcode.size == 0) {
         fprintf(stderr, "Error: Shellcode processing failed\n");
         free(shellcode);
-        return 1;
+        config_free(config);
+        return EXIT_PROCESSING_FAILED;
     }
 
     struct buffer final_shellcode;
     buffer_init(&final_shellcode);
 
-    if (encode_shellcode) {
-        printf("Encoding shellcode with XOR key: 0x%08x\n", xor_key);
+    if (config->encode_shellcode) {
+        if (!config->quiet) {
+            printf("Encoding shellcode with XOR key: 0x%08x\n", config->xor_key);
+        }
 
         uint8_t *decoder_stub = decoder_bin;
         size_t decoder_len = decoder_bin_len;
@@ -143,7 +196,7 @@ int main(int argc, char *argv[]) {
         buffer_append(&final_shellcode, decoder_stub, decoder_len);
 
         // Append the 4-byte key
-        buffer_append(&final_shellcode, (uint8_t *)&xor_key, 4);
+        buffer_append(&final_shellcode, (uint8_t *)&config->xor_key, 4);
 
         // Define the null-free XOR key for the length
         const uint32_t NULL_FREE_LENGTH_XOR_KEY = 0x11223344;
@@ -154,7 +207,7 @@ int main(int argc, char *argv[]) {
 
         // XOR encode the new_shellcode.data with the 4-byte key
         for (size_t i = 0; i < new_shellcode.size; i++) {
-            new_shellcode.data[i] ^= ((uint8_t *)&xor_key)[i % 4];
+            new_shellcode.data[i] ^= ((uint8_t *)&config->xor_key)[i % 4];
         }
 
         // Append the XOR-encoded shellcode to the final shellcode buffer
@@ -165,26 +218,33 @@ int main(int argc, char *argv[]) {
         buffer_append(&final_shellcode, new_shellcode.data, new_shellcode.size);
     }
 
-    printf("Original shellcode size: %ld\n", file_size);
-    printf("Modified shellcode size: %zu\n", final_shellcode.size);
-    
+    if (!config->quiet) {
+        printf("Original shellcode size: %ld\n", file_size);
+        printf("Modified shellcode size: %zu\n", final_shellcode.size);
+    }
+
     // Write modified shellcode to output file
-    FILE *out_file = fopen(output_file, "wb");
+    FILE *out_file = fopen(config->output_file, "wb");
     if (!out_file) {
         perror("fopen output file");
         free(shellcode);
         buffer_free(&new_shellcode);
         buffer_free(&final_shellcode);
-        return 1;
+        config_free(config);
+        return EXIT_OUTPUT_FILE_ERROR;
     }
-    
+
     fwrite(final_shellcode.data, 1, final_shellcode.size, out_file);
     fclose(out_file);
-    
-    printf("Modified shellcode written to: %s\n", output_file);
-    
+
+    if (!config->quiet) {
+        printf("Modified shellcode written to: %s\n", config->output_file);
+    }
+
     free(shellcode);
     buffer_free(&new_shellcode);
     buffer_free(&final_shellcode);
-    return 0;
+    config_free(config);
+
+    return EXIT_SUCCESS;
 }

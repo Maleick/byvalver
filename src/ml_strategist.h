@@ -139,6 +139,23 @@ int ml_strategist_save_model(ml_strategist_t* strategist, const char* path);
  */
 int ml_strategist_load_model(ml_strategist_t* strategist, const char* path);
 
+/**
+ * @brief Export metrics in JSON format
+ * @param filepath Path to save JSON export
+ */
+void ml_strategist_export_metrics_json(const char* filepath);
+
+/**
+ * @brief Export metrics in CSV format
+ * @param filepath Path to save CSV export
+ */
+void ml_strategist_export_metrics_csv(const char* filepath);
+
+/**
+ * @brief Print live metrics stats
+ */
+void ml_strategist_print_live_metrics(void);
+
 #ifdef __cplusplus
 }
 #endif

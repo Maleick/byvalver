@@ -34,6 +34,13 @@ byvalver_config_t* config_create_default(void) {
     config->version_requested = 0;
     config->output_file_specified_via_flag = 0;
 
+    // ML Metrics defaults
+    config->metrics_enabled = 0;
+    config->metrics_output_file = "./ml_metrics.log";
+    config->metrics_export_json = 0;
+    config->metrics_export_csv = 0;
+    config->metrics_show_live = 0;
+
     return config;
 }
 
@@ -80,6 +87,13 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --ml                          Use ML-enhanced strategy selection (optional)\n");
     fprintf(stream, "      --xor-encode KEY              XOR encode output with 4-byte key (hex)\n");
     fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n\n");
+
+    fprintf(stream, "    ML Metrics Options (requires --ml):\n");
+    fprintf(stream, "      --metrics                     Enable ML metrics tracking and learning\n");
+    fprintf(stream, "      --metrics-file FILE           Metrics output file (default: ./ml_metrics.log)\n");
+    fprintf(stream, "      --metrics-json                Export metrics in JSON format\n");
+    fprintf(stream, "      --metrics-csv                 Export metrics in CSV format\n");
+    fprintf(stream, "      --metrics-live                Show live metrics during processing\n\n");
     
     fprintf(stream, "    Advanced Options:\n");
     fprintf(stream, "      --strategy-limit N            Limit number of strategies to consider per instruction\n");
@@ -154,7 +168,14 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"format", required_argument, 0, 0},
         {"arch", required_argument, 0, 0},
         {"ml", no_argument, 0, 0},
-        
+
+        // ML Metrics options
+        {"metrics", no_argument, 0, 0},
+        {"metrics-file", required_argument, 0, 0},
+        {"metrics-json", no_argument, 0, 0},
+        {"metrics-csv", no_argument, 0, 0},
+        {"metrics-live", no_argument, 0, 0},
+
         // Advanced options
         {"strategy-limit", required_argument, 0, 0},
         {"max-size", required_argument, 0, 0},
@@ -211,6 +232,25 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                     }
                     else if (strcmp(opt_name, "ml") == 0) {
                         config->use_ml_strategist = 1;
+                    }
+                    else if (strcmp(opt_name, "metrics") == 0) {
+                        config->metrics_enabled = 1;
+                    }
+                    else if (strcmp(opt_name, "metrics-file") == 0) {
+                        config->metrics_output_file = optarg;
+                        config->metrics_enabled = 1;  // Auto-enable metrics if file specified
+                    }
+                    else if (strcmp(opt_name, "metrics-json") == 0) {
+                        config->metrics_export_json = 1;
+                        config->metrics_enabled = 1;  // Auto-enable metrics
+                    }
+                    else if (strcmp(opt_name, "metrics-csv") == 0) {
+                        config->metrics_export_csv = 1;
+                        config->metrics_enabled = 1;  // Auto-enable metrics
+                    }
+                    else if (strcmp(opt_name, "metrics-live") == 0) {
+                        config->metrics_show_live = 1;
+                        config->metrics_enabled = 1;  // Auto-enable metrics
                     }
                     else if (strcmp(opt_name, "xor-encode") == 0) {
                         config->encode_shellcode = 1;

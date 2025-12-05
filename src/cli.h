@@ -39,6 +39,13 @@ typedef struct {
     int encode_shellcode;
     uint32_t xor_key;
     int use_ml_strategist;  // Whether to use ML-enhanced strategy selection
+
+    // ML Metrics options
+    int metrics_enabled;          // Enable ML metrics tracking
+    char *metrics_output_file;    // Metrics output file path
+    int metrics_export_json;      // Export metrics in JSON format
+    int metrics_export_csv;       // Export metrics in CSV format
+    int metrics_show_live;        // Show live metrics during processing
     
     // Advanced options
     char *output_format;  // "raw", "c", "python", "powershell", "hexstring"

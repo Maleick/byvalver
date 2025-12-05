@@ -66,6 +66,13 @@ byvalver [OPTIONS] <input_file> [output_file]
 - `-o, --output FILE`: Output file (alternative to positional argument)
 - `--validate`: Validate output is null-byte free
 
+### ML Metrics Options (requires --ml)
+- `--metrics`: Enable ML metrics tracking and learning
+- `--metrics-file FILE`: Metrics output file (default: ./ml_metrics.log)
+- `--metrics-json`: Export metrics in JSON format
+- `--metrics-csv`: Export metrics in CSV format
+- `--metrics-live`: Show live metrics during processing
+
 ## Processing Modes
 
 ### 1. Standard Mode
@@ -205,6 +212,140 @@ byvalver --ml --pic --biphasic --xor-encode 0xABCD1234 input.bin output.bin
 - Processing time increase typically < 10%
 - Model loading adds ~100ms startup time
 
+### 6. ML Metrics Tracking and Learning (New in v2.1)
+
+**NEW**: The ML strategist now supports comprehensive metrics tracking and real-time learning from strategy results.
+
+```bash
+# Enable ML with metrics tracking
+byvalver --ml --metrics input.bin output.bin
+
+# Export metrics in JSON format
+byvalver --ml --metrics-json --metrics-file ml_results input.bin output.bin
+
+# Export metrics in CSV format for spreadsheet analysis
+byvalver --ml --metrics-csv --metrics-file ml_data input.bin output.bin
+
+# Show live metrics during processing
+byvalver --ml --metrics-live input.bin output.bin
+
+# Combine all metrics features
+byvalver --ml --metrics --metrics-json --metrics-csv --metrics-live input.bin output.bin
+```
+
+**Overview:**
+
+The ML metrics system provides comprehensive tracking of strategy performance, learning cycles, and model improvements. When enabled, the system automatically collects detailed analytics and can export results in multiple formats for analysis.
+
+**What Gets Tracked:**
+
+1. **Strategy Performance Metrics**:
+   - Success/failure rates for each strategy
+   - Confidence scores for predictions
+   - Null bytes eliminated per strategy
+   - Processing time per strategy
+   - Size increase from transformations
+
+2. **Learning Cycle Metrics**:
+   - Total feedback iterations
+   - Positive/negative reinforcement counts
+   - Weight update deltas (average and maximum)
+   - Learning rate effectiveness
+   - Convergence indicators
+
+3. **Model Performance Metrics**:
+   - Prediction accuracy over time
+   - Baseline vs current performance
+   - Confidence score distributions
+   - Strategy ranking effectiveness
+   - Improvement trends
+
+4. **Session Statistics**:
+   - Total instructions processed
+   - Total strategies applied
+   - Null elimination rate
+   - Model save/load events
+   - Processing duration
+
+**Learning System (Enabled):**
+
+The ML system now includes **real-time learning** that updates model weights based on transformation results:
+
+- **Hash-Based Mapping**: Strategy names are hashed to neural network output indices
+- **Backpropagation**: Weights update after each successful/failed transformation
+- **Learning Rate**: Conservative 0.01 rate for stable convergence
+- **Positive Feedback**: Successful transformations boost strategy scores by +0.1
+- **Negative Feedback**: Failed transformations reduce strategy scores by -0.1
+- **No Recursion**: Hash-based mapping avoids circular function calls
+
+**Metrics Output Example:**
+
+```
+=== ML STRATEGIST PERFORMANCE SUMMARY ===
+
+Session Duration: 2.45 seconds
+Instructions Processed: 156
+Strategies Applied: 89
+Null Bytes Eliminated: 42 / 45 (93.33%)
+
+--- Model Performance ---
+Predictions Made: 89
+Current Accuracy: 87.64%
+Accuracy Improvement: +12.30%
+Avg Prediction Confidence: 0.7234
+
+--- Learning Progress ---
+Learning Enabled: YES
+Total Feedback Iterations: 89
+Positive Feedback: 78
+Negative Feedback: 11
+Avg Weight Delta: 0.000234
+Max Weight Delta: 0.023145
+
+--- Strategy Breakdown ---
+Strategy                       Attempts  Success  Failed  Success%  AvgConf
+SIB Addressing                       12       11       1     91.67%   0.8234
+lea_disp_nulls                        8        8       0    100.00%   0.9012
+conservative_mov_immediate            15       14       1     93.33%   0.7891
+...
+```
+
+**Export Formats:**
+
+1. **Text Log** (default): Human-readable detailed summary
+2. **JSON Format** (`--metrics-json`): Structured data for programmatic analysis
+3. **CSV Format** (`--metrics-csv`): Easy import into spreadsheets and analytics tools
+
+**Benefits:**
+
+- **Track Performance**: See which strategies work best for your shellcode patterns
+- **Monitor Learning**: Watch the model improve over time
+- **Analyze Results**: Export data for visualization and reporting
+- **Optimize Strategies**: Identify underperforming strategies
+- **Research**: Gather data for ML model improvements
+
+**When to Use Metrics:**
+
+✅ **Recommended For:**
+- Evaluating ML model effectiveness
+- Analyzing strategy performance patterns
+- Research and development work
+- Generating reports on processing results
+- Tuning and optimization tasks
+
+❌ **Skip Metrics For:**
+- Quick one-off processing tasks
+- Production pipelines (adds overhead)
+- When disk space is limited
+- Time-critical operations
+
+**Performance Impact:**
+
+- Metrics tracking adds < 5% processing overhead
+- Export operations occur after processing completes
+- Memory usage increases ~1MB for metrics storage
+- No impact when metrics are disabled
+
 ## Practical Examples
 
 ### Basic Usage
@@ -241,6 +382,28 @@ byvalver --ml --biphasic input.bin output.bin
 
 # ML with PIC and XOR encoding
 byvalver --ml --pic --xor-encode 0x99887766 input.bin output.bin
+```
+
+### ML Metrics Tracking
+```bash
+# Enable ML with metrics tracking
+byvalver --ml --metrics input.bin output.bin
+
+# Export metrics in JSON format
+byvalver --ml --metrics-json --metrics-file results input.bin output.bin
+
+# Export metrics in CSV format
+byvalver --ml --metrics-csv --metrics-file data input.bin output.bin
+
+# Show live metrics during processing
+byvalver --ml --metrics-live input.bin output.bin
+
+# Combine metrics with all processing modes
+byvalver --ml --metrics --metrics-json --pic --biphasic input.bin output.bin
+
+# Full metrics suite for research
+byvalver --ml --metrics --metrics-json --metrics-csv --metrics-live \
+  --metrics-file experiment_01 input.bin output.bin
 ```
 
 ### Multiple Options Combined

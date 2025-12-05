@@ -271,6 +271,23 @@ int main(int argc, char *argv[]) {
     free(shellcode);
     buffer_free(&new_shellcode);
     buffer_free(&final_shellcode);
+
+    // Export metrics if requested
+    if (ml_initialized && config->metrics_enabled) {
+        if (config->metrics_export_json) {
+            char json_file[512];
+            snprintf(json_file, sizeof(json_file), "%s.json",
+                    config->metrics_output_file ? config->metrics_output_file : "./ml_metrics");
+            ml_strategist_export_metrics_json(json_file);
+        }
+        if (config->metrics_export_csv) {
+            char csv_file[512];
+            snprintf(csv_file, sizeof(csv_file), "%s.csv",
+                    config->metrics_output_file ? config->metrics_output_file : "./ml_metrics");
+            ml_strategist_export_metrics_csv(csv_file);
+        }
+    }
+
     config_free(config);
     if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
 

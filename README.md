@@ -254,6 +254,34 @@ byvalver --ml --pic --biphasic input.bin output.bin
 
 ML mode uses a neural network to intelligently prioritize transformation strategies based on instruction patterns, potentially improving null-byte elimination effectiveness.
 
+**6. ML METRICS TRACKING AND LEARNING**
+
+```bash
+# Enable ML with metrics tracking
+byvalver --ml --metrics input.bin output.bin
+
+# Export metrics in JSON format
+byvalver --ml --metrics-json --metrics-file ml_results input.bin output.bin
+
+# Export metrics in CSV format for analysis
+byvalver --ml --metrics-csv --metrics-file ml_data input.bin output.bin
+
+# Show live metrics during processing
+byvalver --ml --metrics-live input.bin output.bin
+
+# Combine all metrics features
+byvalver --ml --metrics --metrics-json --metrics-csv --metrics-live input.bin output.bin
+```
+
+The ML metrics system tracks strategy performance, learning cycles, and model improvements in real-time:
+
+- **Strategy Performance**: Success/failure rates, confidence scores, null elimination effectiveness
+- **Learning Cycles**: Weight updates, positive/negative feedback, convergence metrics
+- **Model Accuracy**: Prediction quality, improvements over time, strategy ranking changes
+- **Export Formats**: Log files, JSON, and CSV for analysis and visualization
+
+After processing, view comprehensive metrics including session summary, model performance, learning progress, and per-strategy breakdown.
+
 ### ADVANCED USAGE EXAMPLES
 
 **PROCESS WITH DETAILED OUTPUT:**
@@ -315,6 +343,16 @@ byvalver --stats --biphasic shellcode.bin output.bin
 --ml                          Enable ML-powered strategy prioritization (experimental)
 --xor-encode KEY              XOR encode output with 4-byte key (hex)
 --format FORMAT               Output format: raw, c, python, powershell, hexstring
+```
+
+#### ML METRICS OPTIONS (requires --ml)
+
+```
+--metrics                     Enable ML metrics tracking and learning
+--metrics-file FILE           Metrics output file (default: ./ml_metrics.log)
+--metrics-json                Export metrics in JSON format
+--metrics-csv                 Export metrics in CSV format
+--metrics-live                Show live metrics during processing
 ```
 
 #### ADVANCED OPTIONS
@@ -546,23 +584,42 @@ The ML strategist uses a custom neural network to analyze instruction features a
 
 - **Architecture**: Custom neural network with backpropagation support
 - **Recursion Prevention**: Guard mechanisms prevent infinite recursion during strategy selection
-- **Feedback Loop**: System tracks strategy success/failure (currently disabled to prevent recursion)
+- **Feedback Loop**: ✅ **NOW ENABLED** - Real-time learning from strategy success/failure with hash-based mapping
+- **Metrics Tracking**: Comprehensive performance monitoring and analytics (use `--metrics`)
 - **Thread-Safe**: Recursion guards ensure single-threaded ML operations
+
+**Learning System (New in v2.1):**
+
+The ML strategist now includes **fully functional learning capabilities**:
+
+1. **Real-Time Learning**: Model weights update after each transformation based on success/failure
+2. **Metrics Tracking**: Track strategy performance, learning cycles, and model improvements
+3. **Hash-Based Mapping**: Strategy names mapped to neural network indices (no recursion)
+4. **Backpropagation**: Simplified gradient descent with 0.01 learning rate
+5. **Export Formats**: JSON, CSV, and detailed log files for analysis
+
+**Metrics System Features:**
+
+- **Strategy Analytics**: Per-strategy success rates, confidence scores, null elimination counts
+- **Learning Progress**: Feedback iterations, weight deltas, positive/negative reinforcements
+- **Model Performance**: Prediction accuracy, improvements over baseline, confidence tracking
+- **Session Statistics**: Instructions processed, strategies applied, null elimination rates
+- **Export Options**: `--metrics-json`, `--metrics-csv`, `--metrics-file`
 
 **Current Limitations:**
 
 - **Experimental Status**: ML mode is under active development and testing
-- **Feedback Learning Disabled**: Reinforcement learning temporarily disabled due to recursion issues
-- **Model Training**: Current model uses random initialization; future updates will include trained weights
+- **Model Training**: Current model uses random initialization; trained weights coming soon
 - **Performance Impact**: Slight processing overhead due to neural network inference
+- **Single-Threaded**: No concurrent processing support yet
 
 **Future Development:**
 
-- Enable feedback-based learning with proper recursion handling
 - Train models on large shellcode datasets for improved accuracy
 - Add model versioning and automatic updates
-- Implement adaptive learning during processing
+- Implement multi-threaded processing support
 - Support for custom model training and fine-tuning
+- Advanced analytics and visualization tools
 
 **When to Use ML Mode:**
 

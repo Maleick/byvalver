@@ -7,6 +7,7 @@
  */
 
 #include "ml_strategist.h"
+#include "ml_metrics.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@ typedef struct {
 
 static simple_neural_network_t* g_loaded_model = NULL;
 static int g_ml_initialized = 0;
+static ml_metrics_tracker_t* g_ml_metrics = NULL;
 
 /**
  * @brief Initialize the ML strategist with neural network model
@@ -81,6 +83,13 @@ int ml_strategist_init(ml_strategist_t* strategist, const char* model_path) {
 
     g_loaded_model = model;
     g_ml_initialized = 1;
+
+    // Initialize metrics tracker
+    g_ml_metrics = ml_metrics_init("./ml_metrics.log");
+    if (g_ml_metrics) {
+        g_ml_metrics->learning.learning_enabled = 1;  // Enable learning
+        printf("[ML] Metrics tracking enabled\n");
+    }
 
     printf("[ML] Enterprise ML Strategist initialized with model: %s\n", model_path);
     return 0;
@@ -356,6 +365,13 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
         } else {
             scores_copy[i] = 0.01 * (rand() % 100) / 100.0;
         }
+
+        // Record strategy attempt with confidence score
+        if (g_ml_metrics && applicable_strategies[i]) {
+            ml_metrics_record_strategy_attempt(g_ml_metrics,
+                                              applicable_strategies[i]->name,
+                                              scores_copy[i]);
+        }
     }
 
     // Sort strategies based on ML scores
@@ -485,32 +501,83 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         target_output[i] = nn_output[i];
     }
 
-    // Find the index of the applied strategy in our strategy registry if it exists
-    // NOTE: We skip finding the index to avoid recursion through get_strategies_for_instruction
-    // The strategy pointer comparison approach would require calling get_strategies_for_instruction
-    // which could trigger ML reprioritization and cause infinite recursion
+    // Use a simple hash-based mapping from strategy name to index to avoid recursion
+    // This allows us to enable learning without calling get_strategies_for_instruction
     int strategy_idx = -1;
-    // Feedback learning is disabled to prevent recursion
-    // In a production implementation, we would maintain a separate strategy index mapping
+    if (applied_strategy != NULL && applied_strategy->name != NULL) {
+        // Simple hash function to map strategy name to NN output index
+        // This is a simplified approach; in production we'd use a proper mapping table
+        unsigned long hash = 5381;
+        const char* str = applied_strategy->name;
+        int c;
+        while ((c = *str++)) {
+            hash = ((hash << 5) + hash) + c;
+        }
+        strategy_idx = (int)(hash % NN_OUTPUT_SIZE);
+    }
 
+    // Track instruction processing
+    if (g_ml_metrics) {
+        ml_metrics_record_instruction_processed(g_ml_metrics, features.has_nulls);
+    }
+
+    // Enable learning based on feedback
     if (strategy_idx >= 0 && strategy_idx < NN_OUTPUT_SIZE) {
         // Adjust the target output based on success
+        double weight_delta = 0.0;
         if (success) {
             // If successful, increase the target value slightly
+            double old_target = target_output[strategy_idx];
             target_output[strategy_idx] = fmin(1.0, target_output[strategy_idx] + 0.1);
+            weight_delta = target_output[strategy_idx] - old_target;
         } else {
             // If failed, decrease the target value
+            double old_target = target_output[strategy_idx];
             target_output[strategy_idx] = fmax(0.0, target_output[strategy_idx] - 0.1);
+            weight_delta = target_output[strategy_idx] - old_target;
         }
-    } else if (applied_strategy == NULL) {
-        // For fallback cases without a specific strategy, we can still learn
-        // from the outcome (success/failure) for this type of instruction
-        // For now, we'll just log the information for potential future use
+
+        // Record feedback for metrics
+        if (g_ml_metrics) {
+            ml_metrics_record_feedback(g_ml_metrics, success, weight_delta);
+        }
     }
 
     // Update the neural network weights based on the feedback
     // Use a small learning rate for stable learning
-    update_weights(nn, features.features, target_output, nn_output, 0.01);
+    if (strategist->update_model) {
+        update_weights(nn, features.features, target_output, nn_output, 0.01);
+
+        // Track learning iteration
+        if (g_ml_metrics) {
+            // Calculate average weight change
+            double avg_change = 0.0;
+            double max_change = 0.0;
+            for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
+                double change = fabs(target_output[i] - nn_output[i]);
+                avg_change += change;
+                if (change > max_change) {
+                    max_change = change;
+                }
+            }
+            avg_change /= NN_OUTPUT_SIZE;
+            ml_metrics_record_learning_iteration(g_ml_metrics, avg_change, max_change);
+        }
+    }
+
+    // Record strategy result metrics
+    if (g_ml_metrics && applied_strategy != NULL) {
+        // Calculate nulls eliminated (original had nulls, strategy tried to eliminate them)
+        int nulls_eliminated = features.has_nulls && success ? 1 : 0;
+
+        // Record the strategy result
+        ml_metrics_record_strategy_result(g_ml_metrics,
+                                          applied_strategy->name,
+                                          success,
+                                          nulls_eliminated,
+                                          (int)new_shellcode_size,
+                                          0.0); // processing_time_ms placeholder
+    }
 
     if (applied_strategy != NULL) {
         printf("[ML] Feedback processed: strategy='%s', success=%d, size=%zu\n",
@@ -528,6 +595,15 @@ int ml_provide_feedback(ml_strategist_t* strategist,
  */
 void ml_strategist_cleanup(ml_strategist_t* strategist) {
     if (strategist) {
+        // Print final metrics summary before cleanup
+        if (g_ml_metrics) {
+            ml_metrics_print_summary(g_ml_metrics);
+            ml_metrics_print_strategy_breakdown(g_ml_metrics);
+            ml_metrics_print_learning_progress(g_ml_metrics);
+            ml_metrics_cleanup(g_ml_metrics);
+            g_ml_metrics = NULL;
+        }
+
         // Clean up the neural network model resources
         if (strategist->model) {
             free(strategist->model);
@@ -572,6 +648,11 @@ int ml_strategist_save_model(ml_strategist_t* strategist, const char* path) {
     fwrite(nn->layer_sizes, sizeof(int), NN_NUM_LAYERS, file);
 
     fclose(file);
+
+    // Record model save event
+    if (g_ml_metrics) {
+        ml_metrics_record_model_save(g_ml_metrics);
+    }
 
     printf("[ML] Enterprise model saved to: %s\n", path);
     return 0;
@@ -624,6 +705,38 @@ int ml_strategist_load_model(ml_strategist_t* strategist, const char* path) {
         return -1;
     }
 
+    // Record model load event
+    if (g_ml_metrics) {
+        ml_metrics_record_model_load(g_ml_metrics);
+    }
+
     printf("[ML] Enterprise model loaded from: %s\n", path);
     return 0;
+}
+
+/**
+ * @brief Export metrics in JSON format
+ */
+void ml_strategist_export_metrics_json(const char* filepath) {
+    if (g_ml_metrics && filepath) {
+        ml_metrics_export_to_json(g_ml_metrics, filepath);
+    }
+}
+
+/**
+ * @brief Export metrics in CSV format
+ */
+void ml_strategist_export_metrics_csv(const char* filepath) {
+    if (g_ml_metrics && filepath) {
+        ml_metrics_export_to_csv(g_ml_metrics, filepath);
+    }
+}
+
+/**
+ * @brief Print live metrics stats
+ */
+void ml_strategist_print_live_metrics(void) {
+    if (g_ml_metrics) {
+        ml_metrics_print_live_stats(g_ml_metrics);
+    }
 }

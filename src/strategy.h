@@ -22,7 +22,7 @@ typedef struct {
 // Registry management functions
 void register_strategy(strategy_t *strategy);
 strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count);
-void init_strategies();
+void init_strategies(int use_ml);
 
 // Strategy registration functions for different instruction types
 void register_mov_strategies();

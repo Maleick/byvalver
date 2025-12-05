@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize strategy registries (needed for both single and batch mode)
-    init_strategies(); // Pass 2: Null-byte elimination strategies
+    init_strategies(config->use_ml_strategist); // Pass 2: Null-byte elimination strategies
 
     if (config->use_biphasic) {
         init_obfuscation_strategies(); // Pass 1: Obfuscation strategies

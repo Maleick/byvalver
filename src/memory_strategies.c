@@ -4,10 +4,10 @@
 
 // Memory MOV strategy for [imm32] addressing
 int can_handle_mov_mem_imm(cs_insn *insn) {
-    return (insn->id == X86_INS_MOV && insn->detail->x86.op_count == 2 && 
-            insn->detail->x86.operands[1].type == X86_OP_MEM && 
-            insn->detail->x86.operands[1].mem.base == X86_REG_INVALID && 
-            insn->detail->x86.operands[1].mem.index == X86_REG_INVALID && 
+    return (insn->id == X86_INS_MOV && insn->detail->x86.op_count == 2 &&
+            insn->detail->x86.operands[1].type == X86_OP_MEM &&
+            insn->detail->x86.operands[1].mem.base == X86_REG_INVALID &&
+            insn->detail->x86.operands[1].mem.index == X86_REG_INVALID &&
             has_null_bytes(insn));
 }
 
@@ -16,7 +16,31 @@ size_t get_size_mov_mem_imm(cs_insn *insn) {
 }
 
 void generate_mov_mem_imm(struct buffer *b, cs_insn *insn) {
-    generate_mov_reg_mem_imm(b, insn);
+    // Handle MOV reg, [imm32] where imm32 contains nulls
+    if (insn->detail->x86.operands[1].type != X86_OP_MEM) {
+        return; // Safety check
+    }
+
+    uint8_t dst_reg = insn->detail->x86.operands[0].reg;
+    uint32_t addr = (uint32_t)insn->detail->x86.operands[1].mem.disp;
+
+    // MOV EAX, addr (null-free construction)
+    generate_mov_eax_imm(b, addr);
+
+    // MOV dst_reg, [EAX]
+    // Handle the case where dst_reg is EAX specially to avoid null bytes
+    if (dst_reg == X86_REG_EAX) {
+        // Use SIB byte to avoid null: MOV EAX, [EAX]
+        // This becomes: 8B 04 20 (where 04 is ModR/M with SIB, 20 is SIB for [EAX])
+        uint8_t code[] = {0x8B, 0x04, 0x20}; // MOV EAX, [EAX]
+        buffer_append(b, code, 3);
+    } else {
+        // For other registers, the ModR/M byte is safe
+        uint8_t code[] = {0x8B, 0x00}; // MOV reg, [EAX] format
+        uint8_t reg_index = get_reg_index(dst_reg);
+        code[1] = (reg_index << 3) | 0;  // Encode reg in reg field, [EAX] in r/m field
+        buffer_append(b, code, 2);
+    }
 }
 
 strategy_t mov_mem_imm_strategy = {

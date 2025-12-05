@@ -170,6 +170,51 @@ Current Accuracy: 94.23%
 
 The ML strategist now properly tracks and reports prediction metrics for enhanced analysis and debugging.
 
+## What's New in v2.3
+
+### Improved ML Prediction Accuracy
+
+**New in v2.3**: BYVALVER now accurately tracks ML prediction outcomes, fixing issues with prediction confidence and accuracy reporting.
+
+#### Problem Fixed
+
+Previous versions inaccurately reported prediction accuracy as 100% with 0.0000 confidence because predictions were recorded as "successful" when made, not when outcomes were known.
+
+#### Solution Implemented
+
+- **Outcome-Based Recording**: ML predictions are now tracked when made and resolved when outcomes are known
+- **Accurate Confidence Calculation**: Average prediction confidence now reflects actual ML model confidence values
+- **Real Accuracy Metrics**: Prediction accuracy now reflects true success rate of ML-recommended strategies
+- **Proper Learning Feedback**: ML model receives accurate feedback about prediction success/failure
+
+#### Implementation Details
+
+- **Prediction Tracking**: When ML makes a recommendation, it's stored in a pending prediction buffer
+- **Outcome Resolution**: When strategy result is known, the corresponding prediction is resolved with actual outcome
+- **Metrics Updates**: Prediction accuracy and confidence are calculated based on actual results, not assumptions
+
+#### Before vs After
+
+**Before Fix:**
+```
+=== ML STRATEGIST PERFORMANCE SUMMARY ===
+--- Model Performance ---
+Current Accuracy: 100.00%
+Accuracy Improvement: +0.00%
+Avg Prediction Confidence: 0.0000
+```
+
+**After Fix:**
+```
+=== ML STRATEGIST PERFORMANCE SUMMARY ===
+--- Model Performance ---
+Current Accuracy: 97.68%
+Accuracy Improvement: -2.32%
+Avg Prediction Confidence: 0.7421
+```
+
+The ML strategist now provides realistic metrics that accurately reflect model performance and improvement over time.
+
 ## Installation
 
 ### Global Installation
@@ -331,410 +376,3 @@ byvalver --ml --pic input.bin output.bin
 # ML with all features
 byvalver --ml --pic --biphasic --xor-encode 0xABCD1234 input.bin output.bin
 ```
-
-**Benefits:**
-
-- **Context-Aware Selection**: Strategies ranked based on instruction patterns
-- **Adaptive Behavior**: Different prioritization for different shellcode types
-- **Seamless Integration**: Works with all processing modes
-- **Minimal Overhead**: Fast forward-pass inference
-
-**Current Limitations:**
-
-- **Experimental Status**: Under active development and testing
-- **No Trained Model**: Current implementation uses random initialization
-- **Feedback Disabled**: Reinforcement learning temporarily disabled
-- **Non-Deterministic**: Output may vary between runs
-
-**Technical Implementation:**
-
-- **Architecture**: Custom neural network in C
-- **Input Features**: 128 instruction characteristics
-- **Hidden Neurons**: 256 nodes with ReLU activation
-- **Output Strategies**: 200 confidence scores
-- **Recursion Guards**: Prevents infinite loops during strategy selection
-- **Model Format**: Binary weights stored in custom format
-
-**Future Development:**
-
-- Model training on large shellcode datasets
-- Enable feedback-based reinforcement learning
-- Add model versioning and updates
-- Support custom model training
-- Implement online learning during processing
-
-**When to Use ML Mode:**
-
-✅ **Recommended For:**
-- Complex shellcode with diverse instruction patterns
-- Experimental evaluation and research
-- Combined with biphasic processing
-- Testing different strategy selections
-
-❌ **Not Recommended For:**
-- Production environments (experimental status)
-- Deterministic output requirements
-- Time-critical processing
-- Environments without model file
-
-**Performance Considerations:**
-
-- Slight processing overhead due to neural network inference
-- Memory usage increases minimally (model weights)
-- Processing time increase typically < 10%
-- Model loading adds ~100ms startup time
-
-### 6. ML Metrics Tracking and Learning (New in v2.1)
-
-**NEW**: The ML strategist now supports comprehensive metrics tracking and real-time learning from strategy results.
-
-```bash
-# Enable ML with metrics tracking
-byvalver --ml --metrics input.bin output.bin
-
-# Export metrics in JSON format
-byvalver --ml --metrics-json --metrics-file ml_results input.bin output.bin
-
-# Export metrics in CSV format for spreadsheet analysis
-byvalver --ml --metrics-csv --metrics-file ml_data input.bin output.bin
-
-# Show live metrics during processing
-byvalver --ml --metrics-live input.bin output.bin
-
-# Combine all metrics features
-byvalver --ml --metrics --metrics-json --metrics-csv --metrics-live input.bin output.bin
-```
-
-**Overview:**
-
-The ML metrics system provides comprehensive tracking of strategy performance, learning cycles, and model improvements. When enabled, the system automatically collects detailed analytics and can export results in multiple formats for analysis.
-
-**What Gets Tracked:**
-
-1. **Strategy Performance Metrics**:
-   - Success/failure rates for each strategy
-   - Confidence scores for predictions
-   - Null bytes eliminated per strategy
-   - Processing time per strategy
-   - Size increase from transformations
-
-2. **Learning Cycle Metrics**:
-   - Total feedback iterations
-   - Positive/negative reinforcement counts
-   - Weight update deltas (average and maximum)
-   - Learning rate effectiveness
-   - Convergence indicators
-
-3. **Model Performance Metrics**:
-   - Prediction accuracy over time
-   - Baseline vs current performance
-   - Confidence score distributions
-   - Strategy ranking effectiveness
-   - Improvement trends
-
-4. **Session Statistics**:
-   - Total instructions processed
-   - Total strategies applied
-   - Null elimination rate
-   - Model save/load events
-   - Processing duration
-
-**Learning System (Enabled):**
-
-The ML system now includes **real-time learning** that updates model weights based on transformation results:
-
-- **Hash-Based Mapping**: Strategy names are hashed to neural network output indices
-- **Backpropagation**: Weights update after each successful/failed transformation
-- **Learning Rate**: Conservative 0.01 rate for stable convergence
-- **Positive Feedback**: Successful transformations boost strategy scores by +0.1
-- **Negative Feedback**: Failed transformations reduce strategy scores by -0.1
-- **No Recursion**: Hash-based mapping avoids circular function calls
-
-**Metrics Output Example:**
-
-```
-=== ML STRATEGIST PERFORMANCE SUMMARY ===
-
-Session Duration: 2.45 seconds
-Instructions Processed: 156
-Strategies Applied: 89
-Null Bytes Eliminated: 42 / 45 (93.33%)
-
---- Model Performance ---
-Predictions Made: 89
-Current Accuracy: 87.64%
-Accuracy Improvement: +12.30%
-Avg Prediction Confidence: 0.7234
-
---- Learning Progress ---
-Learning Enabled: YES
-Total Feedback Iterations: 89
-Positive Feedback: 78
-Negative Feedback: 11
-Avg Weight Delta: 0.000234
-Max Weight Delta: 0.023145
-
---- Strategy Breakdown ---
-Strategy                       Attempts  Success  Failed  Success%  AvgConf
-SIB Addressing                       12       11       1     91.67%   0.8234
-lea_disp_nulls                        8        8       0    100.00%   0.9012
-conservative_mov_immediate            15       14       1     93.33%   0.7891
-...
-```
-
-**Export Formats:**
-
-1. **Text Log** (default): Human-readable detailed summary
-2. **JSON Format** (`--metrics-json`): Structured data for programmatic analysis
-3. **CSV Format** (`--metrics-csv`): Easy import into spreadsheets and analytics tools
-
-**Benefits:**
-
-- **Track Performance**: See which strategies work best for your shellcode patterns
-- **Monitor Learning**: Watch the model improve over time
-- **Analyze Results**: Export data for visualization and reporting
-- **Optimize Strategies**: Identify underperforming strategies
-- **Research**: Gather data for ML model improvements
-
-**When to Use Metrics:**
-
-✅ **Recommended For:**
-- Evaluating ML model effectiveness
-- Analyzing strategy performance patterns
-- Research and development work
-- Generating reports on processing results
-- Tuning and optimization tasks
-
-❌ **Skip Metrics For:**
-- Quick one-off processing tasks
-- Production pipelines (adds overhead)
-- When disk space is limited
-- Time-critical operations
-
-**Performance Impact:**
-
-- Metrics tracking adds < 5% processing overhead
-- Export operations occur after processing completes
-- Memory usage increases ~1MB for metrics storage
-- No impact when metrics are disabled
-
-## Practical Examples
-
-### Basic Usage
-```bash
-# Process shellcode and save to default output.bin
-byvalver shellcode.bin
-
-# Process shellcode and save to specific output file
-byvalver shellcode.bin processed_shellcode.bin
-
-# Process with explicit output file option
-byvalver shellcode.bin -o processed_shellcode.bin
-
-# Output to nested directories (automatically created)
-byvalver shellcode.bin results/processed/output.bin
-
-# Deep directory nesting also works
-byvalver shellcode.bin data/experiments/2025/run_001/output.bin
-```
-
-> **Note**: BYVALVER automatically creates parent directories for output files. You don't need to manually create directory structures before processing.
-
-### Batch Directory Processing
-```bash
-# Process all .bin files in a directory (non-recursive)
-byvalver shellcodes/ output/
-
-# Process recursively with all subdirectories
-byvalver -r shellcodes/ output/
-
-# Process only .txt files recursively
-byvalver -r --pattern "*.txt" input/ output/
-
-# Process with biphasic mode and XOR encoding
-byvalver -r --biphasic --xor-encode 0x12345678 input/ output/
-
-# Flatten output (don't preserve directory structure)
-byvalver -r --no-preserve-structure input/ output/
-
-# Continue processing even if some files fail
-byvalver -r --continue-on-error input/ output/
-
-# Combine with all other options (ML, metrics, etc.)
-byvalver -r --ml --biphasic --xor-encode 0xABCDEF00 input/ output/
-```
-
-> **Note**: Batch mode is automatically enabled when the input is a directory. All existing options work seamlessly with batch processing.
-
-### Biphasic Processing
-```bash
-# Apply obfuscation followed by null-byte elimination
-byvalver --biphasic shellcode.bin output.bin
-```
-
-### XOR Encoding
-```bash
-# Create XOR-encoded shellcode with 4-byte key
-byvalver --biphasic --xor-encode 0xABCDEF00 shellcode.bin encoded_shellcode.bin
-```
-
-### Machine Learning Mode
-```bash
-# Basic ML mode
-byvalver --ml input.bin output.bin
-
-# ML with biphasic processing
-byvalver --ml --biphasic input.bin output.bin
-
-# ML with PIC and XOR encoding
-byvalver --ml --pic --xor-encode 0x99887766 input.bin output.bin
-```
-
-### ML Metrics Tracking
-```bash
-# Enable ML with metrics tracking
-byvalver --ml --metrics input.bin output.bin
-
-# Export metrics in JSON format
-byvalver --ml --metrics-json --metrics-file results input.bin output.bin
-
-# Export metrics in CSV format
-byvalver --ml --metrics-csv --metrics-file data input.bin output.bin
-
-# Show live metrics during processing
-byvalver --ml --metrics-live input.bin output.bin
-
-# Combine metrics with all processing modes
-byvalver --ml --metrics --metrics-json --pic --biphasic input.bin output.bin
-
-# Full metrics suite for research
-byvalver --ml --metrics --metrics-json --metrics-csv --metrics-live \
-  --metrics-file experiment_01 input.bin output.bin
-```
-
-### Multiple Options Combined
-```bash
-# Full-featured processing with biphasic mode and XOR encoding
-byvalver --pic --biphasic --xor-encode 0x11223344 input.bin output.bin
-
-# ML with all features enabled
-byvalver --ml --pic --biphasic --xor-encode 0x11223344 input.bin output.bin
-
-# With detailed statistics and verbose output
-byvalver --biphasic --stats --verbose input.bin output.bin
-```
-
-### Advanced Usage
-```bash
-# Validate input without processing
-byvalver --dry-run shellcode.bin
-
-# Process with size limit and timeout
-byvalver --max-size 500000 --timeout 30 shellcode.bin output.bin
-
-# Use configuration file
-byvalver --config myconfig.json input.bin output.bin
-
-# Process with output format conversion
-byvalver --format python shellcode.bin > shellcode.py
-```
-
-## Configuration Files
-
-BYVALVER supports JSON configuration files for default settings:
-
-```json
-{
-  "defaults": {
-    "biphasic": true,
-    "pic": false,
-    "format": "raw",
-    "arch": "x64"
-  },
-  "processing": {
-    "strategy_limit": 10,
-    "max_size": 1048576,
-    "timeout": 30
-  },
-  "output": {
-    "verbose": false,
-    "color": true,
-    "validate": true
-  },
-  "updates": {
-    "check_on_startup": true,
-    "channel": "stable"
-  }
-}
-```
-
-## Decoder Stub Architecture
-
-When using XOR encoding, BYVALVER generates a JMP-CALL-POP decoder stub with the following characteristics:
-
-1. **JMP-CALL-POP pattern**: Uses position-independent code to locate the encoded shellcode
-2. **Key storage**: The 4-byte XOR key is stored immediately after the decoder stub
-3. **Length encoding**: The length of the original shellcode is stored and XOR-encoded with a null-free key
-4. **Multi-byte cycling**: The decoder cycles through all 4 bytes of the key for enhanced obfuscation
-5. **Execution flow**: After decoding, execution jumps to the decoded shellcode
-
-## Output Information
-
-BYVALVER provides detailed output information during processing:
-
-- **Original shellcode size**: Size of the input shellcode before processing
-- **Modified shellcode size**: Size of the output shellcode after processing
-- **Processing statistics**: Information about strategies applied and transformations made
-- **Status messages**: Progress indicators during obfuscation and null-byte elimination passes
-
-## Error Handling
-
-BYVALVER includes comprehensive error handling with detailed, informative error messages:
-
-### File Access Errors
-- **Missing Input Files**: Clear reporting when input files cannot be found or accessed
-- **Output File Errors**: Detailed messages showing the exact file path and specific error reason
-- **Automatic Directory Creation**: Parent directories are automatically created for output files
-- **Permission Issues**: Explicit reporting of write permission problems
-- **Example Error Messages**:
-  ```
-  Error: Cannot open output file 'results/output.bin': Permission denied
-  Error: Cannot create parent directories for output file '/protected/output.bin'
-  ```
-
-### Memory and Processing Errors
-- **Memory allocation failures**: Graceful handling of insufficient memory conditions
-- **Invalid shellcode**: Detection and reporting of malformed input
-- **Processing failures**: Identification of specific instructions or patterns that cannot be processed
-
-### Directory Handling
-- **Automatic Creation**: Output directories are created automatically if they don't exist
-- **Recursive Creation**: Supports deeply nested directory structures
-- **Validation**: Ensures paths are valid before attempting to create files
-- **Error Recovery**: Clear messages if directory creation fails due to permissions or other issues
-
-### Exit Codes
-Standard exit codes for automation and scripting:
-  - **0**: Success - processing completed without errors
-  - **1**: General error - unspecified error occurred
-  - **2**: Invalid arguments - command-line arguments are incorrect
-  - **3**: Input file error - cannot read or access input file
-  - **4**: Processing failed - shellcode processing encountered errors
-  - **5**: Output file error - cannot write to output file or create directories
-  - **6**: Timeout exceeded - processing took longer than specified timeout
-
-## Performance Considerations
-
-- **Processing time**: Complex shellcode with many instructions may require significant processing time
-- **Memory usage**: Large shellcode files require proportional memory allocation
-- **Strategy selection**: The tool automatically selects the most appropriate strategies based on instruction patterns and priorities
-- **Size increase**: Null-byte elimination may result in larger output shellcode due to instruction transformations
-
-## Verification
-
-After processing, it's recommended to verify:
-
-1. **Null byte elimination**: Ensure no null bytes remain in the output
-2. **Functional equivalence**: Confirm the processed shellcode maintains the original functionality
-3. **Size requirements**: Verify the output size meets any constraints for the intended use case
-4. **Runtime behavior**: Test the processed shellcode in the target environment to ensure proper execution

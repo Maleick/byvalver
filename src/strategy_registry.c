@@ -105,16 +105,15 @@ void register_linux_string_push_strategies(); // Forward declaration - Linux str
 void register_syscall_number_strategies(); // Forward declaration - Linux syscall number encoding strategies - Priority 77-78
 void register_new_strategies(); // Forward declaration - New strategies for specific null-byte patterns
 
-void init_strategies() {
+void init_strategies(int use_ml) {
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Initializing strategies\n");
     #endif
 
     strategy_count = 0;
 
-    // Initialize ML strategist if available
-    if (!g_ml_initialized) {
-        // Try to load a pre-trained model, or initialize with default if not available
+    // Initialize ML strategist if ML is enabled
+    if (use_ml && !g_ml_initialized) {
         int ml_init_result = ml_strategist_init(&g_ml_strategist, "./ml_models/byvalver_ml_model.bin");
         if (ml_init_result != 0) {
             // If model file doesn't exist, initialize without loading a specific model
@@ -123,6 +122,10 @@ void init_strategies() {
         g_ml_initialized = 1;
         #ifdef DEBUG
         fprintf(stderr, "[DEBUG] ML Strategist initialized\n");
+        #endif
+    } else if (!use_ml) {
+        #ifdef DEBUG
+        fprintf(stderr, "[DEBUG] ML Strategist disabled by configuration\n");
         #endif
     }
 
@@ -226,24 +229,8 @@ strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count) {
     if (g_ml_initialized && !g_ml_in_progress) {
         g_ml_in_progress = 1; // Set recursion guard
 
-        // Record a prediction for metrics tracking before reprioritization
-        ml_prediction_result_t prediction;
-        int prediction_success = 0;
-        double prediction_confidence = 0.0;
-
-        if (ml_get_strategy_recommendation(&g_ml_strategist, insn, &prediction) == 0) {
-            prediction_confidence = prediction.confidence;
-            prediction_success = 1;
-        }
-
         // Use ML to reprioritize strategies
         ml_reprioritize_strategies(&g_ml_strategist, insn, applicable_strategies, &applicable_count);
-
-        // Record that a prediction was made
-        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
-        if (metrics && prediction_success) {
-            ml_metrics_record_prediction(metrics, 1, prediction_confidence);
-        }
 
         g_ml_in_progress = 0; // Clear recursion guard
     } else {
@@ -436,6 +423,7 @@ int provide_ml_feedback(cs_insn* original_insn,
                         strategy_t* applied_strategy,
                         int success,
                         size_t new_shellcode_size) {
+    // Only provide ML feedback if ML is initialized and metrics are enabled
     if (!g_ml_initialized || !original_insn || g_ml_in_progress) {
         return -1;
     }
@@ -470,6 +458,8 @@ int save_ml_model(const char* path) {
 
     return ml_strategist_save_model(&g_ml_strategist, path);
 }
+
+
 
 
 

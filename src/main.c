@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h> // For uint8_t, uint32_t
 #include <errno.h>
+#include <sys/stat.h>
 #include "core.h"
 #include "obfuscation_strategy_registry.h"
 #include "pic_generation.h"
@@ -10,9 +11,198 @@
 #include "ml_strategist.h"
 #include "strategy.h"  // For cleanup_ml_strategist
 #include "utils.h"  // For create_parent_dirs
+#include "batch_processing.h"  // For batch directory processing
 #include "../decoder.h" // Include the generated decoder stub header
 
 size_t find_entry_point(const uint8_t *shellcode, size_t size);
+
+// Process a single file with the given configuration
+// Returns EXIT_SUCCESS on success, or an error code on failure
+static int process_single_file(const char *input_file, const char *output_file,
+                               byvalver_config_t *config, size_t *input_size_out,
+                               size_t *output_size_out) {
+    // Open input file
+    FILE *file = fopen(input_file, "rb");
+    if (!file) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Cannot open input file '%s': %s\n",
+                    input_file, strerror(errno));
+        }
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    // Get file size
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    if (file_size <= 0) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Input file '%s' is empty or invalid\n", input_file);
+        }
+        fclose(file);
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    // Check if file size exceeds max allowed size
+    if (config->max_size > 0 && (size_t)file_size > config->max_size) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Input file '%s' size (%ld bytes) exceeds maximum allowed size (%zu bytes)\n",
+                    input_file, file_size, config->max_size);
+        }
+        fclose(file);
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    // Allocate memory for shellcode
+    uint8_t *shellcode = malloc(file_size);
+    if (!shellcode) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Memory allocation failed for '%s'\n", input_file);
+        }
+        fclose(file);
+        return EXIT_GENERAL_ERROR;
+    }
+
+    // Read shellcode from file
+    size_t bytes_read = fread(shellcode, 1, file_size, file);
+    if (bytes_read != (size_t)file_size) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Could not read complete file '%s'\n", input_file);
+        }
+        free(shellcode);
+        fclose(file);
+        return EXIT_INPUT_FILE_ERROR;
+    }
+
+    fclose(file);
+
+    if (input_size_out) {
+        *input_size_out = file_size;
+    }
+
+    // In dry-run mode, just exit after reading the file successfully
+    if (config->dry_run) {
+        free(shellcode);
+        return EXIT_SUCCESS;
+    }
+
+    // Process shellcode
+    struct buffer new_shellcode;
+    if (config->use_pic_generation) {
+        // Initialize PIC options
+        PICOptions pic_opts;
+        pic_init_options(&pic_opts);
+        pic_opts.use_jmp_call_pop = 1;
+        pic_opts.use_api_hashing = 1;
+        pic_opts.include_anti_debug = 0;
+
+        // Generate PIC shellcode
+        PICResult pic_result;
+        int pic_ret = pic_generate(shellcode, file_size, &pic_opts, &pic_result);
+        if (pic_ret != 0) {
+            if (!config->quiet) {
+                fprintf(stderr, "Error: PIC generation failed for '%s'\n", input_file);
+            }
+            free(shellcode);
+            return EXIT_PROCESSING_FAILED;
+        }
+
+        // Now apply null-byte elimination to the PIC shellcode
+        if (config->use_biphasic) {
+            new_shellcode = biphasic_process(pic_result.data, pic_result.size);
+        } else {
+            new_shellcode = remove_null_bytes(pic_result.data, pic_result.size);
+        }
+
+        // Free PIC result
+        pic_free_result(&pic_result);
+    } else if (config->use_biphasic) {
+        new_shellcode = biphasic_process(shellcode, file_size);
+    } else {
+        new_shellcode = remove_null_bytes(shellcode, file_size);
+    }
+
+    // Verify the shellcode was processed successfully
+    if (new_shellcode.data == NULL && new_shellcode.size == 0) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Shellcode processing failed for '%s'\n", input_file);
+        }
+        free(shellcode);
+        return EXIT_PROCESSING_FAILED;
+    }
+
+    struct buffer final_shellcode;
+    buffer_init(&final_shellcode);
+
+    if (config->encode_shellcode) {
+        uint8_t *decoder_stub = decoder_bin;
+        size_t decoder_len = decoder_bin_len;
+
+        // Append the decoder stub to the final shellcode buffer
+        buffer_append(&final_shellcode, decoder_stub, decoder_len);
+
+        // Append the 4-byte key
+        buffer_append(&final_shellcode, (uint8_t *)&config->xor_key, 4);
+
+        // Define the null-free XOR key for the length
+        const uint32_t NULL_FREE_LENGTH_XOR_KEY = 0x11223344;
+        // Calculate the XOR-encoded length
+        uint32_t encoded_length = new_shellcode.size ^ NULL_FREE_LENGTH_XOR_KEY;
+        // Append the 4-byte XOR-encoded length of the *original* shellcode (before XOR encoding)
+        buffer_append(&final_shellcode, (uint8_t *)&encoded_length, 4);
+
+        // XOR encode the new_shellcode.data with the 4-byte key
+        for (size_t i = 0; i < new_shellcode.size; i++) {
+            new_shellcode.data[i] ^= ((uint8_t *)&config->xor_key)[i % 4];
+        }
+
+        // Append the XOR-encoded shellcode to the final shellcode buffer
+        buffer_append(&final_shellcode, new_shellcode.data, new_shellcode.size);
+
+    } else {
+        // If no XOR encoding, just append the new_shellcode directly
+        buffer_append(&final_shellcode, new_shellcode.data, new_shellcode.size);
+    }
+
+    if (output_size_out) {
+        *output_size_out = final_shellcode.size;
+    }
+
+    // Write modified shellcode to output file
+    // First, create parent directories if needed
+    if (create_parent_dirs(output_file) != 0) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Cannot create parent directories for output file '%s'\n",
+                    output_file);
+        }
+        free(shellcode);
+        buffer_free(&new_shellcode);
+        buffer_free(&final_shellcode);
+        return EXIT_OUTPUT_FILE_ERROR;
+    }
+
+    FILE *out_file = fopen(output_file, "wb");
+    if (!out_file) {
+        if (!config->quiet) {
+            fprintf(stderr, "Error: Cannot open output file '%s': %s\n",
+                    output_file, strerror(errno));
+        }
+        free(shellcode);
+        buffer_free(&new_shellcode);
+        buffer_free(&final_shellcode);
+        return EXIT_OUTPUT_FILE_ERROR;
+    }
+
+    fwrite(final_shellcode.data, 1, final_shellcode.size, out_file);
+    fclose(out_file);
+
+    free(shellcode);
+    buffer_free(&new_shellcode);
+    buffer_free(&final_shellcode);
+
+    return EXIT_SUCCESS;
+}
 
 int main(int argc, char *argv[]) {
     // Create and initialize configuration first
@@ -81,73 +271,7 @@ int main(int argc, char *argv[]) {
         return EXIT_INVALID_ARGUMENTS;
     }
 
-    // Open input file
-    FILE *file = fopen(config->input_file, "rb");
-    if (!file) {
-        perror("fopen input file");
-        config_free(config);
-        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_INPUT_FILE_ERROR;
-    }
-
-    // Get file size
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    if (file_size <= 0) {
-        fprintf(stderr, "Error: Input file is empty or invalid\n");
-        fclose(file);
-        config_free(config);
-        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_INPUT_FILE_ERROR;
-    }
-
-    // Check if file size exceeds max allowed size
-    if (config->max_size > 0 && (size_t)file_size > config->max_size) {
-        fprintf(stderr, "Error: Input file size (%ld bytes) exceeds maximum allowed size (%zu bytes)\n",
-                file_size, config->max_size);
-        fclose(file);
-        config_free(config);
-        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_INPUT_FILE_ERROR;
-    }
-
-    // Allocate memory for shellcode
-    uint8_t *shellcode = malloc(file_size);
-    if (!shellcode) {
-        fprintf(stderr, "Error: Memory allocation failed\n");
-        fclose(file);
-        config_free(config);
-        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_GENERAL_ERROR;
-    }
-
-    // Read shellcode from file
-    size_t bytes_read = fread(shellcode, 1, file_size, file);
-    if (bytes_read != (size_t)file_size) {
-        fprintf(stderr, "Error: Could not read complete file\n");
-        free(shellcode);
-        fclose(file);
-        config_free(config);
-        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_INPUT_FILE_ERROR;
-    }
-
-    fclose(file);
-
-    // In dry-run mode, just exit after reading the file successfully
-    if (config->dry_run) {
-        if (!config->quiet) {
-            printf("✓ Input file validated successfully\n");
-            printf("File size: %ld bytes\n", file_size);
-        }
-        free(shellcode);
-        config_free(config);
-        return EXIT_SUCCESS;
-    }
-
-    // Initialize strategy registries
+    // Initialize strategy registries (needed for both single and batch mode)
     init_strategies(); // Pass 2: Null-byte elimination strategies
 
     if (config->use_biphasic) {
@@ -159,133 +283,173 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Process shellcode
-    struct buffer new_shellcode;
-    if (config->use_pic_generation) {
-        if (!config->quiet) {
-            fprintf(stderr, "\n🏗️  PIC GENERATION MODE ENABLED\n");
-            fprintf(stderr, "   Converting to position-independent code\n\n");
-        }
+    // Check if input is a directory
+    if (is_directory(config->input_file)) {
+        // BATCH MODE
+        config->batch_mode = 1;
 
-        // Initialize PIC options
-        PICOptions pic_opts;
-        pic_init_options(&pic_opts);
-        pic_opts.use_jmp_call_pop = 1;
-        pic_opts.use_api_hashing = 1;
-        pic_opts.include_anti_debug = 0;
-
-        // Generate PIC shellcode
-        PICResult pic_result;
-        int pic_ret = pic_generate(shellcode, file_size, &pic_opts, &pic_result);
-        if (pic_ret != 0) {
-            fprintf(stderr, "Error: PIC generation failed\n");
-            free(shellcode);
+        // Validate output is also a directory path
+        if (!config->output_file || strcmp(config->output_file, "output.bin") == 0) {
+            fprintf(stderr, "Error: Output directory is required for batch processing\n\n");
+            print_usage(stderr, argv[0]);
             config_free(config);
             if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-            return EXIT_PROCESSING_FAILED;
+            return EXIT_INVALID_ARGUMENTS;
         }
 
-        // Now apply null-byte elimination to the PIC shellcode
-        if (config->use_biphasic) {
-            new_shellcode = biphasic_process(pic_result.data, pic_result.size);
-        } else {
-            new_shellcode = remove_null_bytes(pic_result.data, pic_result.size);
-        }
-
-        // Free PIC result
-        pic_free_result(&pic_result);
-    } else if (config->use_biphasic) {
-        new_shellcode = biphasic_process(shellcode, file_size);
-    } else {
-        new_shellcode = remove_null_bytes(shellcode, file_size);
-    }
-
-    // Verify the shellcode was processed successfully
-    if (new_shellcode.data == NULL && new_shellcode.size == 0) {
-        fprintf(stderr, "Error: Shellcode processing failed\n");
-        free(shellcode);
-        config_free(config);
-        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_PROCESSING_FAILED;
-    }
-
-    struct buffer final_shellcode;
-    buffer_init(&final_shellcode);
-
-    if (config->encode_shellcode) {
         if (!config->quiet) {
-            printf("Encoding shellcode with XOR key: 0x%08x\n", config->xor_key);
+            printf("\n📁 BATCH PROCESSING MODE\n");
+            printf("Input directory:  %s\n", config->input_file);
+            printf("Output directory: %s\n", config->output_file);
+            printf("File pattern:     %s\n", config->file_pattern);
+            printf("Recursive:        %s\n", config->recursive ? "yes" : "no");
+            printf("Preserve struct:  %s\n", config->preserve_structure ? "yes" : "no");
+            printf("\n");
         }
 
-        uint8_t *decoder_stub = decoder_bin;
-        size_t decoder_len = decoder_bin_len;
+        // Find all files matching the pattern
+        file_list_t file_list;
+        file_list_init(&file_list);
 
-        // Append the decoder stub to the final shellcode buffer
-        buffer_append(&final_shellcode, decoder_stub, decoder_len);
-
-        // Append the 4-byte key
-        buffer_append(&final_shellcode, (uint8_t *)&config->xor_key, 4);
-
-        // Define the null-free XOR key for the length
-        const uint32_t NULL_FREE_LENGTH_XOR_KEY = 0x11223344;
-        // Calculate the XOR-encoded length
-        uint32_t encoded_length = new_shellcode.size ^ NULL_FREE_LENGTH_XOR_KEY;
-        // Append the 4-byte XOR-encoded length of the *original* shellcode (before XOR encoding)
-        buffer_append(&final_shellcode, (uint8_t *)&encoded_length, 4);
-
-        // XOR encode the new_shellcode.data with the 4-byte key
-        for (size_t i = 0; i < new_shellcode.size; i++) {
-            new_shellcode.data[i] ^= ((uint8_t *)&config->xor_key)[i % 4];
+        if (find_files(config->input_file, config->file_pattern, config->recursive, &file_list) != 0) {
+            fprintf(stderr, "Error: Failed to scan directory '%s'\n", config->input_file);
+            file_list_free(&file_list);
+            config_free(config);
+            if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
+            return EXIT_INPUT_FILE_ERROR;
         }
 
-        // Append the XOR-encoded shellcode to the final shellcode buffer
-        buffer_append(&final_shellcode, new_shellcode.data, new_shellcode.size);
+        if (file_list.count == 0) {
+            if (!config->quiet) {
+                printf("No files found matching pattern '%s'\n", config->file_pattern);
+            }
+            file_list_free(&file_list);
+            config_free(config);
+            if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
+            return EXIT_SUCCESS;
+        }
 
-    } else {
-        // If no XOR encoding, just append the new_shellcode directly
-        buffer_append(&final_shellcode, new_shellcode.data, new_shellcode.size);
-    }
+        if (!config->quiet) {
+            printf("Found %zu file(s) to process\n\n", file_list.count);
+        }
 
-    if (!config->quiet) {
-        printf("Original shellcode size: %ld\n", file_size);
-        printf("Modified shellcode size: %zu\n", final_shellcode.size);
-    }
+        // Initialize batch statistics
+        batch_stats_t stats;
+        batch_stats_init(&stats);
+        stats.total_files = file_list.count;
 
-    // Write modified shellcode to output file
-    // First, create parent directories if needed
-    if (create_parent_dirs(config->output_file) != 0) {
-        fprintf(stderr, "Error: Cannot create parent directories for output file '%s'\n",
-                config->output_file);
-        free(shellcode);
-        buffer_free(&new_shellcode);
-        buffer_free(&final_shellcode);
+        // Process each file
+        for (size_t i = 0; i < file_list.count; i++) {
+            const char *input_path = file_list.paths[i];
+
+            // Construct output path
+            char *output_path = construct_output_path(input_path, config->input_file,
+                                                     config->output_file, config->preserve_structure);
+            if (!output_path) {
+                if (!config->quiet) {
+                    fprintf(stderr, "Warning: Failed to construct output path for '%s'\n", input_path);
+                }
+                stats.skipped_files++;
+                if (!config->continue_on_error) {
+                    break;
+                }
+                continue;
+            }
+
+            if (!config->quiet && config->verbose) {
+                printf("[%zu/%zu] Processing: %s\n", i + 1, file_list.count, input_path);
+            } else if (!config->quiet) {
+                printf("[%zu/%zu] %s\n", i + 1, file_list.count, input_path);
+            }
+
+            // Process the file
+            size_t input_size = 0, output_size = 0;
+            int result = process_single_file(input_path, output_path, config, &input_size, &output_size);
+
+            if (result == EXIT_SUCCESS) {
+                stats.processed_files++;
+                stats.total_input_bytes += input_size;
+                stats.total_output_bytes += output_size;
+
+                if (!config->quiet && config->verbose) {
+                    printf("  ✓ Success: %zu → %zu bytes\n", input_size, output_size);
+                }
+            } else {
+                stats.failed_files++;
+                if (!config->quiet) {
+                    fprintf(stderr, "  ✗ Failed with error code %d\n", result);
+                }
+
+                if (!config->continue_on_error) {
+                    free(output_path);
+                    break;
+                }
+            }
+
+            free(output_path);
+        }
+
+        // Print statistics
+        batch_stats_print(&stats, config->quiet);
+
+        // Cleanup
+        file_list_free(&file_list);
+
+        // Export metrics if requested
+        if (ml_initialized && config->metrics_enabled) {
+            if (config->metrics_export_json) {
+                char json_file[512];
+                snprintf(json_file, sizeof(json_file), "%s.json",
+                        config->metrics_output_file ? config->metrics_output_file : "./ml_metrics");
+                ml_strategist_export_metrics_json(json_file);
+            }
+            if (config->metrics_export_csv) {
+                char csv_file[512];
+                snprintf(csv_file, sizeof(csv_file), "%s.csv",
+                        config->metrics_output_file ? config->metrics_output_file : "./ml_metrics");
+                ml_strategist_export_metrics_csv(csv_file);
+            }
+        }
+
         config_free(config);
         if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_OUTPUT_FILE_ERROR;
+
+        // Return success if at least one file was processed successfully
+        return (stats.processed_files > 0) ? EXIT_SUCCESS : EXIT_PROCESSING_FAILED;
     }
 
-    FILE *out_file = fopen(config->output_file, "wb");
-    if (!out_file) {
-        fprintf(stderr, "Error: Cannot open output file '%s': %s\n",
-                config->output_file, strerror(errno));
-        free(shellcode);
-        buffer_free(&new_shellcode);
-        buffer_free(&final_shellcode);
+    // SINGLE FILE MODE
+    if (config->use_pic_generation && !config->quiet) {
+        fprintf(stderr, "\n🏗️  PIC GENERATION MODE ENABLED\n");
+        fprintf(stderr, "   Converting to position-independent code\n\n");
+    }
+
+    if (config->encode_shellcode && !config->quiet) {
+        printf("Encoding shellcode with XOR key: 0x%08x\n", config->xor_key);
+    }
+
+    // Process the single file
+    size_t input_size = 0, output_size = 0;
+    int result = process_single_file(config->input_file, config->output_file,
+                                     config, &input_size, &output_size);
+
+    if (result != EXIT_SUCCESS) {
         config_free(config);
         if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
-        return EXIT_OUTPUT_FILE_ERROR;
+        return result;
     }
 
-    fwrite(final_shellcode.data, 1, final_shellcode.size, out_file);
-    fclose(out_file);
-
-    if (!config->quiet) {
+    // In dry-run mode, just show validation message
+    if (config->dry_run) {
+        if (!config->quiet) {
+            printf("✓ Input file validated successfully\n");
+            printf("File size: %zu bytes\n", input_size);
+        }
+    } else if (!config->quiet) {
+        printf("Original shellcode size: %zu\n", input_size);
+        printf("Modified shellcode size: %zu\n", output_size);
         printf("Modified shellcode written to: %s\n", config->output_file);
     }
-
-    free(shellcode);
-    buffer_free(&new_shellcode);
-    buffer_free(&final_shellcode);
 
     // Export metrics if requested
     if (ml_initialized && config->metrics_enabled) {

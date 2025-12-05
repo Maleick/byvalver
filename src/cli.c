@@ -41,6 +41,13 @@ byvalver_config_t* config_create_default(void) {
     config->metrics_export_csv = 0;
     config->metrics_show_live = 0;
 
+    // Batch processing defaults
+    config->batch_mode = 0;
+    config->recursive = 0;
+    config->file_pattern = "*.bin";
+    config->preserve_structure = 1;  // Preserve by default
+    config->continue_on_error = 0;
+
     return config;
 }
 
@@ -94,7 +101,13 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --metrics-json                Export metrics in JSON format\n");
     fprintf(stream, "      --metrics-csv                 Export metrics in CSV format\n");
     fprintf(stream, "      --metrics-live                Show live metrics during processing\n\n");
-    
+
+    fprintf(stream, "    Batch Processing Options:\n");
+    fprintf(stream, "      -r, --recursive               Process directories recursively\n");
+    fprintf(stream, "      --pattern PATTERN             File pattern to match (default: *.bin)\n");
+    fprintf(stream, "      --no-preserve-structure       Don't preserve directory structure in output\n");
+    fprintf(stream, "      --continue-on-error           Continue processing files even if some fail\n\n");
+
     fprintf(stream, "    Advanced Options:\n");
     fprintf(stream, "      --strategy-limit N            Limit number of strategies to consider per instruction\n");
     fprintf(stream, "      --max-size N                  Maximum output size (in bytes)\n");
@@ -118,7 +131,13 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     
     fprintf(stream, "    Generate position-independent code:\n");
     fprintf(stream, "      %s --pic shellcode.bin output.bin\n\n", program_name);
-    
+
+    fprintf(stream, "    Batch process directory:\n");
+    fprintf(stream, "      %s input_dir/ output_dir/\n\n", program_name);
+
+    fprintf(stream, "    Batch process recursively with pattern:\n");
+    fprintf(stream, "      %s -r --pattern \"*.bin\" --biphasic input_dir/ output_dir/\n\n", program_name);
+
     fprintf(stream, "EXIT CODES\n");
     fprintf(stream, "    %d: Success\n", EXIT_SUCCESS);
     fprintf(stream, "    %d: General error\n", EXIT_GENERAL_ERROR);
@@ -176,6 +195,12 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"metrics-csv", no_argument, 0, 0},
         {"metrics-live", no_argument, 0, 0},
 
+        // Batch processing options
+        {"recursive", no_argument, 0, 'r'},
+        {"pattern", required_argument, 0, 0},
+        {"no-preserve-structure", no_argument, 0, 0},
+        {"continue-on-error", no_argument, 0, 0},
+
         // Advanced options
         {"strategy-limit", required_argument, 0, 0},
         {"max-size", required_argument, 0, 0},
@@ -191,7 +216,7 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
     };
     
     // Parse arguments using getopt_long
-    while ((opt = getopt_long(argc, argv, "h?vVqo:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "h?vVqo:r", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 config->help_requested = 1;
@@ -213,7 +238,11 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                 config->output_file = optarg;
                 config->output_file_specified_via_flag = 1;
                 break;
-                
+
+            case 'r':
+                config->recursive = 1;
+                break;
+
             case 0: // Long options without short equivalents
                 {
                     const char *opt_name = long_options[option_index].name;
@@ -318,6 +347,15 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                     }
                     else if (strcmp(opt_name, "validate") == 0) {
                         config->validate_output = 1;
+                    }
+                    else if (strcmp(opt_name, "pattern") == 0) {
+                        config->file_pattern = optarg;
+                    }
+                    else if (strcmp(opt_name, "no-preserve-structure") == 0) {
+                        config->preserve_structure = 0;
+                    }
+                    else if (strcmp(opt_name, "continue-on-error") == 0) {
+                        config->continue_on_error = 1;
                     }
                 }
                 break;

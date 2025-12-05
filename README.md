@@ -126,6 +126,100 @@ byvalver input.bin data/experiments/2025/run_001/output.bin
 
 This quality-of-life improvement streamlines batch processing workflows and eliminates manual directory setup steps.
 
+## BATCH DIRECTORY PROCESSING
+
+**New in v2.2**: BYVALVER now includes comprehensive batch directory processing with full compatibility for all existing options.
+
+### New Command-Line Options
+
+- `-r, --recursive` - Process directories recursively
+- `--pattern PATTERN` - File pattern to match (default: *.bin)
+- `--no-preserve-structure` - Flatten output (don't preserve directory structure)
+- `--continue-on-error` - Continue processing even if some files fail
+
+### Auto-Detection
+
+Batch mode is automatically enabled when the input is a directory:
+
+```bash
+# Single file mode (automatic)
+byvalver input.bin output.bin
+
+# Batch mode (automatic)
+byvalver input_dir/ output_dir/
+```
+
+### Compatibility with All Existing Options
+
+All options work seamlessly with batch processing:
+- `--biphasic` - Applies biphasic processing to all files
+- `--pic` - Generates PIC code for all files
+- `--ml` - Uses ML strategy selection for all files
+- `--xor-encode KEY` - XOR encodes all processed files
+- `--metrics, --metrics-json, --metrics-csv` - Aggregates metrics across all files
+- `--quiet, --verbose` - Controls output level for batch operations
+- `--dry-run` - Validates all files without processing
+
+### Usage Examples
+
+Process all .bin files in a directory (non-recursive):
+```bash
+byvalver shellcodes/ output/
+```
+
+Process recursively with all subdirectories:
+```bash
+byvalver -r shellcodes/ output/
+```
+
+Process only .txt files recursively:
+```bash
+byvalver -r --pattern "*.txt" input/ output/
+```
+
+Process with biphasic mode and XOR encoding:
+```bash
+byvalver -r --biphasic --xor-encode 0x12345678 input/ output/
+```
+
+Flatten output (don't preserve directory structure):
+```bash
+byvalver -r --no-preserve-structure input/ output/
+```
+
+Continue processing even if some files fail:
+```bash
+byvalver -r --continue-on-error input/ output/
+```
+
+### Implementation Details
+
+**New Files:**
+- `src/batch_processing.h` - Batch processing API
+- `src/batch_processing.c` - Directory traversal, file discovery, and statistics
+
+**Key Features:**
+- **Automatic directory creation** - Parent directories created automatically (preserves existing functionality)
+- **Pattern matching** - Uses fnmatch for flexible file pattern matching
+- **Directory structure preservation** - Optional preservation of input directory hierarchy
+- **Comprehensive statistics** - Tracks total files, processed, failed, skipped, and size metrics
+- **Progress reporting** - Shows progress as [N/Total] filename
+- **Error handling** - Configurable error handling (stop or continue on errors)
+
+### Tested Scenarios
+
+✅ Non-recursive batch processing
+✅ Recursive batch processing
+✅ Directory structure preservation
+✅ Flattened output (--no-preserve-structure)
+✅ Custom file patterns (--pattern)
+✅ Compatibility with --biphasic
+✅ Compatibility with --xor-encode
+✅ Error handling with --continue-on-error
+✅ Empty file handling
+
+All existing single-file functionality remains unchanged and fully compatible!
+
 <br>
 
 ## BUILDING AND SETUP

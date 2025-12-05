@@ -46,6 +46,13 @@ typedef struct {
     int metrics_export_json;      // Export metrics in JSON format
     int metrics_export_csv;       // Export metrics in CSV format
     int metrics_show_live;        // Show live metrics during processing
+
+    // Batch processing options
+    int batch_mode;               // Enable batch directory processing
+    int recursive;                // Process directories recursively
+    char *file_pattern;           // File pattern to match (e.g., "*.bin")
+    int preserve_structure;       // Preserve directory structure in output
+    int continue_on_error;        // Continue processing on error
     
     // Advanced options
     char *output_format;  // "raw", "c", "python", "powershell", "hexstring"

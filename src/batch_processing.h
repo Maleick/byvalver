@@ -1,0 +1,53 @@
+#ifndef BATCH_PROCESSING_H
+#define BATCH_PROCESSING_H
+
+#include <stdint.h>
+#include <stdlib.h>
+#include "cli.h"
+
+// Structure to hold a list of file paths
+typedef struct {
+    char **paths;       // Array of file paths
+    size_t count;       // Number of files
+    size_t capacity;    // Allocated capacity
+} file_list_t;
+
+// Structure to hold batch processing statistics
+typedef struct {
+    size_t total_files;
+    size_t processed_files;
+    size_t failed_files;
+    size_t skipped_files;
+    size_t total_input_bytes;
+    size_t total_output_bytes;
+} batch_stats_t;
+
+// Function to check if a path is a directory
+int is_directory(const char *path);
+
+// Function to check if a filename matches a pattern (simple wildcard matching)
+int match_pattern(const char *filename, const char *pattern);
+
+// Initialize a file list
+void file_list_init(file_list_t *list);
+
+// Add a file to the list
+int file_list_add(file_list_t *list, const char *path);
+
+// Free a file list
+void file_list_free(file_list_t *list);
+
+// Find all files in a directory matching the pattern
+int find_files(const char *dir_path, const char *pattern, int recursive, file_list_t *list);
+
+// Construct output path from input path
+char* construct_output_path(const char *input_path, const char *input_base,
+                           const char *output_base, int preserve_structure);
+
+// Initialize batch statistics
+void batch_stats_init(batch_stats_t *stats);
+
+// Print batch statistics
+void batch_stats_print(const batch_stats_t *stats, int quiet);
+
+#endif // BATCH_PROCESSING_H

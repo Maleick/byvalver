@@ -71,19 +71,23 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
     
     // For higher bytes, we'll need more complex construction
     // Use shift and OR operations to construct full value
-    uint8_t high_word = (target_val >> 16) & 0xFFFF;
+    uint16_t high_word = (target_val >> 16) & 0xFFFF;
     if (high_word != 0) {
         // Push current value and work with higher bytes
         uint8_t push_eax[] = {0x50}; // PUSH EAX
         buffer_append(b, push_eax, 1);
-        
-        // Build high part
-        generate_mov_eax_imm(b, high_word << 16); // Shift high word to upper position
-        
+
+        // Build high part - load the value then shift it to upper position
+        generate_mov_eax_imm(b, high_word); // Load high word value (null-free)
+
+        // Shift left by 16 to move to upper word position
+        uint8_t shl_eax_16[] = {0xC1, 0xE0, 0x10}; // SHL EAX, 16
+        buffer_append(b, shl_eax_16, 3);
+
         // Pop original low part
         uint8_t pop_edx[] = {0x5A}; // POP EDX
         buffer_append(b, pop_edx, 1);
-        
+
         // OR together
         uint8_t or_eax_edx[] = {0x09, 0xD0}; // OR EAX, EDX
         buffer_append(b, or_eax_edx, 2);

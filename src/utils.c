@@ -252,9 +252,34 @@ size_t get_push_imm32_size(__attribute__((unused)) uint32_t imm) {
 }
 
 void generate_push_imm32(struct buffer *b, uint32_t imm) {
-    uint8_t code[] = {0x68, 0, 0, 0, 0};  // PUSH imm32
-    memcpy(code + 1, &imm, 4);
-    buffer_append(b, code, 5);
+    // Check if the immediate value has null bytes
+    int has_null = 0;
+    for (int i = 0; i < 4; i++) {
+        if (((imm >> (i * 8)) & 0xFF) == 0x00) {
+            has_null = 1;
+            break;
+        }
+    }
+
+    if (!has_null) {
+        // Direct encoding - no null bytes
+        uint8_t code[] = {0x68, 0, 0, 0, 0};  // PUSH imm32
+        memcpy(code + 1, &imm, 4);
+        buffer_append(b, code, 5);
+    } else {
+        // Use alternative: construct value in EAX then PUSH EAX
+        // Save original EAX value first
+        uint8_t push_eax[] = {0x50};  // PUSH EAX
+        buffer_append(b, push_eax, 1);
+
+        // Load the value into EAX (this handles nulls)
+        generate_mov_eax_imm(b, imm);
+
+        // Exchange with stack top: XCHG [ESP], EAX
+        // This puts our value on stack and restores EAX
+        uint8_t xchg_esp_eax[] = {0x87, 0x04, 0x24};  // XCHG [ESP], EAX
+        buffer_append(b, xchg_esp_eax, 3);
+    }
 }
 
 size_t get_push_imm8_size() {

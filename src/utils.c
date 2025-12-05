@@ -1,7 +1,12 @@
+#define _POSIX_C_SOURCE 200809L
 #include "utils.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <libgen.h>
+#include <errno.h>
 
 // Initialize random seed
 __attribute__((constructor))
@@ -1002,5 +1007,59 @@ static inline void verify_no_nulls(struct buffer *b, size_t start, const char* f
             fprintf(stderr, "ERROR: Null byte detected at offset %zu (function: %s)\n", i - start, func_name);
         }
     }
+}
+
+// Create parent directories for a file path if they don't exist
+int create_parent_dirs(const char *filepath) {
+    if (!filepath || filepath[0] == '\0') {
+        return -1;
+    }
+
+    // Make a copy of the path since dirname may modify it
+    char *path_copy = strdup(filepath);
+    if (!path_copy) {
+        return -1;
+    }
+
+    // Get the directory part
+    char *dir = dirname(path_copy);
+
+    // If directory is "." or "/", no need to create
+    if (strcmp(dir, ".") == 0 || strcmp(dir, "/") == 0) {
+        free(path_copy);
+        return 0;
+    }
+
+    // Check if directory exists
+    struct stat st;
+    if (stat(dir, &st) == 0) {
+        // Directory exists
+        free(path_copy);
+        return S_ISDIR(st.st_mode) ? 0 : -1;
+    }
+
+    // Directory doesn't exist, create parent directories recursively
+    char *path_for_recursion = strdup(dir);
+    if (!path_for_recursion) {
+        free(path_copy);
+        return -1;
+    }
+
+    int result = create_parent_dirs(path_for_recursion);
+    free(path_for_recursion);
+
+    if (result != 0) {
+        free(path_copy);
+        return -1;
+    }
+
+    // Create this directory
+    if (mkdir(dir, 0755) != 0 && errno != EEXIST) {
+        free(path_copy);
+        return -1;
+    }
+
+    free(path_copy);
+    return 0;
 }
 

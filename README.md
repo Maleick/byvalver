@@ -105,6 +105,27 @@ This transformation uses null-byte-free instructions to achieve the same result.
 
 **New in v2.1**: Added robust validation to detect invalid shellcode input. If Capstone disassembler returns zero instructions, BYVALVER now provides a clear error message instead of proceeding with invalid data.
 
+### Automatic Output Directory Creation
+
+**New in v2.1.1**: BYVALVER now automatically creates parent directories for output files, similar to `mkdir -p` behavior. This eliminates "No such file or directory" errors when specifying output paths with non-existent directories.
+
+**Features:**
+- **Automatic Creation**: Parent directories are created recursively as needed
+- **Deep Nesting**: Supports deeply nested directory structures (e.g., `results/2025/december/processed/output.bin`)
+- **Improved Error Messages**: Clear, detailed error messages showing the exact file path and reason for failures
+- **Zero Configuration**: No manual directory creation required before processing
+
+**Example:**
+```bash
+# Automatically creates results/processed/ directory structure
+byvalver input.bin results/processed/output.bin
+
+# Deep nesting also works
+byvalver input.bin data/experiments/2025/run_001/output.bin
+```
+
+This quality-of-life improvement streamlines batch processing workflows and eliminates manual directory setup steps.
+
 <br>
 
 ## BUILDING AND SETUP
@@ -202,12 +223,17 @@ byvalver --help
 # Basic usage: process input.bin and output to output.bin
 byvalver input.bin output.bin
 
+# Output to nested directories (automatically created)
+byvalver input.bin results/processed/output.bin
+
 # Enable biphasic processing (obfuscation + null-byte elimination)
 byvalver --biphasic input.bin output.bin
 
 # XOR encode output with 4-byte key (hex)
 byvalver --biphasic --xor-encode 0x12345678 input.bin output.bin
 ```
+
+> **Note**: BYVALVER automatically creates parent directories for output files. You don't need to manually create directories before processing.
 
 **2. GENERATE POSITION INDEPENDENT CODE**
 
@@ -855,7 +881,7 @@ This will process all .bin files in the BIG_BIN directory and generate detailed 
 
 <br>
 
-## TROUBLESHOULDING
+## TROUBLESHOOTING
 
 ### COMMON ISSUES
 
@@ -870,6 +896,13 @@ This will process all .bin files in the BIG_BIN directory and generate detailed 
 - Check that all dependencies are properly installed
 - Verify the Capstone library is accessible
 - Ensure NASM and xxd utilities are available
+
+#### Output File Errors
+- **Directory Creation**: BYVALVER automatically creates parent directories for output files
+- **Example**: `byvalver input.bin results/processed/output.bin` will automatically create `results/processed/` if it doesn't exist
+- **Permissions**: Ensure you have write permissions in the target directory
+- **Disk Space**: Verify sufficient disk space is available for output files
+- **Path Validation**: Check that the output path is valid for your operating system
 
 #### Null Byte Detection
 - Check that your output file has been properly processed
@@ -935,16 +968,8 @@ To add a new transformation strategy:
 
 <br>
 
-## PROJECT CONTEXT
-
-BYVALVER is part of a larger offensive toolchain that includes `purl_diver` (shellcode extraction from PE files) and `toxoglosser` (stealthy process injection on Windows). This toolchain represents a modular approach to payload preparation and execution, addressing critical challenges in modern offensive operations including payload generation, obfuscation, integrity preservation, and stealthy execution against advanced defenses.
-
-The tool is specifically designed for cybersecurity professionals working in penetration testing, red team operations, and malware research contexts. It enables rapid iteration on payloads by automating the tedious and error-prone process of manual null-byte elimination in shellcode.
-
-<br>
-
 <div align="center">
   <hr>
-  <p><i>null-byte free and ready!</i></p>
-  <p><b>byvalver</b> - eliminating null bytes since inception!</p>
+  <p><i>shellcode, freshly denulled</i></p>
+  <p><b>byvalver</b> - cuz is of the fact of that its the about shells and then there's the shellcode. get it? whatever... </p>
 </div>

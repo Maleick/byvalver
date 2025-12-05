@@ -2,12 +2,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h> // For uint8_t, uint32_t
+#include <errno.h>
 #include "core.h"
 #include "obfuscation_strategy_registry.h"
 #include "pic_generation.h"
 #include "cli.h"
 #include "ml_strategist.h"
 #include "strategy.h"  // For cleanup_ml_strategist
+#include "utils.h"  // For create_parent_dirs
 #include "../decoder.h" // Include the generated decoder stub header
 
 size_t find_entry_point(const uint8_t *shellcode, size_t size);
@@ -250,9 +252,22 @@ int main(int argc, char *argv[]) {
     }
 
     // Write modified shellcode to output file
+    // First, create parent directories if needed
+    if (create_parent_dirs(config->output_file) != 0) {
+        fprintf(stderr, "Error: Cannot create parent directories for output file '%s'\n",
+                config->output_file);
+        free(shellcode);
+        buffer_free(&new_shellcode);
+        buffer_free(&final_shellcode);
+        config_free(config);
+        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
+        return EXIT_OUTPUT_FILE_ERROR;
+    }
+
     FILE *out_file = fopen(config->output_file, "wb");
     if (!out_file) {
-        perror("fopen output file");
+        fprintf(stderr, "Error: Cannot open output file '%s': %s\n",
+                config->output_file, strerror(errno));
         free(shellcode);
         buffer_free(&new_shellcode);
         buffer_free(&final_shellcode);

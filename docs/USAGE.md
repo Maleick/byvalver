@@ -4,6 +4,31 @@
 
 BYVALVER is an advanced command-line tool for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies.
 
+## What's New in v2.1.1
+
+### Automatic Output Directory Creation
+
+BYVALVER now automatically creates parent directories for output files, eliminating the need for manual directory setup:
+
+**Features:**
+- **Recursive Creation**: Automatically creates entire directory paths as needed
+- **Deep Nesting Support**: Handles complex directory structures like `data/experiments/2025/batch_001/output.bin`
+- **mkdir -p Behavior**: Works similar to Unix `mkdir -p` command
+- **Improved Error Messages**: Shows exact file paths and specific error reasons when failures occur
+
+**Example:**
+```bash
+# These commands now work without pre-creating directories
+byvalver input.bin results/processed/output.bin
+byvalver input.bin experiments/2025/december/run_042/shellcode.bin
+```
+
+**Benefits:**
+- No more "No such file or directory" errors for output files
+- Streamlines batch processing workflows
+- Reduces manual directory management
+- Ideal for automated scripts and pipelines
+
 ## Installation
 
 ### Global Installation
@@ -358,7 +383,15 @@ byvalver shellcode.bin processed_shellcode.bin
 
 # Process with explicit output file option
 byvalver shellcode.bin -o processed_shellcode.bin
+
+# Output to nested directories (automatically created)
+byvalver shellcode.bin results/processed/output.bin
+
+# Deep directory nesting also works
+byvalver shellcode.bin data/experiments/2025/run_001/output.bin
 ```
+
+> **Note**: BYVALVER automatically creates parent directories for output files. You don't need to manually create directory structures before processing.
 
 ### Biphasic Processing
 ```bash
@@ -483,20 +516,39 @@ BYVALVER provides detailed output information during processing:
 
 ## Error Handling
 
-BYVALVER includes comprehensive error handling:
+BYVALVER includes comprehensive error handling with detailed, informative error messages:
 
-- **File access errors**: Proper reporting of missing input files or write permissions
+### File Access Errors
+- **Missing Input Files**: Clear reporting when input files cannot be found or accessed
+- **Output File Errors**: Detailed messages showing the exact file path and specific error reason
+- **Automatic Directory Creation**: Parent directories are automatically created for output files
+- **Permission Issues**: Explicit reporting of write permission problems
+- **Example Error Messages**:
+  ```
+  Error: Cannot open output file 'results/output.bin': Permission denied
+  Error: Cannot create parent directories for output file '/protected/output.bin'
+  ```
+
+### Memory and Processing Errors
 - **Memory allocation failures**: Graceful handling of insufficient memory conditions
 - **Invalid shellcode**: Detection and reporting of malformed input
 - **Processing failures**: Identification of specific instructions or patterns that cannot be processed
-- **Exit codes**: 
-  - 0: Success
-  - 1: General error
-  - 2: Invalid arguments
-  - 3: Input file error
-  - 4: Processing failed
-  - 5: Output file error
-  - 6: Timeout exceeded
+
+### Directory Handling
+- **Automatic Creation**: Output directories are created automatically if they don't exist
+- **Recursive Creation**: Supports deeply nested directory structures
+- **Validation**: Ensures paths are valid before attempting to create files
+- **Error Recovery**: Clear messages if directory creation fails due to permissions or other issues
+
+### Exit Codes
+Standard exit codes for automation and scripting:
+  - **0**: Success - processing completed without errors
+  - **1**: General error - unspecified error occurred
+  - **2**: Invalid arguments - command-line arguments are incorrect
+  - **3**: Input file error - cannot read or access input file
+  - **4**: Processing failed - shellcode processing encountered errors
+  - **5**: Output file error - cannot write to output file or create directories
+  - **6**: Timeout exceeded - processing took longer than specified timeout
 
 ## Performance Considerations
 

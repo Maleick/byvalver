@@ -88,4 +88,7 @@ int is_null_free(uint32_t val);
 // Check if a byte is null-free (not equal to 0x00)
 int is_null_free_byte(uint8_t byte);
 
+// Create parent directories for a file path if they don't exist
+int create_parent_dirs(const char *filepath);
+
 #endif

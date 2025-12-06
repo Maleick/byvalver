@@ -1,190 +1,131 @@
-feat: Add comprehensive verification tools and change default batch behavior to continue on errors
+feat: Add comprehensive architecture diagrams to project documentation
 
 ## Executive Summary
 
-This commit introduces three comprehensive verification tools (verify_denulled.py, verify_functionality.py, verify_semantic.py) that provide automated validation of null-byte elimination, functionality preservation, and semantic equivalence for the BYVALVER framework. It also changes the default batch processing behavior to continue on errors instead of stopping.
+This commit adds comprehensive Mermaid architecture diagrams to the BYVALVER project README.md, providing visual representations of the system architecture, strategy pattern implementation, ML strategist design, processing flows, and batch/biphasic processing components.
 
 ## New Features
 
-### 1. verify_denulled.py - Null Byte Elimination Verification
-**Purpose**: Verifies that output files contain zero null bytes after processing
-**Key Features**:
-- Single file or batch directory verification
-- Detailed analysis of null byte positions and sequences
-- Size change tracking between input and output
-- Recursive directory processing support
-- Pattern matching for batch operations
+### 1. Overall System Architecture Diagram
+**Purpose**: Visual representation of the BYVALVER framework components and data flow
+**Key Elements**:
+- Core Engine with Capstone disassembler and strategy registry
+- Processing modes (Biphasic, PIC Generation, XOR Encoding)
+- Strategy Pattern implementation
+- CLI Interface components
+- Data flow between components
 
-**Usage Examples**:
-```bash
-# Verify single file
-python3 verify_denulled.py input.bin
+### 2. Strategy Pattern Architecture Diagram
+**Purpose**: Class diagram showing the Strategy pattern implementation
+**Key Elements**:
+- StrategyInterface with can_handle, get_size, and generate methods
+- StrategyRegistry for managing available strategies
+- Specific strategy implementations (MOV, Arithmetic, Memory, Jump)
+- CoreEngine integration with strategy system
 
-# Verify batch directory (all *.bin files)
-python3 verify_denulled.py input_dir/
+### 3. ML Strategist Architecture Diagram
+**Purpose**: Flowchart of the machine learning strategist components
+**Key Elements**:
+- ML model initialization and feature extraction
+- Neural network inference for strategy selection
+- Strategy prioritization and feedback mechanisms
+- Model weight updates and metrics tracking
 
-# Verify specific output file
-python3 verify_denulled.py input.bin output.bin
+### 4. Main Processing Flow Diagram
+**Purpose**: Flowchart of the main processing pipeline
+**Key Elements**:
+- Command-line argument parsing and input validation
+- Decision points for single vs batch processing
+- Biphasic vs direct null-byte elimination paths
+- ML strategist integration vs priority-based selection
+- Output generation and verification steps
 
-# Batch process with recursion
-python3 verify_denulled.py input_dir/ -r --pattern "*.bin"
-```
+### 5. Batch Processing Architecture Diagram
+**Purpose**: Component diagram of the batch processing system
+**Key Elements**:
+- Directory scanner with pattern matching and recursion
+- File processor with pipeline integration
+- Statistics and progress tracking components
+- Input/output directory management
 
-### 2. verify_functionality.py - Basic Functionality Verification
-**Purpose**: Verifies that processed shellcode maintains basic functionality patterns
-**Key Features**:
-- Instruction pattern analysis (MOV, arithmetic, logical, control flow, etc.)
-- Architecture-specific analysis (x86/x64 support)
-- Shellcode health assessment with pattern preservation metrics
-- Batch processing with directory mapping
-- Disassembly validation and complexity tracking
+### 6. Biphasic Processing Architecture Diagram
+**Purpose**: Sequential diagram of the two-pass processing system
+**Key Elements**:
+- Pass 1: Obfuscation and complexification
+- Pass 2: Null-byte elimination
+- Data flow between passes
+- Strategy application for each pass
 
-**Usage Examples**:
-```bash
-# Verify single file functionality
-python3 verify_functionality.py shellcode.bin
+## Architecture Documentation Coverage
 
-# Batch functionality verification
-python3 verify_functionality.py input_dir/
+### System Design Principles
+- **Modular Architecture**: Components designed for extensibility and maintainability
+- **Strategy Pattern**: Extensible transformation strategy system
+- **ML Integration**: Machine learning for intelligent strategy selection
+- **Batch Processing**: Comprehensive directory processing capabilities
+- **Biphasic Design**: Two-pass processing for obfuscation + null elimination
 
-# With architecture specification
-python3 verify_functionality.py input_dir/ -r --arch x64
-```
+### Component Interactions
+- Core Engine orchestrates strategy selection and application
+- Capstone disassembler provides instruction analysis
+- Strategy Registry manages available transformation strategies
+- ML Strategist provides intelligent prioritization
+- CLI Interface handles configuration and input/output management
 
-### 3. verify_semantic.py - Semantic Equivalence Verification
-**Purpose**: Verifies semantic equivalence between original and processed shellcode
-**Key Features**:
-- Comparative instruction pattern analysis
-- Critical pattern preservation monitoring (system calls, control flow, stack operations)
-- BYVALVER-aware analysis accounting for null-byte elimination transformations
-- Transformation strategy detection (register-to-stack conversion, etc.)
-- Batch processing for input/output directory pairs
+### Processing Modes
+- **Standard**: Direct null-byte elimination
+- **Biphasic**: Two-pass processing (obfuscation + null elimination)
+- **PIC Generation**: Position-independent code generation
+- **XOR Encoding**: Output with decoder stub and XOR encoding
+- **Batch Processing**: Directory-based processing with pattern matching
 
-**Usage Examples**:
-```bash
-# Verify semantic equivalence of single file pair
-python3 verify_semantic.py input.bin output.bin
+## Implementation Details
 
-# Batch semantic verification between directories
-python3 verify_semantic.py input_dir/ output_dir/
+### README.md Updates
+- Added new "ARCHITECTURE" section to documentation
+- Integrated 6 comprehensive Mermaid diagrams
+- Organized diagrams by functional area
+- Maintained consistency with existing documentation style
+- Added clear section headers for each diagram
 
-# Recursive batch verification
-python3 verify_semantic.py input_dir/ output_dir/ -r
-```
+### Diagram Organization
+- **1. Overall System Architecture**: High-level system view
+- **2. Strategy Pattern Architecture**: Design pattern implementation
+- **3. ML Strategist Architecture**: Machine learning component design
+- **4. Main Processing Flow**: Execution sequence and decision points
+- **5. Batch Processing Architecture**: Directory processing components
+- **6. Biphasic Processing Architecture**: Two-pass processing flow
 
-### BYVALVER-Aware Semantic Analysis
+## Integration Benefits
 
-The semantic verification tool is specifically designed for the BYVALVER context:
+### Development Clarity
+- Visual understanding of system architecture
+- Clear component relationships and dependencies
+- Documentation for new contributors
+- Reference for future system enhancements
 
-**Critical Patterns (Must Be Preserved)**:
-- Control flow instructions (conditional jumps, loops, calls)
-- Stack operations (PUSH/POP for function calls)
-- System calls (INT 0x80, SYSCALL)
+### Educational Value
+- Clear understanding of strategy pattern implementation
+- ML strategist integration approach
+- Processing pipeline design
+- Batch processing implementation
 
-**Expected Transformations (Acceptable Changes)**:
-- MOV patterns often change during null-byte elimination
-- Arithmetic patterns may be decomposed to avoid nulls
-- Logical operations may be substituted (XOR/NOT sequences)
-- LEA operations may change for displacement encoding
-
-**Transformation Detection**:
-- Register-to-stack conversion for null elimination
-- LEA-based displacement encoding strategies
-- Logical operation substitution (XOR/AND/OR for null elimination)
-- Memory addressing substitution to avoid null displacements
-
-## Default Behavior Change: Continue on Error
-
-**Changed in v2.5**: The main BYVALVER tool now defaults to continuing batch processing when individual files fail, instead of stopping on the first error.
-
-**Previous Behavior**:
-- Batch processing would stop on first error unless `--continue-on-error` flag was specified
-
-**New Behavior (Default)**:
-- Batch processing continues on errors (equivalent to old `--continue-on-error`)
-- Use `--no-continue-on-error` to stop on first error
-
-**Implementation Changes**:
-- `src/cli.c:49`: Changed default from `config->continue_on_error = 0` to `config->continue_on_error = 1`
-- Changed command line option from `--continue-on-error` to `--no-continue-on-error`
-- Updated help text and documentation to reflect new default
-
-**Impact**:
-- Existing batch jobs will now continue processing all files, even if some fail
-- More robust batch processing for large shellcode collections
-- Use `--no-continue-on-error` to restore previous behavior if needed
-
-## Batch Processing Capabilities
-
-All verification tools support comprehensive batch processing:
-
-**Common Batch Options**:
-- `-r, --recursive`: Process directories recursively
-- `--pattern PATTERN`: File pattern matching (default: "*.bin") 
-- `--continue-on-error`: Continue processing if individual files fail (default for main tool is to continue)
-- `-v, --verbose`: Enable detailed output
-
-**Example Batch Workflow**:
-```bash
-# Process shellcode directory with byvalver
-./bin/byvalver -r --biphasic shellcodes/ processed/
-
-# Verify null-byte elimination in output
-python3 verify_denulled.py processed/
-
-# Verify functionality preservation
-python3 verify_functionality.py processed/
-
-# Verify semantic equivalence between original and processed
-python3 verify_semantic.py shellcodes/ processed/
-```
-
-## Documentation Updates
-
-Updated README.md and docs/USAGE.md to document:
-- New verification tools and their purposes
-- Usage examples for all tools
-- BYVALVER-specific analysis approaches
-- Batch processing capabilities
-- Default behavior change for continue-on-error
-
-## Performance and Integration
-
-**Verification Performance**:
-- Null verification: O(n) - linear scan of shellcode bytes
-- Functionality verification: O(n) - single-pass disassembly analysis
-- Semantic verification: O(n) - pattern comparison and analysis
-
-**Integration with BYVALVER Pipeline**:
-1. Process shellcode with BYVALVER: `./bin/byvalver input.bin output.bin`
-2. Verify null elimination: `python3 verify_denulled.py output.bin` 
-3. Verify functionality: `python3 verify_functionality.py output.bin`
-4. Verify semantics: `python3 verify_semantic.py input.bin output.bin`
-
-**Verification Reports**:
-- Detailed statistics and analysis for each verification
-- Batch summary reports with success/failure rates
-- Pattern preservation analysis with specific warnings
-- Transformation strategy identification
+### Maintenance Advantages
+- Visual reference for system behavior
+- Clear documentation of complex interactions
+- Reference for troubleshooting
+- Understanding of extension points
 
 ## Files Modified
-- `src/cli.c` - Changed default behavior and option handling
-- `README.md` - Updated documentation for new default behavior
-- `docs/USAGE.md` - Updated documentation for new default behavior
+- `README.md` - Added comprehensive architecture diagrams section
 - `commit.txt` - This commit message
 
-## Files Added
-- `verify_denulled.py` - Null byte elimination verification tool
-- `verify_functionality.py` - Functionality preservation verification tool  
-- `verify_semantic.py` - Semantic equivalence verification tool
-
 ## Impact Summary
-- **Enhanced Quality Assurance**: Automated verification of null-byte elimination results
-- **Increased Confidence**: Confirms processed shellcode maintains intended functionality
-- **Pipeline Integration**: Full verification pipeline for shellcode processing
-- **Batch Processing**: Comprehensive verification of large shellcode collections
-- **BYVALVER-Specific Logic**: Verification tools understand null-byte elimination transformations
-- **Performance Metrics**: Detailed reports on verification results and success rates
-- **Improved Robustness**: Main tool defaults to continuing on errors for better batch processing
+- **Enhanced Documentation**: Visual architecture representations for better understanding
+- **Developer Onboarding**: Clear diagrams for new contributors
+- **Design Clarity**: Visual reference for system architecture and components
+- **Maintainability**: Comprehensive visual documentation for future enhancements
+- **Educational Value**: Clear understanding of system design and implementation patterns
+- **Quality Assurance**: Visual documentation supporting system understanding
 
-All verification tools are designed to work seamlessly with BYVALVER's null-byte elimination framework, providing confidence in both the elimination of null bytes and the preservation of the shellcode's intended behavior.
+The architecture diagrams provide a comprehensive visual reference for the BYVALVER null-byte elimination framework, making the system design accessible to both new and existing contributors while serving as a valuable reference for future development and maintenance.

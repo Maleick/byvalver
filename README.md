@@ -24,6 +24,7 @@
   <a href="#building-and-setup">Building</a> •
   <a href="#installation">Installation</a> •
   <a href="#usage-guide">Usage</a> •
+  <a href="#ml-training">ML Training</a> •
   <a href="#development">Development</a> •
   <a href="#troubleshooting">Troubleshooting</a>
 </p>
@@ -42,6 +43,7 @@
 - NASM assembler for building decoder stubs
 - x86/x64 assembly and instruction set knowledge
 - Modular strategy pattern for extensible transformations
+- Machine Learning integration for intelligent strategy selection
 
 `byvalver` prioritizes `security`, `robustness`, and `portability`, running seamlessly on Windows, Linux, and macOS.
 
@@ -75,6 +77,8 @@ Intelligently prioritizes transformation strategies based on instruction context
 - **Feature Extraction**: Extracts 128 features from each instruction.
 - **Neural Network Inference**: A 3-layer feedforward network ranks strategies dynamically.
 - **Prediction Tracking**: Tracks the ML model's prediction accuracy with real-time feedback.
+- **Adaptive Learning**: Model updates strategy rankings based on success/failure feedback.
+- **Path Resolution**: Enhanced model loading with dynamic path resolution based on executable location.
 
 ### Comprehensive Verification Tools
 A suite of Python-based tools to validate the output of byvalver.
@@ -128,6 +132,9 @@ make release
 
 # Build static executable
 make static
+
+# Build the ML model training utility
+make train
 
 # Clean build artifacts
 make clean
@@ -197,6 +204,48 @@ byvalver [OPTIONS] <input_file> [output_file]
     byvalver --xor-encode 0xDEADBEEF input.bin output.bin
     ```
 
+## ML TRAINING
+
+### Training the ML Model
+
+BYVALVER includes a dedicated training utility to create and update the ML model used for strategy selection.
+
+#### Building the Training Utility
+```bash
+# Build the standalone training utility
+make train
+```
+
+This creates `bin/train_model` which can be used to train the ML model on your own shellcode datasets.
+
+#### Training Process
+```bash
+# Run training (defaults to shellcodes/ directory and ml_models/ output)
+./bin/train_model
+
+# The training process includes:
+# - Data generation from shellcode files in ./shellcodes/
+# - ML model training with configurable epochs and parameters
+# - Model evaluation and statistics generation
+# - Model saving to the default location
+```
+
+#### Training Configuration
+The training utility uses the following defaults which can be modified in `training_pipeline.c`:
+- **Training Data Directory**: `./shellcodes/`
+- **Model Output Path**: `./ml_models/byvalver_ml_model.bin` (with path resolution)
+- **Max Training Samples**: 10,000
+- **Training Epochs**: 50
+- **Validation Split**: 20%
+- **Learning Rate**: 0.001
+- **Batch Size**: 32
+
+#### ML Model Path Resolution
+BYVALVER includes enhanced path resolution for the ML model file:
+- The main executable dynamically resolves the model path based on its own location
+- This ensures the application works when moved to different directories
+- The training utility follows the same path resolution logic
+
 ## DEVELOPMENT
 
 ### Code Style
@@ -210,3 +259,5 @@ python3 test_all_bins.py
 
 ## TROUBLESHOOTING
 For issues with null-byte elimination, ensure your input file format is correct and verify that your system has the required dependencies installed. Check that the shellcode doesn't contain instructions that are particularly difficult to transform without null bytes.
+
+If using the ML functionality, verify that the model file exists at the expected location. The application will fall back to default weights if the model file is not found.

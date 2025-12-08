@@ -1199,3 +1199,43 @@ int create_parent_dirs(const char *filepath) {
     return 0;
 }
 
+/*
+ * Generate PUSH with automatic selection of 8-bit or 32-bit immediate
+ * based on the value to avoid null bytes when possible
+ */
+void generate_push_imm(struct buffer *b, uint32_t imm) {
+    // Check if the immediate can be represented as a sign-extended 8-bit value
+    // and the sign-extended 8-bit form doesn't contain null bytes
+    if ((int32_t)imm >= -128 && (int32_t)imm <= 127) {
+        int8_t imm8 = (int8_t)imm;
+        // Only use 8-bit push if the immediate value itself is not zero (which would generate a null byte in the instruction)
+        if (imm8 != 0) {
+            generate_push_imm8(b, imm8);
+        } else {
+            // For zero, we need to use 32-bit push since PUSH 0x00 contains a null
+            generate_push_imm32(b, imm);
+        }
+    } else {
+        // Use 32-bit push for values outside 8-bit range
+        generate_push_imm32(b, imm);
+    }
+}
+
+/*
+ * Generate MOV AL, immediate_byte without null bytes in instruction encoding
+ */
+void generate_mov_eax_imm_byte(struct buffer *b, uint8_t imm) {
+    // Check if immediate is 0 which would require special handling to avoid nulls
+    if (imm == 0) {
+        // Use XOR to get zero: XOR EAX, EAX (encoded as 31 C0 - no nulls)
+        uint8_t xor_eax_eax[] = {0x31, 0xC0};
+        buffer_append(b, xor_eax_eax, 2);
+        return;
+    }
+
+    // If immediate is not null, we can use MOV AL, imm8 directly
+    // But we need to ensure the immediate is not null (which we've already checked)
+    uint8_t mov_al[] = {0xB0, imm};  // MOV AL, imm8
+    buffer_append(b, mov_al, 2);
+}
+

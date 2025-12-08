@@ -1,11 +1,12 @@
 /**
  * @file training_pipeline.c
  * @brief Training pipeline implementation for ML Strategist
- * 
+ *
  * This file implements the complete pipeline for generating training data,
  * training the ML model, and evaluating its performance.
  */
 
+#define _GNU_SOURCE  // Need this to get PATH_MAX on some systems
 #include "training_pipeline.h"
 #include "utils.h"
 #include <stdio.h>
@@ -14,6 +15,8 @@
 #include <time.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>  // For readlink
+#include <limits.h>  // For PATH_MAX
 
 /**
  * @brief Initialize the training configuration with defaults
@@ -22,14 +25,41 @@ int training_pipeline_init_config(training_config_t* config) {
     if (!config) {
         return -1;
     }
-    
+
     memset(config, 0, sizeof(training_config_t));
-    
+
     // Set default configuration values
     strncpy(config->training_data_dir, "./shellcodes", sizeof(config->training_data_dir) - 1);
-    strncpy(config->model_output_path, "./ml_models/byvalver_ml_model.bin", sizeof(config->model_output_path) - 1);
+    // Determine the absolute path for the ML model file
+    char exe_path[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len != -1) {
+        exe_path[len] = '\0';
+        // Extract directory from executable path
+        char *last_slash = strrchr(exe_path, '/');
+        if (last_slash) {
+            *last_slash = '\0';
+            // Safely construct the model path by checking length to avoid truncation warnings
+            size_t exe_len = strlen(exe_path);
+            size_t suffix_len = strlen("/../ml_models/byvalver_ml_model.bin");
+            if (exe_len + suffix_len < sizeof(config->model_output_path)) {
+                strcpy(config->model_output_path, exe_path);
+                strcat(config->model_output_path, "/../ml_models/byvalver_ml_model.bin");
+            } else {
+                // Fallback if path would be too long
+                strncpy(config->model_output_path, "./ml_models/byvalver_ml_model.bin", sizeof(config->model_output_path) - 1);
+                config->model_output_path[sizeof(config->model_output_path) - 1] = '\0';
+            }
+        } else {
+            strncpy(config->model_output_path, "./ml_models/byvalver_ml_model.bin", sizeof(config->model_output_path) - 1);
+            config->model_output_path[sizeof(config->model_output_path) - 1] = '\0';
+        }
+    } else {
+        strncpy(config->model_output_path, "./ml_models/byvalver_ml_model.bin", sizeof(config->model_output_path) - 1);
+        config->model_output_path[sizeof(config->model_output_path) - 1] = '\0';
+    }
     strncpy(config->model_version, "v1.0.0", sizeof(config->model_version) - 1);
-    
+
     config->max_training_samples = 10000;
     config->validation_split = 0.2;
     config->enable_augmentation = 1;
@@ -37,7 +67,7 @@ int training_pipeline_init_config(training_config_t* config) {
     config->learning_rate = 0.001;
     config->batch_size = 32;
     config->verbose = 1;
-    
+
     return 0;
 }
 

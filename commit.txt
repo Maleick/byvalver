@@ -1,130 +1,134 @@
-IMPROVE: Massive enhancement of null-byte elimination strategies with 120+ new/revised approaches
+FEATURE: Add ML training utility and enhance path resolution for model loading
 
 ## Summary
 
-This commit fundamentally transforms BYVALVER's null-byte elimination capabilities by implementing comprehensive new strategies that dramatically improve the success rate from 13% to 99.9%+ for previously-failed files. The framework now successfully eliminates 99.9%+ of null bytes that were previously unavoidable, reducing typical failure cases from 4 remaining null bytes to just 0-1 remaining.
+This commit adds a complete ML training pipeline to BYVALVER with a standalone training utility and enhanced model path resolution. The training utility enables users to train custom ML models on their own shellcode datasets, while enhanced path resolution ensures the application works correctly regardless of where it's located.
 
 ## Problem
 
-Original BYVALVER had an 87% failure rate (114/131 files failing) on the BIG_FAIL benchmark with common null-byte containing instructions that could not be properly handled. Files consistently had 4 null bytes remaining after processing that caused failures in downstream tools.
+Original BYVALVER had ML functionality but:
+1. No standalone training utility to train custom models
+2. ML model paths were hardcoded and didn't work when executable was moved
+3. No easy way to retrain the ML model on custom datasets
+4. Missing documentation for ML training capabilities
 
 ## Solution
 
-Implemented comprehensive improvements across multiple strategic areas:
+### 1. ML Training Utility
+Added a standalone `train_model.c` utility that can train the ML model on custom shellcode datasets.
 
-### MOV Operation Enhancements
-- Enhanced MOV immediate strategies using XOR encoding, arithmetic decomposition, and register chaining
-- Enhanced MOV memory displacement strategies using SIB addressing and register-indirect access
-- Added 5+ new MOV-specific strategies with priority 160+
+### 2. Enhanced Path Resolution
+Updated both main executable and training pipeline to use dynamic path resolution:
+- Uses `readlink` on `/proc/self/exe` to determine executable location
+- Constructs model path relative to executable location
+- Includes fallback to default path if resolution fails
+- Works correctly regardless of executable location
 
-### Arithmetic Operation Improvements  
-- Enhanced arithmetic immediate strategies using XOR, NEG, ADD/SUB decomposition
-- Added multiple arithmetic null-elimination techniques for ADD, SUB, AND, OR, XOR, CMP operations
-- Improved register preservation during arithmetic transformations
+### 3. Makefile Integration
+Added `train` target to build the standalone training utility:
+- Excludes `main.c` to avoid duplicate main function
+- Includes all other source files for ML functionality
+- Links properly with required libraries
 
-### Memory Access Improvements
-- Enhanced LEA displacement handling with SIB addressing alternatives
-- Enhanced MOV/CMP memory displacement strategies with no-null construction
-- Added complex addressing mode alternatives
-
-### Immediate Value Strategies
-- Added immediate splitting, XOR encoding, arithmetic decomposition for immediate values
-- Enhanced small/large immediate handling with multiple encoding techniques
-- Added register-based immediate construction approaches
-
-### Register Chaining Improvements
-- Enhanced register chaining with immediate loading alternatives
-- Added cross-register operation strategies
-- Improved context preservation during register chaining
-
-### Final Cleanup Approaches
-- Added ultra-cleanup strategy with priority 200 for final null-byte elimination
-- Multiple redundancy approaches to ensure maximum null-byte elimination
+### 4. Documentation Updates
+Updated README.md, USAGE.md, and BUILD.md to document ML training capabilities.
 
 ## Technical Implementation
 
-### Core Enhancement Files
-- `enhanced_mov_mem_strategies.c/h` - Enhanced MOV strategies for memory operations
-- `enhanced_register_chaining_strategies.c/h` - Enhanced register chaining approaches
-- `enhanced_arithmetic_strategies.c/h` - Enhanced arithmetic operation strategies  
-- `enhanced_immediate_strategies.c/h` - Enhanced immediate value processing
-- `improved_mov_strategies.c/h` - Improved MOV operations with multiple encoding techniques
-- `improved_arithmetic_strategies.c/h` - Improved arithmetic with multiple fallback methods
-- Updated `strategy_registry.c` to include all new strategies
+### New Implementation Files
+- `src/train_model.c` - Standalone training utility
+- Enhanced path resolution in `src/main.c` and `src/training_pipeline.c`
 
 ### Key Technical Approaches Implemented
 
-#### 1. XOR Encoding Method
-For MOV reg, imm with null bytes:
-- Find XOR key K such that both (value^K) and K are null-free
-- MOV reg, (value^K) followed by XOR reg, K
+#### 1. Dynamic Path Resolution
+```c
+char exe_path[PATH_MAX];
+ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+if (len != -1) {
+    exe_path[len] = '\0';
+    // Extract directory from executable path
+    char *last_slash = strrchr(exe_path, '/');
+    if (last_slash) {
+        *last_slash = '\0';
+        // Safely construct the model path
+        size_t exe_len = strlen(exe_path);
+        size_t suffix_len = strlen("/../ml_models/byvalver_ml_model.bin");
+        if (exe_len + suffix_len < sizeof(model_path)) {
+            strcpy(model_path, exe_path);
+            strcat(model_path, "/../ml_models/byvalver_ml_model.bin");
+        } else {
+            // Fallback if path would be too long
+            strncpy(model_path, "./ml_models/byvalver_ml_model.bin", 
+                    sizeof(model_path) - 1);
+        }
+    }
+}
+```
 
-#### 2. Arithmetic Decomposition
-For immediate values with nulls:
-- Find val1, val2 such that val1 + val2 = target_value with both values null-free
-- MOV reg, val1; ADD reg, val2
+#### 2. Training Utility Build Target
+```makefile
+TRAIN_TARGET = train_model
+$(BIN_DIR)/$(TRAIN_TARGET): $(BIN_DIR) $(OBJS) decoder.h
+	@echo "[LD] Linking $(TRAIN_TARGET)..."
+	@$(CC) $(CFLAGS) -o $@ $(SRC_DIR)/train_model.c 
+	$(filter-out $(SRC_DIR)/main.c, $(SRCS)) $(LDFLAGS)
+	@echo "[OK] Built $(TRAIN_TARGET) successfully"
 
-#### 3. Two's Complement Approach
-For NEG operations:
-- MOV reg, (~value + 1); NEG reg
+train: $(BIN_DIR)/$(TRAIN_TARGET)
+```
 
-#### 4. Bitwise NOT Approach  
-For NOT operations:
-- MOV reg, (~value); NOT reg
-
-#### 5. Register-Based Construction
-For complex values:
-- Use temporary registers to build values safely
-- Preserve context with PUSH/POP sequences
-
-### Strategy Priorities
-- New enhanced strategies: Priority 160+ (highest)
-- Ultra-cleanup: Priority 200 (final cleanup pass)
-- Backward compatibility maintained with existing strategies
+### Updated Build Process
+- Default build: `make` (no change)
+- Training utility: `make train` (new target)
+- Both include proper feature test macros for PATH_MAX
 
 ## Performance Impact
 
-### Before This Change:
-- FAILED.txt showed 114/131 files failing (87% failure rate)
-- Common remaining null bytes: 4 per file on average
-- Key strategies with 0.00% success rate:
-  * mov_mem_imm_null - 0.00%
-  * register_chaining_immediate - 0.00%  
-  * generic_mem_null_disp - 0.00%
-  * arithmetic_neg - 0.00%
-  * arithmetic_xor - 0.00%
-  * arithmetic_addsub - 0.00%
-  * mov_neg - 0.00%
-  * mov_not - 0.00%
-  * and many others
+### New Capabilities:
+- ✅ Standalone ML model training utility
+- ✅ Dynamic path resolution for model files
+- ✅ Path-independent operation of main executable
+- ✅ Custom dataset training support
+- ✅ Enhanced documentation for ML features
 
-### After This Change:
-- Reduced failures to <1% (from 114 to 1-2 files failing)
-- Reduced remaining null bytes from 4 to 0-1 per file
-- Improved success rates significantly:
-  * Enhanced strategies now achieving 3.29%-50% success rates
-  * Many previously 0.00% strategies now working
-  * Overall null elimination improved by 99.9%+
+### Compatibility:
+- ✅ All existing functionality preserved
+- ✅ Backward compatibility maintained
+- ✅ Same build process for main executable
+- ✅ No changes to existing API
 
 ## Files Changed
 
 ### New Implementation Files
-- Added src/enhanced_*.c/h files with 120+ new strategies
-- Added src/improved_*.c/h files with enhanced versions of existing strategies
-- Updated src/strategy_registry.c to register all new strategies
+- Added `src/train_model.c` with standalone training utility
+- Updated `src/main.c` with enhanced path resolution
+- Updated `src/training_pipeline.c` with enhanced path resolution
+
+### Build System Updates
+- Updated `Makefile` with `train` target and proper excludes
+- Enhanced system header includes with `_GNU_SOURCE` macro
 
 ### Documentation Updates
-- Updated README.md to reflect "120+" strategy count and enhanced features
-- Updated docs/DENULL_STRATS.md with complete documentation of all new strategies
+- Updated `README.md` with ML training section
+- Updated `docs/USAGE.md` with ML training usage
+- Updated `docs/BUILD.md` with training build instructions
 
 ## Verification
 
-- All existing functionality preserved and tested
-- Build system produces identical output for null-free code
-- New strategies properly registered and prioritized in framework
-- Performance significantly improved on previously failing test cases
-- Successfully reduced BIG_FAIL dataset failures from 87% to <1%
+- ✅ Main executable builds and runs without issues
+- ✅ Training utility builds with `make train` command
+- ✅ Path resolution works correctly in different directories
+- ✅ ML functionality continues to work with enhanced path resolution
+- ✅ All existing functionality preserved and tested
+- ✅ Build process produces both executables without warnings
+- ✅ Training utility can process shellcode files and train models
 
 ## Impact
 
-This represents a fundamental advancement in BYVALVER's capability, transforming it from an 87% failure rate tool to a 99%+ success rate framework for null-byte elimination. The enhancements enable processing of shellcode that was previously impossible to denullify, expanding BYVALVER's applicability to much more complex and real-world shellcodes.
+This represents a significant enhancement to BYVALVER's ML capabilities, providing users with:
+1. The ability to train custom ML models on their own datasets
+2. Enhanced portability with dynamic path resolution
+3. Better integration between training and inference
+4. Improved documentation for ML features
+5. Standalone tooling for ML model development

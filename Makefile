@@ -20,6 +20,7 @@ ALL_SRCS = $(wildcard $(SRC_DIR)/*.c)
 # - conservative_mov_original.c (old version)
 # - arithmetic_substitution_strategies.c (duplicate with arithmetic_strategies.c)
 # - test_strategies.c (test-only code)
+# - train_model.c (training utility, not needed for main CLI)
 # - cli.c will be included separately to ensure proper build order
 EXCLUDE_FILES = $(SRC_DIR)/lib_api.c \
                 $(SRC_DIR)/fix_arithmetic_strategies.c \
@@ -27,7 +28,8 @@ EXCLUDE_FILES = $(SRC_DIR)/lib_api.c \
                 $(SRC_DIR)/fix_mov_strategies.c \
                 $(SRC_DIR)/conservative_mov_original.c \
                 $(SRC_DIR)/arithmetic_substitution_strategies.c \
-                $(SRC_DIR)/test_strategies.c
+                $(SRC_DIR)/test_strategies.c \
+                $(SRC_DIR)/train_model.c
 
 # Include CLI files explicitly
 CLI_SRCS = $(SRC_DIR)/cli.c
@@ -47,10 +49,20 @@ SRCS = $(filter-out $(EXCLUDE_FILES), $(ALL_SRCS))
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))
 
 # Phony targets
-.PHONY: all clean clean-all info test debug release
+.PHONY: all clean clean-all info test debug release train
 
 # Default target
 all: decoder.h $(BIN_DIR)/$(TARGET)
+
+# Training utility target
+TRAIN_TARGET = train_model
+$(BIN_DIR)/$(TRAIN_TARGET): $(BIN_DIR) $(OBJS) decoder.h
+	@echo "[LD] Linking $(TRAIN_TARGET)..."
+	@$(CC) $(CFLAGS) -o $@ $(SRC_DIR)/train_model.c $(filter-out $(SRC_DIR)/main.c, $(SRCS)) $(LDFLAGS)
+	@echo "[OK] Built $(TRAIN_TARGET) successfully"
+
+# Build training utility
+train: $(BIN_DIR)/$(TRAIN_TARGET)
 
 # Debug build
 debug: CFLAGS += -g -O0 -DDEBUG -fsanitize=address -fsanitize=undefined

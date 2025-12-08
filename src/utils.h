@@ -17,6 +17,8 @@ size_t get_push_imm32_size(uint32_t imm);
 void generate_push_imm32(struct buffer *b, uint32_t imm);
 size_t get_push_imm8_size();
 void generate_push_imm8(struct buffer *b, int8_t imm);
+void generate_push_imm(struct buffer *b, uint32_t imm);
+void generate_mov_eax_imm_byte(struct buffer *b, uint8_t imm);
 size_t get_mov_reg_mem_imm_size(cs_insn *insn);
 void generate_mov_reg_mem_imm(struct buffer *b, cs_insn *insn);
 size_t get_lea_reg_mem_disp32_size(cs_insn *insn);

@@ -115,6 +115,20 @@ make static
 
 This links all dependencies statically, creating a self-contained executable that does not require external libraries at runtime.
 
+### Build ML Training Utility
+To build the standalone ML model training utility:
+```bash
+make train
+```
+
+This creates `bin/train_model` which includes:
+- All necessary object files except the main executable
+- Training pipeline functionality
+- ML strategist implementation
+- Neural network training capabilities
+
+The training utility can be run independently to train new ML models on custom datasets.
+
 ### Clean Build
 To remove all generated files:
 ```bash
@@ -173,8 +187,16 @@ The Makefile automatically includes all `.c` files in `src/` with specific exclu
 - Obsolete files: `lib_api.c`, `fix_*.c`, `conservative_mov_original.c`
 - Duplicate implementations: `arithmetic_substitution_strategies.c`
 - Test-only code: `test_strategies.c`
+- Training utility: `train_model.c` (excluded from main build)
 
 The system filters these out to avoid linking conflicts and maintain build consistency.
+
+#### Training Utility Build
+The training utility target is specifically configured to:
+- Include `train_model.c` as the main entry point
+- Exclude `main.c` to avoid multiple main function conflicts
+- Include all other source files for ML functionality
+- Properly link with Capstone and math libraries
 
 #### Obfuscation Modules
 For the biphasic architecture, specific obfuscation modules are included:
@@ -221,6 +243,31 @@ make CFLAGS="-O2 -march=native -Wall -Werror"
 make BIN_DIR=custom_bin
 ```
 
+## ML Training Workflow
+
+### Building the Training Utility
+The training utility is built separately from the main executable:
+
+```bash
+# Build the training utility
+make train
+```
+
+### Training Process
+1. Place shellcode files in the `./shellcodes/` directory (or customize the path in the training configuration)
+2. Run the training utility:
+   ```bash
+   ./bin/train_model
+   ```
+3. The utility will process the shellcodes, train the neural network, and save the resulting model
+4. The trained model will be saved to the configured path (typically `./ml_models/byvalver_ml_model.bin`)
+
+### Model Integration
+After training a new model:
+1. The main `byvalver` executable will automatically use the trained model when the `--ml` option is enabled
+2. The application uses dynamic path resolution to locate the model file relative to the executable location
+3. If the model file is not found, the application falls back to default weights
+
 ## Troubleshooting Common Build Issues
 
 ### Missing Dependencies
@@ -250,53 +297,21 @@ brew install nasm     # macOS
 which nasm
 ```
 
-### xxd Utility Missing
-If `xxd` is not found:
-```bash
-# Ubuntu/Debian
-sudo apt install vim-common
+### PATH_MAX and System Headers
+If you encounter errors related to `PATH_MAX` or `readlink`:
+- Ensure the `_GNU_SOURCE` macro is defined (it's included in the main files)
+- Check that `limits.h` and `unistd.h` are properly included
+- On some systems, you may need to install additional development packages
 
-# macOS (usually available with vim)
-brew install vim
+### ML Training Utility Build Issues
+If the training utility build fails:
+1. Ensure the main byvalver executable builds successfully first
+2. Verify that all ML-related source files are present in the `src/` directory
+3. Check that the training utility Make target correctly excludes `main.c` to avoid duplicate main function errors
 
-# Check availability
-which xxd
-```
-
-### Capstone Installation Issues
-If pkg-config can't find capstone:
-```bash
-# Check if capstone is properly installed
-pkg-config --exists capstone && echo "Found" || echo "Not found"
-
-# Check the library path
-ldconfig -p | grep capstone
-
-# On macOS, you might need to specify the library path explicitly:
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-```
-
-## Verification
-
-After building, verify the executable works:
-
-```bash
-# Test basic functionality
-./bin/byvalver --version
-
-# Test help system
-./bin/byvalver --help
-
-# Test with a sample file (if available)
-./bin/byvalver --dry-run some_shellcode.bin
-```
-
-If installed globally:
-```bash
-byvalver --version
-```
-
-You can also check the manual page after installing:
-```bash
-man byvalver
-```
+### Makefile Integration Issues
+The training utility Make target:
+- Uses `$(filter-out $(SRC_DIR)/main.c, $(SRCS))` to exclude the main executable source
+- Links with the same libraries as the main executable
+- Creates a standalone binary with training capabilities
+- Maintains compatibility with existing build system structure

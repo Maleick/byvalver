@@ -1,9 +1,12 @@
+#define _GNU_SOURCE  // Need this to get PATH_MAX on some systems
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h> // For uint8_t, uint32_t
 #include <errno.h>
 #include <sys/stat.h>
+#include <unistd.h>  // For readlink
+#include <limits.h>  // For PATH_MAX
 #include "core.h"
 #include "obfuscation_strategy_registry.h"
 #include "pic_generation.h"
@@ -251,12 +254,42 @@ int main(int argc, char *argv[]) {
     ml_strategist_t ml_strategist;
     int ml_initialized = 0;
     if (config->use_ml_strategist) {
-        if (ml_strategist_init(&ml_strategist, "./ml_models/byvalver_ml_model.bin") != 0) {
+        // Determine the absolute path to the ML model file
+        char model_path[PATH_MAX];
+        char exe_path[PATH_MAX];
+        ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+        if (len != -1) {
+            exe_path[len] = '\0';
+            // Extract directory from executable path
+            char *last_slash = strrchr(exe_path, '/');
+            if (last_slash) {
+                *last_slash = '\0';
+                // Safely construct the model path by checking length to avoid truncation warnings
+                size_t exe_len = strlen(exe_path);
+                size_t suffix_len = strlen("/../ml_models/byvalver_ml_model.bin");
+                if (exe_len + suffix_len < sizeof(model_path)) {
+                    strcpy(model_path, exe_path);
+                    strcat(model_path, "/../ml_models/byvalver_ml_model.bin");
+                } else {
+                    // Fallback if path would be too long
+                    strncpy(model_path, "./ml_models/byvalver_ml_model.bin", sizeof(model_path) - 1);
+                    model_path[sizeof(model_path) - 1] = '\0';
+                }
+            } else {
+                strncpy(model_path, "./ml_models/byvalver_ml_model.bin", sizeof(model_path) - 1);
+                model_path[sizeof(model_path) - 1] = '\0';
+            }
+        } else {
+            strncpy(model_path, "./ml_models/byvalver_ml_model.bin", sizeof(model_path) - 1);
+            model_path[sizeof(model_path) - 1] = '\0';
+        }
+
+        if (ml_strategist_init(&ml_strategist, model_path) != 0) {
             // If initial model load fails, continue with default weights
             ml_strategist_init(&ml_strategist, "");  // Load with empty path to initialize with default weights
             fprintf(stderr, "[ML] ML Strategist initialized with default weights\n");
         } else {
-            fprintf(stderr, "[ML] ML Strategist loaded from model file\n");
+            fprintf(stderr, "[ML] ML Strategist loaded from model file: %s\n", model_path);
         }
         ml_initialized = 1;
     }

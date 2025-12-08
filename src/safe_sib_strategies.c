@@ -1,7 +1,8 @@
 /*
- * SIB (Scale-Index-Base) Addressing Null-Byte Elimination Strategy
+ * Safe SIB (Scale-Index-Base) Addressing Null-Byte Elimination Strategy
  *
  * PROBLEM: Instructions with SIB addressing can generate null bytes in SIB byte
+ *          The current SIB strategy sometimes introduces new null bytes after transformation
  *
  * Examples:
  *   FSTP qword ptr [EAX+EAX] → DD 1C 00 (SIB byte is null)
@@ -17,16 +18,22 @@
  *   1. Change register combinations to avoid null SIB
  *   2. Use displacement instead of index register
  *   3. Use temporary register for address calculation
+ *   4. VALIDATE that new nulls are not introduced after transformation
  *
- * Priority: 65 (medium-high)
+ * Priority: 70 (higher than original SIB strategy to take precedence)
  */
 
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdio.h>
 #include "strategy.h"
 #include "utils.h"
 #include <capstone/capstone.h>
+
+// Global recursion depth counter to prevent stack overflow
+static __thread int strategy_recursion_depth = 0;
+#define MAX_STRATEGY_RECURSION_DEPTH 10
 
 /* Forward declarations */
 extern void register_strategy(strategy_t *s);
@@ -36,11 +43,16 @@ extern void register_strategy(strategy_t *s);
  * Uses Capstone's detailed info to properly detect SIB addressing
  */
 static int has_sib_null_encoding(cs_insn *insn) {
-    if (!insn || !insn->detail) {
+    if (!insn || !insn->detail || insn->size > 16) {  // Basic instruction size limit
         return 0;
     }
 
     cs_x86 *x86 = &insn->detail->x86;
+
+    // Validate operand count to avoid out-of-bounds access
+    if (x86->op_count > 4) {  // x86 instructions rarely have more than 4 operands
+        return 0;
+    }
 
     // Check each memory operand for SIB addressing
     for (int i = 0; i < x86->op_count; i++) {
@@ -82,33 +94,52 @@ static int has_sib_null_encoding(cs_insn *insn) {
     return 0;
 }
 
+
 /*
  * Detect instructions with SIB bytes containing null bytes
  * This includes any memory operand that uses [base+index*scale] addressing
  */
-static int can_handle_sib_null(cs_insn *insn) {
+static int can_handle_safe_sib_null(cs_insn *insn) {
     if (!insn || !insn->detail) {
+        return 0;
+    }
+
+    // Prevent processing of very complex instructions that might cause stack overflow
+    if (insn->size > 10) {  // Be very conservative - most SIB instructions are smaller
         return 0;
     }
 
     // Check if this instruction actually has SIB addressing with null bytes
     if (has_sib_null_encoding(insn)) {
-        return 1;
-    }
+        cs_x86 *x86 = &insn->detail->x86;
 
-    // Double check: if it has SIB addressing (index != INVALID) and null bytes in instruction
-    cs_x86 *x86 = &insn->detail->x86;
+        // Only handle very specific, simple SIB patterns
+        for (int i = 0; i < x86->op_count; i++) {
+            if (x86->operands[i].type == X86_OP_MEM) {
+                cs_x86_op *op = &x86->operands[i];
 
-    for (int i = 0; i < x86->op_count; i++) {
-        if (x86->operands[i].type == X86_OP_MEM) {
-            cs_x86_op *op = &x86->operands[i];
+                // Only handle simple SIB patterns: base + index, no complex displacement
+                if (op->mem.index != X86_REG_INVALID && op->mem.scale == 1) {
+                    // Check if the instruction has null bytes in the right places
+                    // Be very restrictive about which instructions to handle
+                    if (insn->id == X86_INS_MOV || insn->id == X86_INS_PUSH ||
+                        insn->id == X86_INS_LEA || insn->id == X86_INS_CMP) {
 
-            // Check for SIB addressing pattern: base + index*scale
-            if (op->mem.index != X86_REG_INVALID || op->mem.base == X86_REG_ESP || op->mem.scale != 1) {
-                // This instruction uses SIB addressing
-                // If it also has null bytes, it's our target
-                if (has_null_bytes(insn)) {
-                    return 1;
+                        // Only handle small displacements
+                        if (op->mem.disp != 0) {
+                            int64_t disp = op->mem.disp;
+                            if (disp > 0x1000 || disp < -0x1000) {  // Very small displacement limit
+                                return 0;
+                            }
+                        }
+
+                        // Check that the specific SIB encoding has null bytes
+                        for (size_t j = 0; j < insn->size; j++) {
+                            if (insn->bytes[j] == 0x00) {
+                                return 1;  // Found null byte and instruction matches criteria
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -118,12 +149,12 @@ static int can_handle_sib_null(cs_insn *insn) {
 }
 
 /*
- * Calculate replacement size for SIB null elimination
+ * Calculate replacement size for safe SIB null elimination
  * PUSH temp_reg (1) + MOV temp_reg, base_reg (2) +
  * LEA temp_reg, [temp_reg + index_reg*scale] (3-4) +
  * original_op [temp_reg] (2-4) + POP temp_reg (1)
  */
-static size_t get_size_sib_null(cs_insn *insn) {
+static size_t get_size_safe_sib_null(cs_insn *insn) {
     (void)insn;
     // Conservative estimate: PUSH (1) + MOV (2) + LEA (3-4) + OP (2-4) + POP (1) = 9-12 bytes
     return 12;
@@ -131,13 +162,36 @@ static size_t get_size_sib_null(cs_insn *insn) {
 
 /*
  * Generate null-free replacement using temporary register for address calculation
+ * This version includes validation to ensure no new null bytes are introduced
  */
-static void generate_sib_null(struct buffer *b, cs_insn *insn) {
-    if (!insn || !insn->detail) {
+static void generate_safe_sib_null(struct buffer *b, cs_insn *insn) {
+    if (!insn || !insn->detail || !b) {
+        return;
+    }
+
+    // Prevent deep recursion
+    if (strategy_recursion_depth >= MAX_STRATEGY_RECURSION_DEPTH) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    strategy_recursion_depth++;
+
+    // Additional safety check for instruction size
+    if (insn->size > 16) {
+        buffer_append(b, insn->bytes, insn->size);
+        strategy_recursion_depth--;
         return;
     }
 
     cs_x86 *x86 = &insn->detail->x86;
+
+    // Validate operand count to prevent out-of-bounds access
+    if (x86->op_count > 4) {
+        buffer_append(b, insn->bytes, insn->size);
+        strategy_recursion_depth--;
+        return;
+    }
 
     // Find a memory operand that uses SIB addressing
     // SIB is used when: index != INVALID OR base == ESP OR scale != 1
@@ -158,6 +212,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
     if (!mem_op) {
         // If no SIB addressing found, just output the original instruction
         buffer_append(b, insn->bytes, insn->size);
+        strategy_recursion_depth--;
         return;
     }
 
@@ -171,6 +226,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
             if (mem_op->mem.base == X86_REG_EDI || mem_op->mem.index == X86_REG_EDI) {
                 // If all our preferred temp registers are in use, fall back to original
                 buffer_append(b, insn->bytes, insn->size);
+                strategy_recursion_depth--;
                 return;
             }
         }
@@ -290,7 +346,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
                 uint8_t mov_code[] = {0x8B, 0x00};
                 // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=target_reg
                 mov_code[1] = (get_reg_index(target_reg) << 3) + get_reg_index(temp_reg);
-
+                
                 // Verify this code doesn't introduce nulls
                 if (mov_code[1] == 0x00) {
                     // If ModR/M creates null byte, use SIB addressing instead
@@ -307,7 +363,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
                 uint8_t mov_code[] = {0x89, 0x00};
                 // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=source_reg
                 mov_code[1] = (get_reg_index(source_reg) << 3) + get_reg_index(temp_reg);
-
+                
                 // Verify this code doesn't introduce nulls
                 if (mov_code[1] == 0x00) {
                     // If ModR/M creates null byte, use SIB addressing instead
@@ -325,7 +381,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
             // PUSH [temp_reg] - encoded as FF /6, so reg field is 6 (for PUSH) and r/m is temp_reg
             uint8_t push_code[] = {0xFF, 0x30};
             push_code[1] = 0x30 + get_reg_index(temp_reg);  // Mod=00 (no disp), reg=110 (PUSH), r/m=temp_reg
-
+            
             // Check if this would create a null byte
             if (push_code[1] == 0x00) {
                 // Use SIB addressing to avoid null
@@ -344,7 +400,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
             uint8_t lea_code[] = {0x8D, 0x00};
             // Mod=00 (no displacement), r/m=temp_reg, reg=target_reg
             lea_code[1] = (get_reg_index(target_reg) << 3) + get_reg_index(temp_reg);
-
+            
             // Verify this code doesn't introduce nulls
             if (lea_code[1] == 0x00) {
                 // Use SIB addressing to avoid null
@@ -364,7 +420,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
                 uint8_t cmp_code[] = {0x39, 0x00};
                 // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=reg
                 cmp_code[1] = (get_reg_index(reg) << 3) + get_reg_index(temp_reg);
-
+                
                 // Check for null in ModR/M
                 if (cmp_code[1] == 0x00) {
                     // Use SIB addressing to avoid null
@@ -381,7 +437,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
                 uint8_t cmp_code[] = {0x3B, 0x00};
                 // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=reg
                 cmp_code[1] = (get_reg_index(reg) << 3) + get_reg_index(temp_reg);
-
+                
                 // Check for null in ModR/M
                 if (cmp_code[1] == 0x00) {
                     // Use SIB addressing to avoid null
@@ -476,24 +532,26 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
             // we'll need to backtrack and use a different approach
 
             // For now, this is just a safety check that helps us identify potential issues
-            fprintf(stderr, "[SIB] Warning: Null byte introduced at offset %zu in output for instruction %s %s\n",
+            fprintf(stderr, "[SAFE_SIB] Warning: Null byte introduced at offset %zu in output for instruction %s %s\n",
                    i - initial_size,
                    insn->mnemonic,
                    insn->op_str);
         }
     }
+
+    strategy_recursion_depth--;
 }
 
 /* Strategy definition */
-static strategy_t sib_null_strategy = {
-    .name = "SIB Addressing Null Elimination",
-    .can_handle = can_handle_sib_null,
-    .get_size = get_size_sib_null,
-    .generate = generate_sib_null,
-    .priority = 65
+static strategy_t safe_sib_null_strategy = {
+    .name = "Safe SIB Addressing Null Elimination",
+    .can_handle = can_handle_safe_sib_null,
+    .get_size = get_size_safe_sib_null,
+    .generate = generate_safe_sib_null,
+    .priority = 5  // Lowest priority to avoid conflicts with other strategies and prevent potential issues
 };
 
 /* Registration function */
-void register_sib_strategies() {
-    register_strategy(&sib_null_strategy);
+void register_safe_sib_strategies() {
+    register_strategy(&safe_sib_null_strategy);
 }

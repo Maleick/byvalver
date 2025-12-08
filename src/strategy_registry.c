@@ -6,13 +6,6 @@
 #include <stdio.h> // Added for debug prints
 // #include <stdio.h> // Removed for printf
 
-// Debug mode - compile with -DDEBUG to enable detailed logging
-#ifdef DEBUG
-  #define DEBUG_LOG(fmt, ...) do { fprintf(stderr, "[DEBUG] " fmt "\n", ##__VA_ARGS__); } while(0)
-#else
-  #define DEBUG_LOG(fmt, ...) do {} while(0)
-#endif
-
 #define MAX_STRATEGIES 200
 
 // Global ML strategist instance for this module
@@ -104,6 +97,7 @@ void register_linux_socketcall_strategies(); // Forward declaration - Linux sock
 void register_linux_string_push_strategies(); // Forward declaration - Linux string construction via PUSH - Priority 68-70
 void register_syscall_number_strategies(); // Forward declaration - Linux syscall number encoding strategies - Priority 77-78
 void register_new_strategies(); // Forward declaration - New strategies for specific null-byte patterns
+extern strategy_t delayed_string_termination_strategy;
 
 void init_strategies(int use_ml) {
     #ifdef DEBUG
@@ -290,6 +284,7 @@ void register_new_strategies() {
     // Re-enabled with low priority to handle specific patterns
     register_strategy(&transform_mov_reg_mem_self);
     register_strategy(&transform_add_mem_reg8);
+    register_strategy(&delayed_string_termination_strategy);
 }
 
 /**

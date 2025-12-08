@@ -33,13 +33,7 @@
 #include <stdint.h>
 #include <string.h>
 
-// Debug mode - compile with -DDEBUG to enable detailed logging
-#ifdef DEBUG
-  #include <stdio.h>
-  #define DEBUG_LOG(fmt, ...) do { fprintf(stderr, "[DEBUG][GETPC] " fmt "\n", ##__VA_ARGS__); } while(0)
-#else
-  #define DEBUG_LOG(fmt, ...) do {} while(0)
-#endif
+#include <stdio.h>
 
 /**
  * Check if GET PC technique can handle this instruction
@@ -137,8 +131,8 @@ static void generate_getpc_mov(struct buffer *b, cs_insn *insn) {
     uint32_t imm_value = (uint32_t)op1->imm;
     uint8_t reg_idx = get_reg_index(dest_reg);
 
-    DEBUG_LOG("Generating GET PC for MOV %s, 0x%x",
-              cs_reg_name(NULL, dest_reg), imm_value);
+    DEBUG_LOG("Generating GET PC for MOV reg_idx=%d, 0x%x",
+              reg_idx, imm_value);
 
     // Alternative approach: Use JMP-over-data pattern with LEA or direct memory reference
     //

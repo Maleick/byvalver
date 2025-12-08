@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "utils.h"
+#include "core.h"
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>

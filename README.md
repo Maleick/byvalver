@@ -47,16 +47,16 @@
 
 ## FEATURES
 
-### Advanced Strategy Repairs
-BYVALVER includes comprehensive fixes for systematic issues across more than 20 transformation strategies that previously showed 0% or near-0% success rates. Root causes included incorrect register indexing, missing strategy registration functions, algorithmic logic errors in decomposition, and improper SIB byte construction.
+### Advanced Transformation Engine
+BYVALVER includes 80+ instruction transformation strategies that handle complex instructions including arithmetic, MOV, conditional jumps, and API calls. The engine uses sophisticated instruction rewriting to eliminate null bytes while preserving functionality.
 
-**Performance Improvements:**
-- **Strategy Success Rates**: All previously failing strategies now achieve measurable success rates (from 0% → 15-85%).
-- **Reliability**: Eliminated cascading failures from improper register indexing and MOV generation.
-- **Code Quality**: More robust implementations with proper fallback mechanisms for null-free code generation.
+**Key Features:**
+- **Strategy Registration**: Comprehensive registration system for all transformation strategies
+- **Fallback Mechanisms**: Robust fallback systems when primary transformation methods fail
+- **Complex Instruction Handling**: Advanced handling of instructions with null bytes in operands, displacements, and immediate values
 
 ### Batch Directory Processing
-BYVALVER includes comprehensive batch directory processing with full compatibility for all existing options. Batch mode is automatically enabled when the input is a directory.
+Process multiple shellcode files in batch mode with directory processing capabilities.
 
 - `-r, --recursive`: Process directories recursively.
 - `--pattern PATTERN`: File pattern to match (default: `*.bin`).
@@ -64,11 +64,11 @@ BYVALVER includes comprehensive batch directory processing with full compatibili
 - `--no-continue-on-error`: Stop processing on the first error.
 
 ### ML-Powered Strategy Selection
-Enables ML-powered strategy prioritization using neural network inference to intelligently select and prioritize transformation strategies based on instruction context.
+Intelligently prioritizes transformation strategies based on instruction context using neural network inference.
 
 - **Feature Extraction**: Extracts 128 features from each instruction.
 - **Neural Network Inference**: A 3-layer feedforward network ranks strategies dynamically.
-- **Prediction Tracking**: A robust system tracks the ML model's prediction accuracy, providing real-time feedback on model performance.
+- **Prediction Tracking**: Tracks the ML model's prediction accuracy with real-time feedback.
 
 ### Comprehensive Verification Tools
 A suite of Python-based tools to validate the output of byvalver.
@@ -203,4 +203,4 @@ python3 test_all_bins.py
 ```
 
 ## TROUBLESHOOTING
-*Coming soon...*
+For issues with null-byte elimination, ensure your input file format is correct and verify that your system has the required dependencies installed. Check that the shellcode doesn't contain instructions that are particularly difficult to transform without null bytes.

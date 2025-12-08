@@ -65,96 +65,81 @@ void generate_lea_complex_displacement(struct buffer *b, cs_insn *insn) {
     x86_reg target_reg = dst_op->reg;
 
     // Calculate effective address step by step to avoid null bytes
-    // Save original EAX
-    uint8_t push_eax[] = {0x50};
-    buffer_append(b, push_eax, 1);
+    // Use ECX as temporary register to avoid conflicts with EAX
+    uint8_t push_ecx[] = {0x51};
+    buffer_append(b, push_ecx, 1);
 
-    // Build effective address in EAX:
+    // Build effective address in ECX:
     // First handle base register
     if (src_op->mem.base != X86_REG_INVALID) {
-        // MOV EAX, base_reg
-        uint8_t mov_eax_base[] = {0x89, 0xC0};
-        mov_eax_base[1] = 0xC0 + (get_reg_index(src_op->mem.base) << 3) + get_reg_index(X86_REG_EAX);
-        buffer_append(b, mov_eax_base, 2);
+        // MOV ECX, base_reg
+        uint8_t mov_ecx_base[] = {0x89, 0xC0};
+        mov_ecx_base[1] = 0xC0 + (get_reg_index(src_op->mem.base) << 3) + get_reg_index(X86_REG_ECX);
+        buffer_append(b, mov_ecx_base, 2);
     } else {
-        // XOR EAX, EAX to start with 0
-        uint8_t xor_eax[] = {0x31, 0xC0};
-        buffer_append(b, xor_eax, 2);
+        // XOR ECX, ECX to start with 0
+        uint8_t xor_ecx[] = {0x31, 0xC9}; // XOR ECX, ECX
+        buffer_append(b, xor_ecx, 2);
     }
 
     // Handle index * scale
     if (src_op->mem.index != X86_REG_INVALID) {
-        // Save current EAX value to ECX temporarily
-        uint8_t push_ecx[] = {0x51};
-        buffer_append(b, push_ecx, 1);
+        // Save current ECX value to EDX temporarily
+        uint8_t push_edx[] = {0x52};
+        buffer_append(b, push_edx, 1);
 
-        // MOV EAX, index_reg
-        uint8_t mov_eax_index[] = {0x89, 0xC0};
-        mov_eax_index[1] = 0xC0 + (get_reg_index(src_op->mem.index) << 3) + get_reg_index(X86_REG_EAX);
-        buffer_append(b, mov_eax_index, 2);
+        // MOV ECX, index_reg
+        uint8_t mov_ecx_index[] = {0x89, 0xC0};
+        mov_ecx_index[1] = 0xC0 + (get_reg_index(src_op->mem.index) << 3) + get_reg_index(X86_REG_ECX);
+        buffer_append(b, mov_ecx_index, 2);
 
-        // Scale EAX by the scale factor (SHL operations)
+        // Scale ECX by the scale factor (SHL operations)
         if (src_op->mem.scale == 2) {
-            uint8_t shl_eax[] = {0xD1, 0xE0};
-            shl_eax[1] = 0xE0 + get_reg_index(X86_REG_EAX);  // SHL EAX, 1
-            buffer_append(b, shl_eax, 2);
+            uint8_t shl_ecx[] = {0xD1, 0xE1}; // SHL ECX, 1
+            buffer_append(b, shl_ecx, 2);
         } else if (src_op->mem.scale == 4) {
-            uint8_t shl_eax[] = {0xD1, 0xE0};
-            shl_eax[1] = 0xE0 + get_reg_index(X86_REG_EAX);  // SHL EAX, 1
-            buffer_append(b, shl_eax, 2);
-            buffer_append(b, shl_eax, 2); // Double shift for x4 (SHL EAX, 1 twice)
+            uint8_t shl_ecx[] = {0xD1, 0xE1}; // SHL ECX, 1
+            buffer_append(b, shl_ecx, 2);
+            buffer_append(b, shl_ecx, 2); // Double shift for x4 (SHL ECX, 1 twice)
         } else if (src_op->mem.scale == 8) {
-            uint8_t shl_eax[] = {0xD1, 0xE0};
-            shl_eax[1] = 0xE0 + get_reg_index(X86_REG_EAX);  // SHL EAX, 1
-            buffer_append(b, shl_eax, 2);
-            buffer_append(b, shl_eax, 2); // SHL EAX, 1
-            buffer_append(b, shl_eax, 2); // SHL EAX, 1 (x8 = shift 3 times)
+            uint8_t shl_ecx[] = {0xD1, 0xE1}; // SHL ECX, 1
+            buffer_append(b, shl_ecx, 2);
+            buffer_append(b, shl_ecx, 2); // SHL ECX, 1
+            buffer_append(b, shl_ecx, 2); // SHL ECX, 1 (x8 = shift 3 times)
         }
 
-        // Add the base value back from ECX
-        uint8_t pop_ecx[] = {0x59};
-        buffer_append(b, pop_ecx, 1);
+        // Add the base value from EDX back to ECX
+        uint8_t pop_edx[] = {0x5A};
+        buffer_append(b, pop_edx, 1);
 
-        uint8_t add_eax_ecx[] = {0x01, 0xC8};
-        buffer_append(b, add_eax_ecx, 2);
+        uint8_t add_ecx_edx[] = {0x01, 0xD1}; // ADD ECX, EDX
+        buffer_append(b, add_ecx_edx, 2);
     }
 
     // Handle displacement
     if (src_op->mem.disp != 0) {
         uint32_t disp = (uint32_t)src_op->mem.disp;
-        // Use null-free construction for displacement
-        uint8_t push_temp[] = {0x52}; // PUSH EDX as temp
-        buffer_append(b, push_temp, 1);
 
-        generate_mov_eax_imm(b, disp); // MOV EAX, disp with null-free construction
+        // MOV EAX, disp with null-free construction
+        generate_mov_eax_imm(b, disp);
 
-        // MOV EDX, EAX (move displacement to EDX)
-        uint8_t mov_edx_eax[] = {0x89, 0xC2};
-        buffer_append(b, mov_edx_eax, 2);
-
-        // POP EAX (restore calculated address part)
-        uint8_t pop_eax[] = {0x58};
-        buffer_append(b, pop_eax, 1);
-
-        // ADD EAX, EDX (add displacement to calculated address)
-        uint8_t add_eax_edx[] = {0x01, 0xD0};
-        buffer_append(b, add_eax_edx, 2);
-
-        // Restore stack
-        uint8_t pop_edx[] = {0x5A};
-        buffer_append(b, pop_edx, 1);
+        // ADD ECX, EAX (add displacement to calculated address)
+        uint8_t add_ecx_eax[] = {0x01, 0xC1}; // ADD ECX, EAX
+        buffer_append(b, add_ecx_eax, 2);
     }
 
     // Move result to target register
-    if (target_reg != X86_REG_EAX) {
-        uint8_t mov_target_eax[] = {0x89, 0xC0};
-        mov_target_eax[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(target_reg);
-        buffer_append(b, mov_target_eax, 2);
+    if (target_reg != X86_REG_ECX) {
+        uint8_t mov_target_ecx[] = {0x89, 0xC0};
+        mov_target_ecx[1] = 0xC0 + (get_reg_index(X86_REG_ECX) << 3) + get_reg_index(target_reg);
+        buffer_append(b, mov_target_ecx, 2);
+    } else {
+        // Target is ECX, so we're done
     }
 
-    // Restore original EAX
-    uint8_t pop_eax[] = {0x58};
-    buffer_append(b, pop_eax, 1);
+    // Restore original ECX
+    uint8_t pop_ecx[] = {0x59};
+    buffer_append(b, pop_ecx, 1);
 }
 
 strategy_t lea_complex_displacement_strategy = {

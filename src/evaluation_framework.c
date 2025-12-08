@@ -277,7 +277,7 @@ int evaluation_load_test_cases(evaluation_config_t* config,
                                                                  test_cases[loaded_count].original_size);
             snprintf(test_cases[loaded_count].test_description, 
                      sizeof(test_cases[loaded_count].test_description), 
-                     "File: %s", entry->d_name);
+                     "File: %.249s", entry->d_name);
             
             loaded_count++;
         }

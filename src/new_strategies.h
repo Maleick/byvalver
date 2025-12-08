@@ -12,4 +12,7 @@ extern strategy_t transform_mov_reg_mem_self;
 // Example: add [eax], al (0x00 0x00) -> transformed to null-byte-free sequence
 extern strategy_t transform_add_mem_reg8;
 
+// Strategy for runtime null-termination of strings (INC byte ptr [mem])
+extern strategy_t delayed_string_termination_strategy;
+
 #endif // NEW_STRATEGIES_H

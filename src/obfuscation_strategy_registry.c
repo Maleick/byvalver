@@ -17,13 +17,6 @@
 #include <string.h>
 #include <stdio.h>
 
-// Debug mode
-#ifdef DEBUG
-  #define DEBUG_LOG(fmt, ...) do { fprintf(stderr, "[OBFUSC] " fmt "\n", ##__VA_ARGS__); } while(0)
-#else
-  #define DEBUG_LOG(fmt, ...) do {} while(0)
-#endif
-
 #define MAX_OBFUSCATION_STRATEGIES 50
 
 static strategy_t* obfuscation_strategies[MAX_OBFUSCATION_STRATEGIES];
@@ -54,7 +47,7 @@ void register_stack_spill_obfuscation();           // Stack-based register hidin
 
 // Initialize all obfuscation strategies
 void init_obfuscation_strategies() {
-    DEBUG_LOG("Initializing Pass 1 (Obfuscation) strategy registry...", 0); // Adding dummy arg to avoid C99 warning
+    DEBUG_LOG("Initializing Pass 1 (Obfuscation) strategy registry...");
 
     // Register obfuscation transformations (order matters - higher priority first)
     register_opaque_predicate_obfuscation();      // Priority 95 - Complex control flow

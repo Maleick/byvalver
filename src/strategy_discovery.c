@@ -184,7 +184,7 @@ int strategy_discovery_generate_strategy(strategy_discovery_context_t* context,
     
     // Generate a unique name for the strategy
     snprintf(new_strategy->strategy.name, sizeof(new_strategy->strategy.name),
-             "%s_AUTO_%d", template->name, template->generation_count);
+             "%.40s_AUTO_%d", template->name, template->generation_count);
     
     // Set other properties from the template
     new_strategy->strategy.priority = template->priority;

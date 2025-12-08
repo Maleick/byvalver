@@ -3,8 +3,18 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <capstone/capstone.h>
 #include "strategy.h"
+
+#ifdef DEBUG
+  // C99 compliant debug macro
+  #define DEBUG_LOG(...) do { fprintf(stderr, "[DEBUG] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); } while(0)
+  #define DEBUG_INSN(insn) fprintf(stderr, "[DEBUG] %s %s\n", insn->mnemonic, insn->op_str)
+#else
+  #define DEBUG_LOG(...) do {} while(0)
+  #define DEBUG_INSN(insn) do {} while(0)
+#endif
 
 // Core data structures
 struct buffer {

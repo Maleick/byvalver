@@ -6,19 +6,6 @@
 #include "strategy.h"  // For provide_ml_feedback
 #include "ml_strategist.h"  // For metrics tracking functions
 
-#ifdef DEBUG
-// C99 compliant debug macro
-#ifdef DEBUG
-  #define DEBUG_LOG(fmt, ...) do { fprintf(stderr, "[DEBUG] " fmt "\n", ##__VA_ARGS__); } while(0)
-#else
-  #define DEBUG_LOG(fmt, ...) do {} while(0)
-#endif
-#define DEBUG_INSN(insn) fprintf(stderr, "[DEBUG] %s %s\n", insn->mnemonic, insn->op_str)
-#else
-#define DEBUG_LOG(fmt, ...)
-#define DEBUG_INSN(insn)
-#endif
-
 void buffer_init(struct buffer *b) {
     b->data = NULL;
     b->size = 0;
@@ -428,11 +415,11 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
         fprintf(stderr, "[ERROR] shellcode pointer is NULL!\n");
         return new_shellcode;
     }
-    fprintf(stderr, "[FIRST 16 BYTES] %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-            shellcode[0], shellcode[1], shellcode[2], shellcode[3],
-            shellcode[4], shellcode[5], shellcode[6], shellcode[7],
-            shellcode[8], shellcode[9], shellcode[10], shellcode[11],
-            shellcode[12], shellcode[13], shellcode[14], shellcode[15]);
+    fprintf(stderr, "[FIRST 16 BYTES] ");
+    for (size_t i = 0; i < size && i < 16; ++i) {
+        fprintf(stderr, "%02x ", shellcode[i]);
+    }
+    fprintf(stderr, "\n");
 
     if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) != CS_ERR_OK) {
         fprintf(stderr, "[ERROR] cs_open failed!\n");
@@ -593,7 +580,7 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     }
 
     // Final verification - DO THIS BEFORE CLEANUP
-    DEBUG_LOG("Final verification pass", 0);
+    DEBUG_LOG("Final verification pass");
     int null_count = 0;
     for (size_t i = 0; i < new_shellcode.size; i++) {
         if (new_shellcode.data[i] == 0x00) {
@@ -621,7 +608,7 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
         fprintf(stderr, "\nERROR: Final shellcode contains %d null bytes\n", null_count);
         fprintf(stderr, "Recompile with -DDEBUG for details\n");
     } else {
-        DEBUG_LOG("SUCCESS: No null bytes in final shellcode", 0);
+        DEBUG_LOG("SUCCESS: No null bytes in final shellcode");
     }
 
     // Clean up only AFTER verification
@@ -978,7 +965,7 @@ struct buffer adaptive_processing(const uint8_t *input, size_t size) {
 
     // Verification pass: check if any nulls remain
     if (!verify_null_elimination(&intermediate)) {
-        DEBUG_LOG("WARNING: Null byte found in processed shellcode", 0);
+        DEBUG_LOG("WARNING: Null byte found in processed shellcode");
         // Re-run remove_null_bytes with extended debugging to identify problematic instructions
         csh handle;
         cs_insn *insn_array;
@@ -1038,7 +1025,7 @@ struct buffer adaptive_processing(const uint8_t *input, size_t size) {
                         }
                         
                         if (has_null) {
-                            DEBUG_LOG("  Original instruction had null bytes: ", 0);
+                            DEBUG_LOG("  Original instruction had null bytes: ");
                             for (int j = 0; j < current->insn->size; j++) {
                                 DEBUG_LOG("    Byte %d: 0x%02x", j, current->insn->bytes[j]);
                             }
@@ -1051,7 +1038,7 @@ struct buffer adaptive_processing(const uint8_t *input, size_t size) {
                         if (temp_strategy_count > 0) {
                             DEBUG_LOG("  Applied strategy: %s", strategies[0]->name);
                         } else {
-                            DEBUG_LOG("  No strategy applied, used fallback", 0);
+                            DEBUG_LOG("  No strategy applied, used fallback");
                         }
                     }
                     
@@ -1152,11 +1139,11 @@ void handle_unhandled_instruction_with_nulls(struct buffer *b, cs_insn *insn) {
     buffer_append(b, nop_seq, 2);
 }
 
-// ============================================================================
+// ============================================================================ 
 // BIPHASIC ARCHITECTURE IMPLEMENTATION
 // Pass 1: Obfuscation & Complexification
 // Pass 2: Null-Byte Elimination
-// ============================================================================
+// ============================================================================ 
 
 #include "obfuscation_strategy_registry.h"
 

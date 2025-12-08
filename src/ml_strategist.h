@@ -157,6 +157,21 @@ void ml_strategist_export_metrics_csv(const char* filepath);
  */
 void ml_strategist_print_live_metrics(void);
 
+/**
+ * @brief Print detailed metrics summary
+ */
+void ml_strategist_print_metrics_summary(void);
+
+/**
+ * @brief Print strategy breakdown metrics
+ */
+void ml_strategist_print_strategy_breakdown(void);
+
+/**
+ * @brief Print learning progress metrics
+ */
+void ml_strategist_print_learning_progress(void);
+
 // Function to get reference to metrics tracker for other modules
 ml_metrics_tracker_t* get_ml_metrics_tracker(void);
 

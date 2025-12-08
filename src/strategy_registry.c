@@ -15,6 +15,15 @@
 #include "stack_string_construction_strategies.h"
 #include "salc_conditional_flag_strategies.h"
 #include "register_swapping_immediate_strategies.h"
+#include "scasb_cmpsb_strategies.h"
+#include "short_conditional_jump_strategies.h"
+#include "lea_complex_addressing_strategies.h"
+#include "inc_dec_chain_strategies.h"
+#include "lea_arithmetic_calculation_strategies.h"
+#include "push_pop_immediate_strategies.h"
+#include "bitwise_flag_manipulation_strategies.h"
+#include "salc_zero_flag_strategies.h"
+#include "xchg_immediate_construction_strategies.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
@@ -69,6 +78,15 @@ void register_enhanced_conservative_mov_strategy(); // Forward declaration
 void register_context_preservation_strategies(); // Forward declaration
 void register_sequence_preservation_strategies(); // Forward declaration
 void register_advanced_transformations(); // Forward declaration
+void register_scasb_cmpsb_strategies(); // Forward declaration - SCASB/CMPSB conditional operations strategy
+void register_short_conditional_jump_strategies(); // Forward declaration - Short conditional jump with 8-bit displacement strategy
+void register_lea_complex_addressing_strategies(); // Forward declaration - LEA with complex addressing for value construction strategy
+void register_inc_dec_chain_strategies(); // Forward declaration - INC/DEC chain strategy
+void register_lea_arithmetic_calculation_strategies(); // Forward declaration - LEA arithmetic calculation strategy
+void register_push_pop_immediate_strategies(); // Forward declaration - PUSH-POP immediate loading strategy
+void register_bitwise_flag_manipulation_strategies(); // Forward declaration - Bitwise flag manipulation strategy
+void register_salc_zero_flag_strategies(); // Forward declaration - SALC zero flag strategy
+void register_xchg_immediate_construction_strategies(); // Forward declaration - XCHG immediate construction strategy
 void init_advanced_transformations(); // Forward declaration
 void register_getpc_strategies(); // Forward declaration
 void register_movzx_strategies(); // Forward declaration
@@ -166,7 +184,7 @@ void init_strategies(int use_ml) {
     register_lea_displacement_strategies();  // Register LEA displacement null elimination strategies (priority 80)
     register_sequence_preservation_strategies();  // Register sequence preservation strategies
     register_context_preservation_strategies();  // Register context preservation strategies
-    // DISABLED - NEW in 1d8cff3: register_string_instruction_strategies();  // Register string instruction null construction strategies (priority 45)
+    register_string_instruction_strategies();  // Register string instruction null construction strategies (priority 45)
     register_lea_strategies();  // Register LEA strategies
     //     register_enhanced_conservative_mov_strategy();  // Register enhanced conservative strategy
     register_conservative_strategies();  // Register conservative strategies
@@ -222,7 +240,7 @@ void init_strategies(int use_ml) {
     register_salc_strategies(); // Register SALC AL zeroing optimization strategies (priority 91) - was in 03bbf99
     register_xchg_preservation_strategies(); // Register PUSH immediate optimization strategies (priority 86) - was in 03bbf99
     register_stack_string_strategies(); // Register stack-based string construction strategies (priority 85) - was in 03bbf99
-    // DISABLED - NEW in 1d8cff3: register_salc_rep_stosb_strategies(); // Register SALC + REP STOSB strategies (priority 65)
+    register_salc_rep_stosb_strategies(); // Register SALC + REP STOSB strategies (priority 65)
 
     // Register our new Windows-specific strategies
     register_call_pop_immediate_strategies(); // Register CALL/POP immediate loading strategies (priority 85)
@@ -231,6 +249,17 @@ void init_strategies(int use_ml) {
     register_stack_string_construction_strategies(); // Register stack string construction strategies (priority 85)
     register_salc_conditional_flag_strategies(); // Register SALC + conditional flag strategies (priority 91)
     register_register_swapping_immediate_strategies(); // Register register swapping immediate strategies (priority 70)
+
+    // Register additional Windows-relevant denull strategies
+    register_scasb_cmpsb_strategies(); // Register SCASB/CMPSB conditional operations strategies (priority 75)
+    register_short_conditional_jump_strategies(); // Register short conditional jump strategies (priority 85)
+    register_lea_complex_addressing_strategies(); // Register LEA complex addressing strategies (priority 80)
+    register_inc_dec_chain_strategies(); // Register INC/DEC chain strategies (priority 75)
+    register_lea_arithmetic_calculation_strategies(); // Register LEA arithmetic calculation strategies (priority 78)
+    register_push_pop_immediate_strategies(); // Register PUSH-POP immediate loading strategies (priority 77)
+    register_bitwise_flag_manipulation_strategies(); // Register bitwise flag manipulation strategies (priority 72)
+    register_salc_zero_flag_strategies(); // Register SALC zero flag strategies (priority 75)
+    register_xchg_immediate_construction_strategies(); // Register XCHG immediate construction strategies (priority 70)
 
     register_syscall_strategies(); // Register Windows syscall direct invocation strategies (priority 95) - was in 03bbf99
     register_unicode_string_strategies(); // Register Unicode (UTF-16) string handling strategies (priority 74-78)

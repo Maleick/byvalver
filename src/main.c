@@ -478,6 +478,31 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        // Show detailed statistics if requested (works with or without ML)
+        if (config->show_stats) {
+            printf("\n📊 DETAILED STATISTICS\n");
+            printf("=====================\n");
+            if (ml_initialized) {
+                ml_strategist_print_metrics_summary();
+                ml_strategist_print_strategy_breakdown();
+                ml_strategist_print_learning_progress();
+            } else {
+                // Provide basic statistics for batch processing even without ML
+                printf("Statistics without ML Integration:\n");
+                printf("  - Batch processing completed\n");
+                printf("  - Total files: %zu\n", stats.total_files);
+                printf("  - Processed files: %zu\n", stats.processed_files);
+                printf("  - Failed files: %zu\n", stats.failed_files);
+                printf("  - Skipped files: %zu\n", stats.skipped_files);
+                printf("  - Total input size: %zu bytes\n", stats.total_input_bytes);
+                printf("  - Total output size: %zu bytes\n", stats.total_output_bytes);
+                if (stats.total_input_bytes > 0) {
+                    double ratio = (double)stats.total_output_bytes / (double)stats.total_input_bytes;
+                    printf("  - Average size ratio: %.2f\n", ratio);
+                }
+            }
+        }
+
         config_free(config);
         if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
 
@@ -531,6 +556,27 @@ int main(int argc, char *argv[]) {
             snprintf(csv_file, sizeof(csv_file), "%s.csv",
                     config->metrics_output_file ? config->metrics_output_file : "./ml_metrics");
             ml_strategist_export_metrics_csv(csv_file);
+        }
+    }
+
+    // Show detailed statistics if requested (works with or without ML)
+    if (config->show_stats) {
+        printf("\n📊 DETAILED STATISTICS\n");
+        printf("=====================\n");
+        if (ml_initialized) {
+            ml_strategist_print_metrics_summary();
+            ml_strategist_print_strategy_breakdown();
+            ml_strategist_print_learning_progress();
+        } else {
+            // Provide basic statistics even without ML
+            printf("Statistics without ML Integration:\n");
+            printf("  - Shellcode processing completed\n");
+            printf("  - Input size: %zu bytes\n", input_size);
+            printf("  - Output size: %zu bytes\n", output_size);
+            if (input_size > 0) {
+                double ratio = (double)output_size / (double)input_size;
+                printf("  - Size ratio: %.2f\n", ratio);
+            }
         }
     }
 

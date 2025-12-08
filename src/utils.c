@@ -1225,17 +1225,15 @@ void generate_push_imm(struct buffer *b, uint32_t imm) {
  * Generate MOV AL, immediate_byte without null bytes in instruction encoding
  */
 void generate_mov_eax_imm_byte(struct buffer *b, uint8_t imm) {
-    // Check if immediate is 0 which would require special handling to avoid nulls
+    // If the immediate is 0, we can't use MOV AL, 0x00 as it would create a null
     if (imm == 0) {
-        // Use XOR to get zero: XOR EAX, EAX (encoded as 31 C0 - no nulls)
-        uint8_t xor_eax_eax[] = {0x31, 0xC0};
+        // XOR EAX, EAX to zero out, then we'll have AL=0
+        uint8_t xor_eax_eax[] = {0x31, 0xC0};  // XOR EAX, EAX (no nulls)
         buffer_append(b, xor_eax_eax, 2);
-        return;
+    } else {
+        // For non-zero bytes, we can safely use MOV AL, imm8
+        uint8_t mov_al[] = {0xB0, imm};  // MOV AL, imm8
+        buffer_append(b, mov_al, 2);
     }
-
-    // If immediate is not null, we can use MOV AL, imm8 directly
-    // But we need to ensure the immediate is not null (which we've already checked)
-    uint8_t mov_al[] = {0xB0, imm};  // MOV AL, imm8
-    buffer_append(b, mov_al, 2);
 }
 

@@ -788,3 +788,30 @@ void ml_strategist_print_live_metrics(void) {
         ml_metrics_print_live_stats(g_ml_metrics);
     }
 }
+
+/**
+ * @brief Print detailed metrics summary
+ */
+void ml_strategist_print_metrics_summary(void) {
+    if (g_ml_metrics) {
+        ml_metrics_print_summary(g_ml_metrics);
+    }
+}
+
+/**
+ * @brief Print strategy breakdown metrics
+ */
+void ml_strategist_print_strategy_breakdown(void) {
+    if (g_ml_metrics) {
+        ml_metrics_print_strategy_breakdown(g_ml_metrics);
+    }
+}
+
+/**
+ * @brief Print learning progress metrics
+ */
+void ml_strategist_print_learning_progress(void) {
+    if (g_ml_metrics) {
+        ml_metrics_print_learning_progress(g_ml_metrics);
+    }
+}

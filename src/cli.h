@@ -53,6 +53,7 @@ typedef struct {
     char *file_pattern;           // File pattern to match (e.g., "*.bin")
     int preserve_structure;       // Preserve directory structure in output
     int continue_on_error;        // Continue processing on error
+    char *failed_files_output;    // File to output list of failed files
     
     // Advanced options
     char *output_format;  // "raw", "c", "python", "powershell", "hexstring"

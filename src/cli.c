@@ -47,6 +47,7 @@ byvalver_config_t* config_create_default(void) {
     config->file_pattern = "*.bin";
     config->preserve_structure = 1;  // Preserve by default
     config->continue_on_error = 1;  // Default to continuing on errors
+    config->failed_files_output = NULL;  // No failed files output by default
 
     return config;
 }
@@ -106,7 +107,8 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      -r, --recursive               Process directories recursively\n");
     fprintf(stream, "      --pattern PATTERN             File pattern to match (default: *.bin)\n");
     fprintf(stream, "      --no-preserve-structure       Don't preserve directory structure in output\n");
-    fprintf(stream, "      --no-continue-on-error        Stop processing on first error (default is to continue)\n\n");
+    fprintf(stream, "      --no-continue-on-error        Stop processing on first error (default is to continue)\n");
+    fprintf(stream, "      --failed-files FILE           Output list of failed files to specified file\n\n");
 
     fprintf(stream, "    Advanced Options:\n");
     fprintf(stream, "      --strategy-limit N            Limit number of strategies to consider per instruction\n");
@@ -200,6 +202,7 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"pattern", required_argument, 0, 0},
         {"no-preserve-structure", no_argument, 0, 0},
         {"no-continue-on-error", no_argument, 0, 0},
+        {"failed-files", required_argument, 0, 0},
 
         // Advanced options
         {"strategy-limit", required_argument, 0, 0},
@@ -356,6 +359,9 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                     }
                     else if (strcmp(opt_name, "no-continue-on-error") == 0) {
                         config->continue_on_error = 0;
+                    }
+                    else if (strcmp(opt_name, "failed-files") == 0) {
+                        config->failed_files_output = optarg;
                     }
                 }
                 break;

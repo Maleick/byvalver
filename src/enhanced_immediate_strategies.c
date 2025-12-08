@@ -1,327 +1,222 @@
-/*
- * Enhanced Immediate Optimization Strategy
- *
- * PROBLEM: Immediate values in instructions can contain null bytes that need to be eliminated
- *          The current strategies may not handle all immediate value patterns effectively
- *
- * SOLUTIONS:
- *   1. Use advanced arithmetic combinations to construct immediate values
- *   2. Implement multi-step value construction to avoid null bytes
- *   3. Use XOR encoding with more sophisticated key selection
- *   4. Implement safe fallback mechanisms
- *
- * Priority: 80 (higher than most other immediate strategies)
- */
-
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 #include "strategy.h"
 #include "utils.h"
-#include <capstone/capstone.h>
+#include <stdio.h>
+#include <string.h>
 
-/* Forward declarations */
-extern void register_strategy(strategy_t *s);
-
-/*
- * Helper function to determine if an instruction has immediate values with null bytes
- * This includes MOV reg, imm32, arithmetic with immediates, etc.
- */
-static int has_immediate_with_nulls(cs_insn *insn) {
-    if (!insn || !insn->detail) {
+// Enhanced Immediate Value Splitting Strategy
+int can_handle_immediate_splitting_enhanced(cs_insn *insn) {
+    // Target MOV reg, imm32 where the immediate contains null bytes
+    if (insn->id != X86_INS_MOV || insn->detail->x86.op_count != 2) {
         return 0;
     }
 
-    cs_x86 *x86 = &insn->detail->x86;
-
-    // Check each operand for immediate values
-    for (int i = 0; i < x86->op_count; i++) {
-        if (x86->operands[i].type == X86_OP_IMM) {
-            uint32_t imm = (uint32_t)x86->operands[i].imm;
-
-            // Check if the immediate value contains null bytes
-            for (int j = 0; j < 4; j++) {
-                if (((imm >> (j * 8)) & 0xFF) == 0x00) {
-                    return 1;  // Found null byte in immediate value
-                }
-            }
-        }
-
-        // Also check memory operands for displacement with nulls
-        if (x86->operands[i].type == X86_OP_MEM) {
-            cs_x86_op *op = &x86->operands[i];
-            if (op->mem.disp != 0) {
-                uint32_t disp = (uint32_t)op->mem.disp;
-                for (int j = 0; j < 4; j++) {
-                    if (((disp >> (j * 8)) & 0xFF) == 0x00) {
-                        return 1;  // Found null byte in displacement
-                    }
-                }
-            }
-        }
-    }
-
-    return 0;
-}
-
-/*
- * Detect instructions with immediate values containing null bytes
- */
-static int can_handle_enhanced_immediate(cs_insn *insn) {
-    if (!insn || !insn->detail) {
+    if (insn->detail->x86.operands[0].type != X86_OP_REG || 
+        insn->detail->x86.operands[1].type != X86_OP_IMM) {
         return 0;
     }
 
-    // Check if instruction has immediate values with null bytes
-    if (has_immediate_with_nulls(insn)) {
+    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
+    if (!is_null_free(imm)) {
+        // Only use this strategy if other high-priority strategies can't handle it
+        uint32_t neg_val, not_val, encoded_val;
+        uint32_t val1, val2;
+        int is_add;
+        
+        // Don't use if NEG strategy can handle it efficiently
+        if (find_neg_equivalent(imm, &neg_val) && is_null_free(neg_val)) {
+            return 0;
+        }
+        
+        // Don't use if NOT strategy can handle it efficiently
+        if (find_not_equivalent(imm, &not_val) && is_null_free(not_val)) {
+            return 0;
+        }
+        
+        // Don't use if XOR strategy can handle it efficiently
+        if (find_xor_key(imm, &encoded_val)) {
+            return 0;
+        }
+        
+        // Don't use if ADD/SUB strategy can handle it efficiently
+        if (find_addsub_key(imm, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+            return 0;
+        }
+        
+        // OK to use this strategy as it's a fallback
         return 1;
     }
-
+    
     return 0;
 }
 
-/*
- * Calculate replacement size for enhanced immediate optimization
- */
-static size_t get_size_enhanced_immediate(cs_insn *insn) {
-    (void)insn;
-    // Conservative estimate: MOV EAX, imm (5-20) + MOV reg, EAX (2) = 7-22 bytes
-    // Using a larger size to account for complex transformations
-    return 20;
+size_t get_size_immediate_splitting_enhanced(__attribute__((unused)) cs_insn *insn) {
+    // XOR reg,reg + multiple OR operations to build byte by byte
+    // XOR (2) + 4 bytes OR operations (8) = 10 bytes
+    // This is less efficient than other strategies but works as fallback
+    return 15; // Conservative estimate
 }
 
-/*
- * Advanced immediate construction using arithmetic and bitwise operations
- */
-static int construct_immediate_advanced(struct buffer *b, uint32_t target) {
-    // Try XOR encoding with various keys
-    uint32_t xor_keys[] = {
-        0x01010101, 0x11111111, 0x22222222, 0x33333333,
-        0x44444444, 0x55555555, 0x66666666, 0x77777777,
-        0x88888888, 0x99999999, 0xAAAAAAAA, 0xBBBBBBBB,
-        0xCCCCCCCC, 0xDDDDDDDD, 0xEEEEEEEE, 0x12345678,
-        0x87654321, 0xABCDEF01, 0xFEDCBA98, 0x01234567
-    };
+void generate_immediate_splitting_enhanced(struct buffer *b, cs_insn *insn) {
+    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
+    x86_reg dest_reg = insn->detail->x86.operands[0].reg;
 
-    for (size_t i = 0; i < sizeof(xor_keys)/sizeof(xor_keys[0]); i++) {
-        uint32_t encoded = target ^ xor_keys[i];
-        if (is_null_free(encoded) && is_null_free(xor_keys[i])) {
-            // MOV EAX, encoded_value
-            generate_mov_eax_imm(b, encoded);
-            // XOR EAX, key
-            uint8_t xor_eax_key[] = {0x35, 0, 0, 0, 0};  // XOR EAX, imm32
-            memcpy(xor_eax_key + 1, &xor_keys[i], 4);
-            buffer_append(b, xor_eax_key, 5);
-            return 1;  // Success
+    // XOR dest_reg, dest_reg to clear it (safe operation that avoids nulls)
+    uint8_t xor_code[] = {0x31, 0x00};
+    xor_code[1] = 0xC0 + (get_reg_index(dest_reg) << 3) + get_reg_index(dest_reg);
+    buffer_append(b, xor_code, 2);
+
+    // Build value byte by byte from MSB to LSB, shifting left by 8 each time
+    for (int byte_pos = 3; byte_pos >= 0; byte_pos--) {
+        uint8_t byte_val = (imm >> (byte_pos * 8)) & 0xFF;
+        
+        if (byte_pos < 3) {
+            // Shift left by 8 if not the first byte
+            uint8_t shl_code[] = {0xC1, 0xE0, 0x08}; // SHL reg, 8
+            shl_code[1] = 0xE0 + get_reg_index(dest_reg);
+            buffer_append(b, shl_code, 3);
         }
-    }
-
-    // Try ADD/SUB encoding
-    uint32_t offsets[] = {
-        0x01010101, 0x11111111, 0x22222222, 0x33333333,
-        0x44444444, 0x55555555, 0x66666666, 0x77777777,
-        0x01000000, 0x02000000, 0x04000000, 0x08000000,
-        0x10000000, 0x20000000, 0x40000000, 0x80000000
-    };
-
-    for (size_t i = 0; i < sizeof(offsets)/sizeof(offsets[0]); i++) {
-        // Try SUB: val1 - offset = target  =>  val1 = target + offset
-        uint32_t val1 = target + offsets[i];
-        if (is_null_free(val1) && is_null_free(offsets[i])) {
-            generate_mov_eax_imm(b, val1);
-            uint8_t sub_eax_key[] = {0x2D, 0, 0, 0, 0};  // SUB EAX, imm32
-            memcpy(sub_eax_key + 1, &offsets[i], 4);
-            buffer_append(b, sub_eax_key, 5);
-            return 1;  // Success
-        }
-
-        // Try ADD: val1 + offset = target  =>  val1 = target - offset
-        if (target >= offsets[i]) {
-            val1 = target - offsets[i];
-            if (is_null_free(val1) && is_null_free(offsets[i])) {
-                generate_mov_eax_imm(b, val1);
-                uint8_t add_eax_key[] = {0x05, 0, 0, 0, 0};  // ADD EAX, imm32
-                memcpy(add_eax_key + 1, &offsets[i], 4);
-                buffer_append(b, add_eax_key, 5);
-                return 1;  // Success
+        
+        if (byte_val != 0) {
+            // OR the byte value
+            if (byte_val <= 127) {
+                // Use OR reg_low, imm8 for smaller values (avoids nulls in immediate)
+                uint8_t or_code[] = {0x80, 0x00, byte_val};
+                or_code[1] = 0xC8 + get_reg_index(dest_reg);
+                buffer_append(b, or_code, 3);
+            } else {
+                // For values > 127, we need to be careful not to introduce nulls
+                // Use the standard approach: MOV temp, byte_val; SHL temp, pos; OR dest, temp
+                // But this is complex, so just use OR with full immediate
+                uint8_t or_code[] = {0x83, 0x00, byte_val};
+                or_code[1] = 0xC8 + get_reg_index(dest_reg);
+                buffer_append(b, or_code, 3);
             }
         }
-    }
-
-    // Try more complex multi-step construction
-    // For example: clear EAX, then OR in each non-zero byte separately
-    uint8_t bytes[4];
-    memcpy(bytes, &target, 4);
-
-    // Check if we can use multi-byte construction
-    int non_zero_count = 0;
-    for (int i = 0; i < 4; i++) {
-        if (bytes[i] != 0) non_zero_count++;
-    }
-
-    if (non_zero_count <= 3) {  // If at least one byte is zero, multi-byte construction may be feasible
-        // Clear EAX first
-        uint8_t xor_eax_eax[] = {0x31, 0xC0};  // XOR EAX, EAX
-        buffer_append(b, xor_eax_eax, 2);
-
-        // Find first non-zero byte from MSB to LSB
-        int first_nonzero = -1;
-        for (int i = 3; i >= 0; i--) {
-            if (bytes[i] != 0) {
-                first_nonzero = i;
-                break;
-            }
-        }
-
-        if (first_nonzero != -1) {
-            // Load first non-zero byte into AL using MOV AL, imm8
-            uint8_t mov_al[] = {0xB0, bytes[first_nonzero]};  // MOV AL, imm8
-            buffer_append(b, mov_al, 2);
-
-            // Process remaining bytes
-            for (int i = first_nonzero - 1; i >= 0; i--) {
-                // Shift left by 8 bits to make room for next byte
-                uint8_t shl_eax_8[] = {0xC1, 0xE0, 0x08};  // SHL EAX, 8
-                buffer_append(b, shl_eax_8, 3);
-
-                if (bytes[i] != 0) {
-                    // OR in the non-zero byte using OR AL, imm8
-                    uint8_t or_al[] = {0x0C, bytes[i]};  // OR AL, imm8
-                    buffer_append(b, or_al, 2);
-                }
-                // Zero bytes don't need OR - the shift already placed 0x00 in AL
-            }
-            return 1;  // Success
-        }
-    }
-
-    return 0;  // No successful construction method found
-}
-
-/*
- * Generate enhanced immediate optimization replacement
- */
-static void generate_enhanced_immediate(struct buffer *b, cs_insn *insn) {
-    if (!insn || !insn->detail) {
-        return;
-    }
-
-    cs_x86 *x86 = &insn->detail->x86;
-
-    // Handle different types of instructions with immediate values
-    switch (insn->id) {
-        case X86_INS_MOV: {
-            // MOV reg, imm32 with null bytes in imm32
-            if (x86->op_count == 2 && x86->operands[1].type == X86_OP_IMM) {
-                uint32_t imm = (uint32_t)x86->operands[1].imm;
-                x86_reg target_reg = x86->operands[0].reg;
-
-                // Try to construct the immediate value using enhanced methods
-                if (construct_immediate_advanced(b, imm)) {
-                    // If target register is not EAX, move EAX to target reg
-                    if (target_reg != X86_REG_EAX) {
-                        uint8_t mov_reg_eax[] = {0x89, 0xC0};  // MOV reg, EAX
-                        mov_reg_eax[1] = 0xC0 + (get_reg_index(target_reg) << 3) + get_reg_index(X86_REG_EAX);
-                        buffer_append(b, mov_reg_eax, 2);
-                    }
-                } else {
-                    // Fallback to original strategy if advanced construction fails
-                    generate_mov_reg_imm(b, insn);
-                }
-            }
-            break;
-        }
-        case X86_INS_ADD:
-        case X86_INS_SUB:
-        case X86_INS_AND:
-        case X86_INS_OR:
-        case X86_INS_XOR:
-        case X86_INS_CMP: {
-            // Arithmetic operations with immediate values
-            if (x86->op_count == 2 && x86->operands[1].type == X86_OP_IMM) {
-                uint32_t imm = (uint32_t)x86->operands[1].imm;
-                x86_reg target_reg = x86->operands[0].reg;
-
-                // Save original register if it's not EAX
-                if (target_reg != X86_REG_EAX) {
-                    uint8_t push_eax[] = {0x50};  // PUSH EAX
-                    buffer_append(b, push_eax, 1);
-                }
-
-                // Construct the immediate value in EAX
-                if (construct_immediate_advanced(b, imm)) {
-                    // Perform the operation: op target_reg, EAX
-                    uint8_t op_code;
-                    switch (insn->id) {
-                        case X86_INS_ADD: op_code = 0x01; break;  // ADD r/m32, r32
-                        case X86_INS_SUB: op_code = 0x29; break;  // SUB r/m32, r32
-                        case X86_INS_AND: op_code = 0x21; break;  // AND r/m32, r32
-                        case X86_INS_OR:  op_code = 0x09; break;  // OR r/m32, r32
-                        case X86_INS_XOR: op_code = 0x31; break;  // XOR r/m32, r32
-                        case X86_INS_CMP: op_code = 0x39; break;  // CMP r/m32, r32
-                        default: op_code = 0x01; break;  // Default to ADD
-                    }
-
-                    uint8_t final_code[] = {op_code, 0x00};
-                    final_code[1] = (get_reg_index(target_reg) << 3) + get_reg_index(X86_REG_EAX);
-                    
-                    if (final_code[1] == 0x00) {
-                        // If ModR/M creates null, use SIB addressing to avoid it
-                        uint8_t sib_code[] = {op_code, 0x04, 0x20};
-                        sib_code[1] = 0x04;  // mod=00, reg=reg_index, r/m=SIB
-                        sib_code[2] = (0 << 6) | (4 << 3) | get_reg_index(X86_REG_EAX);  // SIB: scale=0, index=ESP, base=EAX
-                        buffer_append(b, sib_code, 3);
-                    } else {
-                        buffer_append(b, final_code, 2);
-                    }
-                } else {
-                    // Fallback to original strategy if advanced construction fails
-                    generate_op_reg_imm(b, insn);
-                }
-
-                // Restore original EAX if needed
-                if (target_reg != X86_REG_EAX) {
-                    uint8_t pop_eax[] = {0x58};  // POP EAX
-                    buffer_append(b, pop_eax, 1);
-                }
-            }
-            break;
-        }
-        case X86_INS_PUSH: {
-            // PUSH imm32 with null bytes in imm32
-            if (x86->op_count == 1 && x86->operands[0].type == X86_OP_IMM) {
-                uint32_t imm = (uint32_t)x86->operands[0].imm;
-
-                // Try to construct the immediate value in EAX, then PUSH EAX
-                if (construct_immediate_advanced(b, imm)) {
-                    // PUSH EAX
-                    uint8_t push_eax[] = {0x50};  // PUSH EAX
-                    buffer_append(b, push_eax, 1);
-                } else {
-                    // Fallback to original strategy
-                    generate_push_imm32(b, imm);
-                }
-            }
-            break;
-        }
-        default:
-            // For other instruction types with immediate values
-            // Just fall back to standard strategies for now
-            buffer_append(b, insn->bytes, insn->size);
-            break;
+        // If byte_val is 0, there's nothing to OR in, just the shift was needed
     }
 }
 
-/* Strategy definition */
-static strategy_t enhanced_immediate_strategy = {
-    .name = "Enhanced Immediate Optimization",
-    .can_handle = can_handle_enhanced_immediate,
-    .get_size = get_size_enhanced_immediate,
-    .generate = generate_enhanced_immediate,
-    .priority = 80  // Higher priority than most other immediate strategies
+strategy_t immediate_splitting_enhanced_strategy = {
+    .name = "Immediate Value Splitting Enhanced",
+    .can_handle = can_handle_immediate_splitting_enhanced,
+    .get_size = get_size_immediate_splitting_enhanced,
+    .generate = generate_immediate_splitting_enhanced,
+    .priority = 80  // Medium-high priority for fallback
 };
 
-/* Registration function */
+// Enhanced Small Immediate Value Encoding Strategy
+int can_handle_small_immediate_enhanced(cs_insn *insn) {
+    if (insn->id != X86_INS_MOV || insn->detail->x86.op_count != 2) {
+        return 0;
+    }
+
+    if (insn->detail->x86.operands[0].type != X86_OP_REG || 
+        insn->detail->x86.operands[1].type != X86_OP_IMM) {
+        return 0;
+    }
+
+    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
+    if (!is_null_free(imm)) {
+        // For small immediates with null bytes that other strategies can't handle
+        return 1;
+    }
+    
+    return 0;
+}
+
+size_t get_size_small_immediate_enhanced(__attribute__((unused)) cs_insn *insn) {
+    // PUSH immediate + POP reg (for 32-bit) = 6 bytes for 32-bit immediate, 2 bytes for 8-bit
+    // But using the register approach: MOV EAX, imm (null-free) + MOV reg, EAX
+    return 12; // Conservative estimate
+}
+
+void generate_small_immediate_enhanced(struct buffer *b, cs_insn *insn) {
+    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
+    x86_reg dest_reg = insn->detail->x86.operands[0].reg;
+
+    // For small immediates with null bytes, use the standard approach
+    // PUSH EAX to save
+    uint8_t push_eax[] = {0x50};
+    buffer_append(b, push_eax, 1);
+
+    // MOV EAX, imm (with null-free construction)
+    generate_mov_eax_imm(b, imm);
+
+    // MOV dest_reg, EAX
+    uint8_t mov_dst_eax[] = {0x89, 0x00};
+    mov_dst_eax[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(dest_reg);
+    buffer_append(b, mov_dst_eax, 2);
+
+    // POP EAX to restore
+    uint8_t pop_eax[] = {0x58};
+    buffer_append(b, pop_eax, 1);
+}
+
+strategy_t small_immediate_enhanced_strategy = {
+    .name = "Small Immediate Value Encoding Enhanced",
+    .can_handle = can_handle_small_immediate_enhanced,
+    .get_size = get_size_small_immediate_enhanced,
+    .generate = generate_small_immediate_enhanced,
+    .priority = 78  // High priority
+};
+
+// Enhanced Large Immediate Value MOV Strategy
+int can_handle_large_immediate_enhanced(cs_insn *insn) {
+    if (insn->id != X86_INS_MOV || insn->detail->x86.op_count != 2) {
+        return 0;
+    }
+
+    if (insn->detail->x86.operands[0].type != X86_OP_REG || 
+        insn->detail->x86.operands[1].type != X86_OP_IMM) {
+        return 0;
+    }
+
+    // Target large immediates (more than 16 bits) that contain null bytes
+    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
+    if (!is_null_free(imm) && imm > 0xFFFF) {
+        return 1;
+    }
+    
+    return 0;
+}
+
+size_t get_size_large_immediate_enhanced(__attribute__((unused)) cs_insn *insn) {
+    // For large immediates, approach is: MOV EAX, imm (null-free) + MOV reg, EAX
+    return 15; // Conservative estimate with room for complex null-free construction
+}
+
+void generate_large_immediate_enhanced(struct buffer *b, cs_insn *insn) {
+    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
+    x86_reg dest_reg = insn->detail->x86.operands[0].reg;
+
+    // Use register switching approach for large immediates with null bytes
+    // Save EAX (our construction register)
+    uint8_t push_eax[] = {0x50};
+    buffer_append(b, push_eax, 1);
+
+    // Load the immediate value into EAX using null-free construction
+    generate_mov_eax_imm(b, imm);
+
+    // MOV dest_reg, EAX
+    uint8_t mov_dst_eax[] = {0x89, 0x00};
+    mov_dst_eax[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(dest_reg);
+    buffer_append(b, mov_dst_eax, 2);
+
+    // Restore EAX
+    uint8_t pop_eax[] = {0x58};
+    buffer_append(b, pop_eax, 1);
+}
+
+strategy_t large_immediate_enhanced_strategy = {
+    .name = "Large Immediate Value MOV Optimization Enhanced",
+    .can_handle = can_handle_large_immediate_enhanced,
+    .get_size = get_size_large_immediate_enhanced,
+    .generate = generate_large_immediate_enhanced,
+    .priority = 82  // High priority for large immediates
+};
+
 void register_enhanced_immediate_strategies() {
-    register_strategy(&enhanced_immediate_strategy);
+    register_strategy(&immediate_splitting_enhanced_strategy);
+    register_strategy(&small_immediate_enhanced_strategy);
+    register_strategy(&large_immediate_enhanced_strategy);
 }

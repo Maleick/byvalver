@@ -71,12 +71,12 @@ int can_handle_byte_construct(cs_insn *insn) {
 size_t get_size_byte_construct(cs_insn *insn) {
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
     uint8_t reg = insn->detail->x86.operands[0].reg;
-    
-    // Size calculation: 
+
+    // Size calculation:
     // - Clear register: XOR reg, reg (2 bytes if not EAX, 1 if EAX with 31 C0 pattern)
     // - For each non-zero byte: MOV reg+offs, imm8 (2-4 bytes depending on addressing)
     size_t size = 2; // Initial clear operation
-    
+
     // Add size for each non-zero byte
     for (int i = 0; i < 4; i++) {
         uint8_t byte_val = (target >> (i * 8)) & 0xFF;
@@ -94,14 +94,14 @@ size_t get_size_byte_construct(cs_insn *insn) {
                 // Use MOV [reg+offs], imm8 pattern
                 size += 3; // MOV [reg], imm8 with appropriate addressing
             }
-            
+
             // Need to shift if not the lowest byte
             if (i > 0) {
                 size += 4; // SHL reg, 8 (for each position shift)
             }
         }
     }
-    
+
     // Conservative estimate - actual size may vary based on implementation
     return 15; // Conservative upper bound
 }
@@ -110,22 +110,99 @@ void generate_byte_construct(struct buffer *b, cs_insn *insn) {
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
     uint8_t reg = insn->detail->x86.operands[0].reg;
 
-    // Use the utility function which already handles null-free construction properly
+    // For true byte-by-byte construction:
     if (reg == X86_REG_EAX) {
-        // If target register is EAX, just use the utility function directly
-        generate_mov_eax_imm(b, target);
+        // Clear EAX first (XOR EAX, EAX)
+        uint8_t xor_eax[] = {0x31, 0xC0};
+        buffer_append(b, xor_eax, 2);
+
+        // Build value byte by byte using safe addressing to avoid nulls
+        // Process bytes from least significant to most significant
+        for (int i = 0; i < 4; i++) {
+            uint8_t byte_val = (target >> (i * 8)) & 0xFF;
+            if (byte_val != 0) {
+                if (i == 0) {
+                    // Set AL directly
+                    uint8_t mov_al[] = {0xB0, byte_val};
+                    buffer_append(b, mov_al, 2);
+                } else if (i == 1) {
+                    // Set AH directly
+                    uint8_t mov_ah[] = {0xB4, byte_val};
+                    buffer_append(b, mov_ah, 2);
+                } else {
+                    // For higher bytes, use shift and OR approach
+                    uint8_t push_ecx[] = {0x51};
+                    buffer_append(b, push_ecx, 1);
+
+                    // MOV ECX, byte_val
+                    generate_mov_eax_imm(b, byte_val);
+
+                    // SHL EAX, i*8
+                    for (int j = 0; j < i * 8; j++) {
+                        uint8_t shl_eax[] = {0xD1, 0xE0};
+                        buffer_append(b, shl_eax, 2);
+                    }
+
+                    // OR EAX, ECX shifted
+                    uint8_t or_eax_ecx[] = {0x09, 0xC1};
+                    buffer_append(b, or_eax_ecx, 2);
+
+                    uint8_t pop_ecx[] = {0x59};
+                    buffer_append(b, pop_ecx, 1);
+                }
+            }
+        }
     } else {
         // For other registers, save EAX, use it to build the value, then move result
         uint8_t push_eax[] = {0x50};  // PUSH EAX to save original value
         buffer_append(b, push_eax, 1);
 
-        // Build the target value in EAX using safe construction
-        generate_mov_eax_imm(b, target);
+        // Build the target value in EAX using the byte-by-byte method above
+        // Clear EAX first (XOR EAX, EAX)
+        uint8_t xor_eax[] = {0x31, 0xC0};
+        buffer_append(b, xor_eax, 2);
 
-        // Move from EAX to target register
-        uint8_t mov_reg_eax[] = {0x89, 0xC0}; // MOV reg, EAX
-        mov_reg_eax[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(reg);
-        buffer_append(b, mov_reg_eax, 2);
+        // Build value byte by byte
+        for (int i = 0; i < 4; i++) {
+            uint8_t byte_val = (target >> (i * 8)) & 0xFF;
+            if (byte_val != 0) {
+                if (i == 0) {
+                    // Set AL directly
+                    uint8_t mov_al[] = {0xB0, byte_val};
+                    buffer_append(b, mov_al, 2);
+                } else if (i == 1) {
+                    // Set AH directly
+                    uint8_t mov_ah[] = {0xB4, byte_val};
+                    buffer_append(b, mov_ah, 2);
+                } else {
+                    // For higher bytes, use shift and OR approach
+                    uint8_t push_temp[] = {0x51};  // Use ECX as temp
+                    buffer_append(b, push_temp, 1);
+
+                    // MOV ECX, byte_val
+                    generate_mov_eax_imm(b, byte_val);
+
+                    // SHL EAX, i*8
+                    for (int j = 0; j < i * 8; j++) {
+                        uint8_t shl_eax[] = {0xD1, 0xE0};
+                        buffer_append(b, shl_eax, 2);
+                    }
+
+                    // OR EAX, ECX shifted
+                    uint8_t or_eax_ecx[] = {0x09, 0xC1};
+                    buffer_append(b, or_eax_ecx, 2);
+
+                    uint8_t pop_temp[] = {0x59};
+                    buffer_append(b, pop_temp, 1);
+                }
+            }
+        }
+
+        // Move from EAX to target register using SIB addressing to avoid nulls
+        uint8_t mov_reg_eax[] = {0x89, 0x04, 0x20}; // MOV reg, EAX using SIB
+        mov_reg_eax[1] = 0x04 | (get_reg_index(X86_REG_EAX) << 3);  // ModR/M: reg=EAX, r/m=SIB
+        mov_reg_eax[2] = (0 << 6) | (4 << 3) | get_reg_index(reg);  // SIB: scale=0, index=ESP, base=reg
+        buffer_append(b, mov_reg_eax, 3);
 
         // Restore original EAX
         uint8_t pop_eax[] = {0x58};  // POP EAX

@@ -193,6 +193,80 @@ void batch_stats_init(batch_stats_t *stats) {
     stats->skipped_files = 0;
     stats->total_input_bytes = 0;
     stats->total_output_bytes = 0;
+
+    // Initialize failed file list
+    stats->failed_file_list = NULL;
+    stats->failed_file_count = 0;
+    stats->failed_file_capacity = 0;
+}
+
+// Add a failed file to the statistics
+int batch_stats_add_failed_file(batch_stats_t *stats, const char *failed_file_path) {
+    if (!stats || !failed_file_path) {
+        return -1;
+    }
+
+    // Resize if needed
+    if (stats->failed_file_count >= stats->failed_file_capacity) {
+        size_t new_capacity = (stats->failed_file_capacity == 0) ? 16 : (stats->failed_file_capacity * 2);
+        char **new_list = realloc(stats->failed_file_list, new_capacity * sizeof(char*));
+        if (!new_list) {
+            return -1;
+        }
+        stats->failed_file_list = new_list;
+        stats->failed_file_capacity = new_capacity;
+    }
+
+    // Duplicate the path string
+    stats->failed_file_list[stats->failed_file_count] = strdup(failed_file_path);
+    if (!stats->failed_file_list[stats->failed_file_count]) {
+        return -1;
+    }
+
+    stats->failed_file_count++;
+    return 0;
+}
+
+// Write failed files to output file
+int batch_write_failed_files(const batch_stats_t *stats, const char *output_file) {
+    if (!stats || !output_file) {
+        return -1;
+    }
+
+    if (!stats->failed_file_list || stats->failed_file_count == 0) {
+        return 0; // Nothing to write
+    }
+
+    FILE *file = fopen(output_file, "w");
+    if (!file) {
+        fprintf(stderr, "Error: Failed to open failed files output: %s\n", output_file);
+        return -1;
+    }
+
+    for (size_t i = 0; i < stats->failed_file_count; i++) {
+        fprintf(file, "%s\n", stats->failed_file_list[i]);
+    }
+
+    fclose(file);
+    return 0;
+}
+
+// Free batch statistics resources
+void batch_stats_free(batch_stats_t *stats) {
+    if (!stats) {
+        return;
+    }
+
+    // Free failed file list
+    if (stats->failed_file_list) {
+        for (size_t i = 0; i < stats->failed_file_count; i++) {
+            free(stats->failed_file_list[i]);
+        }
+        free(stats->failed_file_list);
+        stats->failed_file_list = NULL;
+        stats->failed_file_count = 0;
+        stats->failed_file_capacity = 0;
+    }
 }
 
 // Print batch statistics

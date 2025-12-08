@@ -20,6 +20,10 @@ typedef struct {
     size_t skipped_files;
     size_t total_input_bytes;
     size_t total_output_bytes;
+    // List of failed files
+    char **failed_file_list;
+    size_t failed_file_count;
+    size_t failed_file_capacity;
 } batch_stats_t;
 
 // Function to check if a path is a directory
@@ -46,6 +50,15 @@ char* construct_output_path(const char *input_path, const char *input_base,
 
 // Initialize batch statistics
 void batch_stats_init(batch_stats_t *stats);
+
+// Add a failed file to the statistics
+int batch_stats_add_failed_file(batch_stats_t *stats, const char *failed_file_path);
+
+// Write failed files to output file
+int batch_write_failed_files(const batch_stats_t *stats, const char *output_file);
+
+// Free batch statistics resources
+void batch_stats_free(batch_stats_t *stats);
 
 // Print batch statistics
 void batch_stats_print(const batch_stats_t *stats, int quiet);

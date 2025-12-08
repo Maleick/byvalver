@@ -399,6 +399,9 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "  ✗ Failed with error code %d\n", result);
                 }
 
+                // Add the failed file to the list if we're tracking them
+                batch_stats_add_failed_file(&stats, input_path);
+
                 if (!config->continue_on_error) {
                     free(output_path);
                     break;
@@ -411,8 +414,20 @@ int main(int argc, char *argv[]) {
         // Print statistics
         batch_stats_print(&stats, config->quiet);
 
+        // Write failed files list to file if requested
+        if (config->failed_files_output) {
+            if (batch_write_failed_files(&stats, config->failed_files_output) == 0) {
+                if (!config->quiet) {
+                    printf("Failed files list written to: %s\n", config->failed_files_output);
+                }
+            } else {
+                fprintf(stderr, "Warning: Failed to write failed files list to: %s\n", config->failed_files_output);
+            }
+        }
+
         // Cleanup
         file_list_free(&file_list);
+        batch_stats_free(&stats);
 
         // Export metrics if requested
         if (ml_initialized && config->metrics_enabled) {

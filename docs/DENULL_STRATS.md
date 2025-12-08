@@ -330,6 +330,112 @@ Strategies are registered in priority order, with higher priority strategies tak
 - **Transformation:** Alternative syscall number encoding.
 - **Generated code:** Syscall operations without null bytes.
 
+### Enhanced Strategies for Null-Byte Elimination
+
+#### 38. Enhanced MOV Immediate Strategy
+- **Name:** `mov_imm_enhanced`
+- **Priority:** 160 (highest)
+- **Description:** Advanced MOV immediate value processing using XOR encoding, arithmetic decomposition, or register chaining to eliminate null bytes.
+- **Condition:** Applies to MOV reg, imm instructions where immediate contains null bytes but alternative encodings are possible.
+- **Transformation:** Multiple techniques including XOR encoding, arithmetic addition/subtraction, or NOT/NEG sequences.
+- **Generated code:** MOV operations using null-free construction methods.
+
+#### 39. Enhanced LEA Displacement Strategy
+- **Name:** `lea_disp_enhanced`
+- **Priority:** 160 (highest)
+- **Description:** Advanced LEA displacement processing using SIB addressing to eliminate null bytes in displacement values.
+- **Condition:** Applies to LEA reg, [disp32] instructions with null-containing displacements.
+- **Transformation:** Uses register-based address calculation with SIB addressing to avoid null bytes.
+- **Generated code:** LEA with SIB encoding or alternative address construction.
+
+#### 40. Enhanced MOV Memory Displacement Strategy
+- **Name:** `mov_mem_disp_enhanced`
+- **Priority:** 160 (highest)
+- **Description:** Advanced MOV memory displacement processing to eliminate null bytes in displacement values.
+- **Condition:** Applies to MOV reg, [disp32]/MOV [disp32], reg instructions with null-containing displacements.
+- **Transformation:** Uses alternative addressing modes or register-based memory access.
+- **Generated code:** MOV with alternative addressing to eliminate displacement nulls.
+
+#### 41. Enhanced Arithmetic Immediate Strategy
+- **Name:** `arithmetic_imm_enhanced`
+- **Priority:** 160 (highest)
+- **Description:** Advanced arithmetic operation processing with null-containing immediate values using multiple encoding techniques.
+- **Condition:** Applies to ADD, SUB, AND, OR, XOR, CMP reg, imm instructions with null bytes in immediate.
+- **Transformation:** Multiple techniques including XOR encoding, arithmetic decomposition, or register-based operations.
+- **Generated code:** Arithmetic operations using null-free immediate construction.
+
+#### 42. Enhanced Arithmetic NEG Strategy
+- **Name:** `arithmetic_neg_enhanced`
+- **Priority:** 85
+- **Description:** Advanced arithmetic operations using two's complement negation to handle null-byte containing immediates.
+- **Condition:** Applies to arithmetic operations where negated immediate values are null-free.
+- **Transformation:** Uses NEG operation on pre-loaded negated value: MOV reg, ~imm+1; NEG reg.
+- **Generated code:** MOV + NEG sequence for null-free arithmetic operations.
+
+#### 43. Enhanced Arithmetic XOR Strategy
+- **Name:** `arithmetic_xor_enhanced`
+- **Priority:** 82
+- **Description:** Advanced arithmetic operations using XOR encoding to handle null-byte containing immediates.
+- **Condition:** Applies to arithmetic operations where XOR-encoded immediates avoid null bytes.
+- **Transformation:** Uses XOR operation: MOV reg, encoded_val; XOR reg, key.
+- **Generated code:** MOV + XOR sequence for null-free arithmetic operations.
+
+#### 44. Enhanced Arithmetic ADD/SUB Strategy
+- **Name:** `arithmetic_addsub_enhanced`
+- **Priority:** 80
+- **Description:** Advanced arithmetic operations using ADD/SUB decomposition for null-byte containing immediates.
+- **Condition:** Applies to arithmetic operations where immediate can be decomposed into null-free ADD/SUB components.
+- **Transformation:** Uses ADD/SUB sequence: MOV reg, base_val; ADD reg, offset_val.
+- **Generated code:** MOV + ADD/SUB sequence for null-free arithmetic operations.
+
+#### 45. Enhanced Register Chaining Immediate Strategy
+- **Name:** `register_chaining_immediate_enhanced`
+- **Priority:** 70
+- **Description:** Advanced register chaining to handle immediate values containing null bytes through temporary registers.
+- **Condition:** Applies to operations with immediate values that contain nulls but can be loaded via temporary registers.
+- **Transformation:** Uses temporary registers to build complex values: PUSH temp; MOV temp, imm; OP reg, temp; POP temp.
+- **Generated code:** Register-based operations using temporary registers to avoid immediate nulls.
+
+#### 46. Enhanced Cross-Register Operation Strategy
+- **Name:** `cross_register_operation_enhanced`
+- **Priority:** 68
+- **Description:** Advanced cross-register operations to eliminate null bytes through intermediate register usage.
+- **Condition:** Applies to operations that can be performed through intermediate register chains.
+- **Transformation:** Uses multiple register operations: MOV temp, imm; OP reg, temp.
+- **Generated code:** Multi-register operation sequences to avoid null bytes.
+
+#### 47. Enhanced Immediate Splitting Strategy
+- **Name:** `immediate_splitting_enhanced`
+- **Priority:** 77
+- **Description:** Advanced immediate splitting to handle large immediate values containing null bytes through byte-wise construction.
+- **Condition:** Applies to operations with immediate values where byte-wise construction avoids nulls.
+- **Transformation:** Builds value byte by byte: XOR reg, reg; SHL reg, 8; OR reg, byte_value; etc.
+- **Generated code:** Byte-by-byte construction sequences for null-free immediate values.
+
+#### 48. Enhanced Small Immediate Strategy
+- **Name:** `small_immediate_enhanced`
+- **Priority:** 75
+- **Description:** Advanced processing for small immediate values containing null bytes.
+- **Condition:** Applies to operations with small immediate values that contain null bytes.
+- **Transformation:** Uses alternative encodings for small values: MOVZX, sign extension, or register construction.
+- **Generated code:** Optimized small value encodings without null bytes.
+
+#### 49. Enhanced Large Immediate Strategy
+- **Name:** `large_immediate_enhanced`
+- **Priority:** 85
+- **Description:** Advanced processing for large immediate values containing null bytes.
+- **Condition:** Applies to operations with large immediate values that contain null bytes.
+- **Transformation:** Uses register-based construction: MOV EAX, imm (constructed null-free); MOV reg, EAX.
+- **Generated code:** Register-based large immediate construction.
+
+#### 50. Ultra-Cleanup Strategy
+- **Name:** `ultra_cleanup`
+- **Priority:** 200 (highest priority for final pass)
+- **Description:** Final fallback strategy for eliminating any remaining null bytes using the most comprehensive approaches.
+- **Condition:** Applies to any instruction that still contains null bytes after all other strategies.
+- **Transformation:** Most comprehensive approaches using XOR encoding, arithmetic decomposition, or register chaining.
+- **Generated code:** Last-resort null-free encodings using multiple techniques.
+
 ### Arithmetic Decomposition Strategies
 
 #### 38. Arithmetic Decomposition Strategy

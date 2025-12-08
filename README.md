@@ -48,12 +48,18 @@
 ## FEATURES
 
 ### Advanced Transformation Engine
-BYVALVER includes 80+ instruction transformation strategies that handle complex instructions including arithmetic, MOV, conditional jumps, and API calls. The engine uses sophisticated instruction rewriting to eliminate null bytes while preserving functionality.
+BYVALVER includes 120+ instruction transformation strategies that handle complex instructions including arithmetic, MOV, conditional jumps, and API calls. The engine uses sophisticated instruction rewriting to eliminate null bytes while preserving functionality.
 
 **Key Features:**
 - **Strategy Registration**: Comprehensive registration system for all transformation strategies
 - **Fallback Mechanisms**: Robust fallback systems when primary transformation methods fail
 - **Complex Instruction Handling**: Advanced handling of instructions with null bytes in operands, displacements, and immediate values
+- **Enhanced MOV Strategies**: Multiple new approaches for MOV operations with null-containing immediate values
+- **Enhanced Arithmetic Strategies**: Multiple arithmetic decomposition techniques (ADD/SUB, XOR, NOT, NEG)
+- **Memory Displacement Improvements**: Advanced techniques for handling LEA/MOV/CMP with null-containing displacements
+- **Immediate Value Encoding**: Multiple encoding methods (XOR, shift-based, arithmetic decomposition)
+- **Register Chaining**: Enhanced register-based transformations to avoid null bytes
+- **Multi-Pass Processing**: Biphasic architecture with obfuscation pass followed by null-byte elimination
 
 ### Batch Directory Processing
 Process multiple shellcode files in batch mode with directory processing capabilities.

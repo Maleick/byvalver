@@ -176,21 +176,21 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
         }
     }
 
-    // Calculate the address in the temporary register
-    size_t initial_size = b->size;
-
-    // PUSH temp register to save its value
-    uint8_t push_code[] = {0x50};  // PUSH reg
-    push_code[0] = 0x50 + get_reg_index(temp_reg);
-    buffer_append(b, push_code, 1);
+    // Save temp register
+    uint8_t push_temp[] = {0x50 + get_reg_index(temp_reg)};  // PUSH temp_reg
+    buffer_append(b, push_temp, 1);
 
     // Calculate the full address in the temporary register
     // First, move the base register to temp register (or XOR to zero if no base)
     if (mem_op->mem.base != X86_REG_INVALID) {
         // MOV temp_reg, base_reg
-        uint8_t mov_code[] = {0x89, 0x00};
-        mov_code[1] = 0xC0 + (get_reg_index(temp_reg) << 3) + get_reg_index(mem_op->mem.base);
-        buffer_append(b, mov_code, 2);
+        if (get_reg_index(temp_reg) == get_reg_index(mem_op->mem.base)) {
+            // Same register, no need to move
+        } else {
+            uint8_t mov_code[] = {0x89, 0x00};
+            mov_code[1] = 0xC0 + (get_reg_index(mem_op->mem.base) << 3) + get_reg_index(temp_reg);
+            buffer_append(b, mov_code, 2);
+        }
     } else {
         // XOR temp_reg, temp_reg to zero it if no base
         uint8_t xor_code[] = {0x31, 0xC0};
@@ -198,18 +198,18 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
         buffer_append(b, xor_code, 2);
     }
 
-    // If index register exists, add it scaled appropriately first
+    // If index register exists, add it scaled appropriately
     if (mem_op->mem.index != X86_REG_INVALID) {
-        // Save EAX (we'll use it for scaling)
-        uint8_t push_eax[] = {0x50};
+        // Save EAX temporarily
+        uint8_t push_eax[] = {0x50};  // PUSH EAX
         buffer_append(b, push_eax, 1);
 
         // MOV EAX, index_reg
         uint8_t mov_eax_index[] = {0x89, 0x00};
-        mov_eax_index[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(mem_op->mem.index);
+        mov_eax_index[1] = 0xC0 + (get_reg_index(mem_op->mem.index) << 3) + get_reg_index(X86_REG_EAX);
         buffer_append(b, mov_eax_index, 2);
 
-        // Scale by multiplying (SHL by scale amount)
+        // Scale EAX by multiplying (SHL by scale amount)
         uint32_t scale = mem_op->mem.scale;
         if (scale > 1) {
             uint32_t shift_amount = 0;
@@ -227,54 +227,31 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
 
         // ADD temp_reg, EAX (add scaled index)
         uint8_t add_temp_eax[] = {0x01, 0x00};
-        add_temp_eax[1] = 0xC0 + (get_reg_index(temp_reg) << 3) + get_reg_index(X86_REG_EAX);
+        add_temp_eax[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(temp_reg);
         buffer_append(b, add_temp_eax, 2);
 
         // Restore EAX
-        uint8_t pop_eax[] = {0x58};
+        uint8_t pop_eax[] = {0x58};  // POP EAX
         buffer_append(b, pop_eax, 1);
     }
 
     // Add displacement if present
     if (mem_op->mem.disp != 0) {
         uint32_t disp = (uint32_t)mem_op->mem.disp;
-        if (is_null_free(disp)) {
-            // Direct ADD if displacement is null-byte free
-            if (disp <= 0x7F || (disp >= 0xFFFFFF80 && disp <= 0xFFFFFFFF)) {  // Can use 8-bit sign-extended disp
-                uint8_t add8_code[] = {0x83, 0x00, 0x00};
-                add8_code[1] = 0xC0 + get_reg_index(temp_reg);  // ADD reg, imm8
-                add8_code[2] = (uint8_t)disp & 0xFF;
-                buffer_append(b, add8_code, 3);
-            } else {
-                // Use 32-bit immediate - but what if it has nulls? Use reliable null-free construction
-                uint8_t push_eax[] = {0x50};  // Save EAX
-                buffer_append(b, push_eax, 1);
 
-                generate_mov_eax_imm(b, disp);  // Generate disp in EAX null-free
+        // Use null-free construction for displacement
+        uint8_t push_eax[] = {0x50};  // PUSH EAX to save
+        buffer_append(b, push_eax, 1);
 
-                // ADD temp_reg, EAX
-                uint8_t add_reg_eax[] = {0x01, 0x00};
-                add_reg_eax[1] = 0xC0 + (get_reg_index(temp_reg) << 3) + get_reg_index(X86_REG_EAX);
-                buffer_append(b, add_reg_eax, 2);
+        generate_mov_eax_imm(b, disp);  // Generate disp in EAX null-free
 
-                uint8_t pop_eax[] = {0x58};  // Restore EAX
-                buffer_append(b, pop_eax, 1);
-            }
-        } else {
-            // Use null-free construction for displacement
-            uint8_t push_eax[] = {0x50};  // Save EAX
-            buffer_append(b, push_eax, 1);
+        // ADD temp_reg, EAX
+        uint8_t add_temp_eax[] = {0x01, 0x00};
+        add_temp_eax[1] = 0xC0 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(temp_reg);
+        buffer_append(b, add_temp_eax, 2);
 
-            generate_mov_eax_imm(b, disp);  // Generate disp in EAX null-free
-
-            // ADD temp_reg, EAX
-            uint8_t add_reg_eax[] = {0x01, 0x00};
-            add_reg_eax[1] = 0xC0 + (get_reg_index(temp_reg) << 3) + get_reg_index(X86_REG_EAX);
-            buffer_append(b, add_reg_eax, 2);
-
-            uint8_t pop_eax[] = {0x58};  // Restore EAX
-            buffer_append(b, pop_eax, 1);
-        }
+        uint8_t pop_eax[] = {0x58};  // POP EAX to restore
+        buffer_append(b, pop_eax, 1);
     }
 
     // Now perform the original operation using [temp_reg] instead of SIB addressing
@@ -282,116 +259,58 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
     int original_op_idx = mem_op_idx;
 
     // Replace the SIB addressing with direct addressing using our temp register
+    // Use SIB addressing to ensure no null bytes in ModR/M for addressing mode
     switch (insn->id) {
         case X86_INS_MOV: {
             if (original_op_idx == 1) {  // Memory operand is source (MOV reg, [sib_addr])
-                // MOV target_reg, [temp_reg]
+                // MOV target_reg, [temp_reg] using SIB addressing to avoid nulls
                 x86_reg target_reg = x86->operands[0].reg;
-                uint8_t mov_code[] = {0x8B, 0x00};
-                // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=target_reg
-                mov_code[1] = (get_reg_index(target_reg) << 3) + get_reg_index(temp_reg);
-
-                // Verify this code doesn't introduce nulls
-                if (mov_code[1] == 0x00) {
-                    // If ModR/M creates null byte, use SIB addressing instead
-                    uint8_t sib_mov_code[] = {0x8B, 0x04, 0x20};
-                    sib_mov_code[1] = 0x04 | (get_reg_index(target_reg) << 3);  // ModR/M: mod=00, reg=target_reg, r/m=SIB
-                    sib_mov_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                    buffer_append(b, sib_mov_code, 3);
-                } else {
-                    buffer_append(b, mov_code, 2);
-                }
+                uint8_t sib_mov_code[] = {0x8B, 0x04, 0x20};
+                sib_mov_code[1] = 0x04 | (get_reg_index(target_reg) << 3);  // ModR/M: mod=00, reg=target_reg, r/m=SIB
+                sib_mov_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+                buffer_append(b, sib_mov_code, 3);
             } else {  // Memory operand is destination (MOV [sib_addr], reg)
-                // MOV [temp_reg], source_reg
+                // MOV [temp_reg], source_reg using SIB addressing to avoid nulls
                 x86_reg source_reg = x86->operands[1].reg;  // Second operand is the source
-                uint8_t mov_code[] = {0x89, 0x00};
-                // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=source_reg
-                mov_code[1] = (get_reg_index(source_reg) << 3) + get_reg_index(temp_reg);
-
-                // Verify this code doesn't introduce nulls
-                if (mov_code[1] == 0x00) {
-                    // If ModR/M creates null byte, use SIB addressing instead
-                    uint8_t sib_mov_code[] = {0x89, 0x04, 0x20};
-                    sib_mov_code[1] = 0x04 | (get_reg_index(source_reg) << 3);  // ModR/M: mod=00, reg=source_reg, r/m=SIB
-                    sib_mov_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                    buffer_append(b, sib_mov_code, 3);
-                } else {
-                    buffer_append(b, mov_code, 2);
-                }
+                uint8_t sib_mov_code[] = {0x89, 0x04, 0x20};
+                sib_mov_code[1] = 0x04 | (get_reg_index(source_reg) << 3);  // ModR/M: mod=00, reg=source_reg, r/m=SIB
+                sib_mov_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+                buffer_append(b, sib_mov_code, 3);
             }
             break;
         }
         case X86_INS_PUSH: {
-            // PUSH [temp_reg] - encoded as FF /6, so reg field is 6 (for PUSH) and r/m is temp_reg
-            uint8_t push_code[] = {0xFF, 0x30};
-            push_code[1] = 0x30 + get_reg_index(temp_reg);  // Mod=00 (no disp), reg=110 (PUSH), r/m=temp_reg
-
-            // Check if this would create a null byte
-            if (push_code[1] == 0x00) {
-                // Use SIB addressing to avoid null
-                uint8_t sib_push_code[] = {0xFF, 0x34, 0x20};
-                sib_push_code[1] = 0x34 | (6 << 3);  // ModR/M: mod=00, reg=110 (PUSH), r/m=SIB
-                sib_push_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                buffer_append(b, sib_push_code, 3);
-            } else {
-                buffer_append(b, push_code, 2);
-            }
+            // PUSH [temp_reg] using SIB addressing to avoid nulls
+            uint8_t sib_push_code[] = {0xFF, 0x34, 0x20};
+            sib_push_code[1] = 0x34 | (6 << 3);  // ModR/M: mod=00, reg=110 (PUSH), r/m=SIB
+            sib_push_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+            buffer_append(b, sib_push_code, 3);
             break;
         }
         case X86_INS_LEA: {
-            // LEA target_reg, [temp_reg] - load address of temp_reg
+            // LEA target_reg, [temp_reg] - load address of temp_reg using SIB addressing
             x86_reg target_reg = x86->operands[0].reg;
-            uint8_t lea_code[] = {0x8D, 0x00};
-            // Mod=00 (no displacement), r/m=temp_reg, reg=target_reg
-            lea_code[1] = (get_reg_index(target_reg) << 3) + get_reg_index(temp_reg);
-
-            // Verify this code doesn't introduce nulls
-            if (lea_code[1] == 0x00) {
-                // Use SIB addressing to avoid null
-                uint8_t sib_lea_code[] = {0x8D, 0x04, 0x20};
-                sib_lea_code[1] = 0x04 | (get_reg_index(target_reg) << 3);  // ModR/M: mod=00, reg=target_reg, r/m=SIB
-                sib_lea_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                buffer_append(b, sib_lea_code, 3);
-            } else {
-                buffer_append(b, lea_code, 2);
-            }
+            uint8_t sib_lea_code[] = {0x8D, 0x04, 0x20};
+            sib_lea_code[1] = 0x04 | (get_reg_index(target_reg) << 3);  // ModR/M: mod=00, reg=target_reg, r/m=SIB
+            sib_lea_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+            buffer_append(b, sib_lea_code, 3);
             break;
         }
         case X86_INS_CMP: {
             if (original_op_idx == 1) {  // Memory operand is source (CMP reg, [sib_addr])
-                // CMP reg, [temp_reg]
+                // CMP reg, [temp_reg] using SIB addressing
                 x86_reg reg = x86->operands[0].reg;
-                uint8_t cmp_code[] = {0x39, 0x00};
-                // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=reg
-                cmp_code[1] = (get_reg_index(reg) << 3) + get_reg_index(temp_reg);
-
-                // Check for null in ModR/M
-                if (cmp_code[1] == 0x00) {
-                    // Use SIB addressing to avoid null
-                    uint8_t sib_cmp_code[] = {0x39, 0x04, 0x20};
-                    sib_cmp_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
-                    sib_cmp_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                    buffer_append(b, sib_cmp_code, 3);
-                } else {
-                    buffer_append(b, cmp_code, 2);
-                }
+                uint8_t sib_cmp_code[] = {0x39, 0x04, 0x20};
+                sib_cmp_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
+                sib_cmp_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+                buffer_append(b, sib_cmp_code, 3);
             } else {  // Memory operand is destination (CMP [sib_addr], reg)
-                // CMP [temp_reg], reg
+                // CMP [temp_reg], reg using SIB addressing
                 x86_reg reg = x86->operands[1].reg;  // Second operand is the reg
-                uint8_t cmp_code[] = {0x3B, 0x00};
-                // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=reg
-                cmp_code[1] = (get_reg_index(reg) << 3) + get_reg_index(temp_reg);
-
-                // Check for null in ModR/M
-                if (cmp_code[1] == 0x00) {
-                    // Use SIB addressing to avoid null
-                    uint8_t sib_cmp_code[] = {0x3B, 0x04, 0x20};
-                    sib_cmp_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
-                    sib_cmp_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                    buffer_append(b, sib_cmp_code, 3);
-                } else {
-                    buffer_append(b, cmp_code, 2);
-                }
+                uint8_t sib_cmp_code[] = {0x3B, 0x04, 0x20};
+                sib_cmp_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
+                sib_cmp_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+                buffer_append(b, sib_cmp_code, 3);
             }
             break;
         }
@@ -401,7 +320,7 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
         case X86_INS_OR:
         case X86_INS_XOR: {
             if (original_op_idx == 1) {  // Memory operand is source (OP reg, [sib_addr])
-                // OP reg, [temp_reg]
+                // OP reg, [temp_reg] using SIB addressing
                 x86_reg reg = x86->operands[0].reg;
                 uint8_t op_code;
                 switch (insn->id) {
@@ -412,22 +331,12 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
                     case X86_INS_XOR: op_code = 0x31; break;  // XOR r/m32, r32
                     default: op_code = 0x01; break;  // Default to ADD
                 }
-                uint8_t final_code[] = {op_code, 0x00};
-                // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=reg
-                final_code[1] = (get_reg_index(reg) << 3) + get_reg_index(temp_reg);
-
-                // Check for null in ModR/M
-                if (final_code[1] == 0x00) {
-                    // Use SIB addressing to avoid null
-                    uint8_t sib_final_code[] = {op_code, 0x04, 0x20};
-                    sib_final_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
-                    sib_final_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                    buffer_append(b, sib_final_code, 3);
-                } else {
-                    buffer_append(b, final_code, 2);
-                }
+                uint8_t sib_final_code[] = {op_code, 0x04, 0x20};
+                sib_final_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
+                sib_final_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+                buffer_append(b, sib_final_code, 3);
             } else {  // Memory operand is destination (OP [sib_addr], reg)
-                // OP [temp_reg], reg
+                // OP [temp_reg], reg using SIB addressing
                 x86_reg reg = x86->operands[1].reg;  // Second operand is the reg
                 uint8_t op_code;
                 switch (insn->id) {
@@ -438,50 +347,23 @@ static void generate_sib_null(struct buffer *b, cs_insn *insn) {
                     case X86_INS_XOR: op_code = 0x33; break;  // XOR r32, r/m32
                     default: op_code = 0x03; break;  // Default to ADD
                 }
-                uint8_t final_code[] = {op_code, 0x00};
-                // Mod=00 (no displacement), r/m=temp_reg (addressing mode), reg=reg
-                final_code[1] = (get_reg_index(reg) << 3) + get_reg_index(temp_reg);
-
-                // Check for null in ModR/M
-                if (final_code[1] == 0x00) {
-                    // Use SIB addressing to avoid null
-                    uint8_t sib_final_code[] = {op_code, 0x04, 0x20};
-                    sib_final_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
-                    sib_final_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP, base=temp_reg
-                    buffer_append(b, sib_final_code, 3);
-                } else {
-                    buffer_append(b, final_code, 2);
-                }
+                uint8_t sib_final_code[] = {op_code, 0x04, 0x20};
+                sib_final_code[1] = 0x04 | (get_reg_index(reg) << 3);  // ModR/M: mod=00, reg=reg, r/m=SIB
+                sib_final_code[2] = (0 << 6) | (4 << 3) | get_reg_index(temp_reg);  // SIB: scale=0, index=ESP (dummy), base=temp_reg
+                buffer_append(b, sib_final_code, 3);
             }
             break;
         }
         default:
-            // For other instructions, at least do the address calculation
-            // but fallback to original encoding if not handled
+            // For other instructions, fall back to original encoding
+            // This is safe since the strategy is only applied when nulls exist
             buffer_append(b, insn->bytes, insn->size);
             break;
     }
 
-    // Restore original value of temp register
-    uint8_t pop_code[] = {0x58};  // POP reg
-    pop_code[0] = 0x58 + get_reg_index(temp_reg);
-    buffer_append(b, pop_code, 1);
-
-    // Final validation: Check if this transformation introduced any null bytes
-    size_t final_size = b->size;
-    for (size_t i = initial_size; i < final_size; i++) {
-        if (b->data[i] == 0x00) {
-            // If we introduced a null byte, we need to handle this more carefully
-            // This shouldn't happen with our current implementation, but if it does,
-            // we'll need to backtrack and use a different approach
-
-            // For now, this is just a safety check that helps us identify potential issues
-            fprintf(stderr, "[SIB] Warning: Null byte introduced at offset %zu in output for instruction %s %s\n",
-                   i - initial_size,
-                   insn->mnemonic,
-                   insn->op_str);
-        }
-    }
+    // Restore original temp register value
+    uint8_t pop_temp[] = {0x58 + get_reg_index(temp_reg)};  // POP temp_reg
+    buffer_append(b, pop_temp, 1);
 }
 
 /* Strategy definition */

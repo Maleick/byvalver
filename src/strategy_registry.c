@@ -1,5 +1,12 @@
 #include "strategy.h"
 #include "new_strategies.h"
+#include "enhanced_mov_mem_strategies.h"
+#include "enhanced_register_chaining_strategies.h"
+#include "enhanced_arithmetic_strategies.h"
+#include "enhanced_immediate_strategies.h"
+#include "improved_mov_strategies.h"
+#include "improved_arithmetic_strategies.h"
+#include "remaining_null_elimination_strategies.h"
 #include "ml_strategist.h"
 #include <stdlib.h>
 #include <string.h>
@@ -96,6 +103,20 @@ void register_register_chaining_strategies(); // Forward declaration - Register 
 void register_linux_socketcall_strategies(); // Forward declaration - Linux socketcall multiplexer pattern - Priority 72-75
 void register_linux_string_push_strategies(); // Forward declaration - Linux string construction via PUSH - Priority 68-70
 void register_syscall_number_strategies(); // Forward declaration - Linux syscall number encoding strategies - Priority 77-78
+
+// Enhanced strategies for better null-byte elimination
+void register_enhanced_mov_mem_strategies(); // Enhanced MOV memory strategies
+void register_enhanced_register_chaining_strategies(); // Enhanced register chaining strategies
+void register_enhanced_arithmetic_strategies(); // Enhanced arithmetic strategies
+void register_enhanced_immediate_strategies(); // Enhanced immediate strategies
+
+// Improved strategies for better null-byte elimination
+void register_improved_mov_strategies(); // Improved MOV strategies
+void register_improved_arithmetic_strategies(); // Improved arithmetic strategies
+
+// Remaining null elimination strategies for final cleanup
+void register_remaining_null_elimination_strategies(); // Final strategies for remaining nulls
+
 void register_new_strategies(); // Forward declaration - New strategies for specific null-byte patterns
 extern strategy_t delayed_string_termination_strategy;
 
@@ -196,6 +217,19 @@ void init_strategies(int use_ml) {
     // DISABLED - NEW in 1d8cff3: register_peb_api_hashing_strategies();  // Register PEB API hashing strategies (priority 95)
     // register_peb_strategies();  // ALSO DISABLE THIS - was causing inappropriate application to non-NOP instructions
     register_new_strategies(); // Register new strategies for specific null-byte patterns
+
+    // Register enhanced strategies for better null-byte elimination
+    register_enhanced_mov_mem_strategies(); // Enhanced MOV memory strategies (high priority)
+    register_enhanced_register_chaining_strategies(); // Enhanced register chaining strategies (medium priority)
+    register_enhanced_arithmetic_strategies(); // Enhanced arithmetic strategies (high priority for arithmetic ops)
+    register_enhanced_immediate_strategies(); // Enhanced immediate strategies (high priority for immediate ops)
+
+    // Register improved strategies for better null-byte elimination
+    register_improved_mov_strategies(); // Improved MOV strategies (high priority)
+    register_improved_arithmetic_strategies(); // Improved arithmetic strategies (high priority)
+
+    // Register final cleanup strategies for remaining nulls
+    register_remaining_null_elimination_strategies(); // Final strategies for remaining nulls (highest priority)
 
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Registered %d strategies\n", strategy_count);

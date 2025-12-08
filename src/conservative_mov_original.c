@@ -1,6 +1,6 @@
 /*
  * Enhanced Conservative MOV Strategy
- * 
+ *
  * This strategy prioritizes preserving original instruction patterns while
  * still removing null bytes. It tries the most conservative transformations
  * first that maintain the original instruction semantics as closely as possible.
@@ -118,7 +118,7 @@ void generate_conservative_mov_original(struct buffer *b, cs_insn *insn) {
     if (find_addsub_key(imm, &val1, &val2, &is_add)) {
         if (reg == X86_REG_EAX) {
             // For EAX, work directly: MOV EAX, val1; ADD/SUB EAX, val2
-            generate_mov_eax_imm(b, is_add ? (imm - val2) : (imm + val2));
+            generate_mov_eax_imm(b, val1);
             if (is_add) {
                 uint8_t add_eax_key[] = {0x05, 0, 0, 0, 0};
                 memcpy(add_eax_key + 1, &val2, 4);
@@ -134,24 +134,41 @@ void generate_conservative_mov_original(struct buffer *b, cs_insn *insn) {
             uint8_t push_reg = 0x50 + get_reg_index(reg);
             buffer_append(b, &push_reg, 1);
 
-            // MOV EAX, val1
-            generate_mov_eax_imm(b, is_add ? (imm - val2) : (imm + val2));
-            
-            // ADD/SUB EAX, val2
+            // MOV EAX, val1 (use null-free construction)
+            generate_mov_eax_imm(b, val1);
+
+            // ADD/SUB EAX, val2 (use null-free construction if needed)
             if (is_add) {
-                uint8_t add_eax_key[] = {0x05, 0, 0, 0, 0};
-                memcpy(add_eax_key + 1, &val2, 4);
-                buffer_append(b, add_eax_key, 5);
+                generate_mov_eax_imm(b, val2);  // Load val2 into EAX
+                uint8_t push_temp = 0x50;  // PUSH EAX to save val2
+                buffer_append(b, &push_temp, 1);
+
+                generate_mov_eax_imm(b, val1);  // Reload val1 into EAX
+                uint8_t add_eax_esp[] = {0x03, 0x04, 0x24};  // ADD EAX, [ESP] (SIB addressing to avoid nulls)
+                buffer_append(b, add_eax_esp, 3);
             } else {
-                uint8_t sub_eax_key[] = {0x2D, 0, 0, 0, 0};
-                memcpy(sub_eax_key + 1, &val2, 4);
-                buffer_append(b, sub_eax_key, 5);
+                generate_mov_eax_imm(b, val2);  // Load val2 into EAX
+                uint8_t push_temp = 0x50;  // PUSH EAX to save val2
+                buffer_append(b, &push_temp, 1);
+
+                generate_mov_eax_imm(b, val1);  // Reload val1 into EAX
+                uint8_t sub_eax_esp[] = {0x2B, 0x04, 0x24};  // SUB EAX, [ESP] (SIB addressing to avoid nulls)
+                buffer_append(b, sub_eax_esp, 3);
             }
 
             // MOV reg, EAX to get the result back to original register
-            uint8_t mov_reg_eax[] = {0x89, 0xC0};
-            mov_reg_eax[1] = mov_reg_eax[1] + get_reg_index(reg);
-            buffer_append(b, mov_reg_eax, 2);
+            if (reg == X86_REG_EAX) {
+                // Already done
+            } else {
+                uint8_t mov_reg_eax[] = {0x89, 0x04, 0x20};  // MOV reg, EAX using SIB addressing
+                mov_reg_eax[1] = 0x04 | (get_reg_index(X86_REG_EAX) << 3);  // ModR/M: reg=EAX, r/m=SIB
+                mov_reg_eax[2] = (0 << 6) | (4 << 3) | get_reg_index(reg);  // SIB: scale=0, index=ESP, base=reg
+                buffer_append(b, mov_reg_eax, 3);
+            }
+
+            // POP EAX to clean up the stack
+            uint8_t pop_temp = 0x58;
+            buffer_append(b, &pop_temp, 1);
 
             // POP original reg to restore original value that was pushed
             uint8_t pop_reg = 0x58 + get_reg_index(reg);

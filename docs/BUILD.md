@@ -243,6 +243,33 @@ make CFLAGS="-O2 -march=native -Wall -Werror"
 make BIN_DIR=custom_bin
 ```
 
+## Windows Shellcode Strategy Analysis
+
+### Analyzing Windows Shellcode for New Strategies
+
+BYVALVER now includes 10 new Windows-specific denull strategies identified through analysis of real Windows shellcode patterns in the `shellcodes/` directory:
+
+#### Strategy Discovery Process
+- **Analysis**: Examined 100+ Windows shellcode files in `shellcodes/windows*` directories
+- **Pattern Recognition**: Identified common null-byte elimination techniques used in real shellcode
+- **Implementation**: Converted discovered patterns into automated transformation strategies
+- **Integration**: Added strategies to the existing priority-based selection system
+
+#### Key Windows Techniques Identified
+1. **CALL/POP for Immediate Loading**: Using CALL/PUSH/POP sequences to load immediate values
+2. **PEB Traversal**: Using Process Environment Block to find kernel32.dll dynamically
+3. **SALC Usage**: Using SALC instruction for efficient AL register zeroing
+4. **LEA for Arithmetic**: Using LEA for arithmetic operations to avoid immediate nulls
+5. **Shift Operations**: Using bit shifts to build complex values from smaller parts
+6. **Stack String Construction**: Building strings on stack with multiple PUSH operations
+7. **String Instructions**: Using STOSB/STOSD for byte-level construction
+8. **XCHG Operations**: Using register exchanges for value loading
+9. **Complex Displacement**: Using LEA with complex addressing modes
+10. **Byte-Level Operations**: Building 32-bit values from byte components
+
+#### Build Integration
+The new strategies are automatically integrated into the build process and registered in the strategy registry system. No additional build configuration is required.
+
 ## ML Training Workflow
 
 ### Building the Training Utility

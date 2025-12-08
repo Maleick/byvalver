@@ -52,6 +52,15 @@
 ### Advanced Transformation Engine
 BYVALVER includes 120+ instruction transformation strategies that handle complex instructions including arithmetic, MOV, conditional jumps, and API calls. The engine uses sophisticated instruction rewriting to eliminate null bytes while preserving functionality.
 
+**New Windows-Specific Features (v2.5):**
+- **CALL/POP Immediate Loading**: Use CALL/POP technique to load immediate values without encoding nulls in instructions
+- **PEB API Hashing Strategy**: Use PEB traversal to find kernel32.dll and hash-based API resolution for stealthy function calls
+- **SALC + Conditional Flag Manipulation**: Use SALC (Set AL on Carry) instruction for efficient AL register zeroing without MOV AL, 0x00
+- **LEA Arithmetic Substitution**: Use LEA instruction to perform arithmetic operations without immediate null bytes
+- **Shift-Based Value Construction**: Use bit shift operations combined with arithmetic to build values containing null bytes
+- **Stack-Based String Construction**: Construct strings using multiple PUSH operations to avoid null-laden string literals
+- **Enhanced Immediate Encoding**: Advanced immediate construction methods for Windows-specific patterns
+
 **Key Features:**
 - **Strategy Registration**: Comprehensive registration system for all transformation strategies
 - **Fallback Mechanisms**: Robust fallback systems when primary transformation methods fail

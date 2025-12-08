@@ -8,6 +8,13 @@
 #include "improved_arithmetic_strategies.h"
 #include "remaining_null_elimination_strategies.h"
 #include "ml_strategist.h"
+#include "call_pop_immediate_strategies.h"
+#include "peb_api_hashing_strategies.h"
+#include "shift_value_construction_strategies.h"
+#include "lea_arithmetic_substitution_strategies.h"
+#include "stack_string_construction_strategies.h"
+#include "salc_conditional_flag_strategies.h"
+#include "register_swapping_immediate_strategies.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
@@ -43,11 +50,18 @@ void register_anti_debug_strategies(); // Forward declaration
 void register_shift_strategy(); // Forward declaration
 void register_push_immediate_strategies(); // Forward declaration - PUSH immediate null elimination
 void register_lea_displacement_strategies(); // Forward declaration - LEA displacement null elimination
-void register_xchg_immediate_loading_strategies(); // Forward declaration - XCHG-based immediate loading
 void register_string_instruction_strategies(); // Forward declaration - String instruction null construction
 void register_conditional_flag_strategies(); // Forward declaration - Conditional flag manipulation
 void register_peb_api_hashing_strategies(); // Forward declaration - PEB traversal & API hashing
 void register_stack_string_const_strategies(); // Forward declaration - Stack-based string/constant construction
+
+// Additional Windows-specific null elimination strategies
+void register_call_pop_immediate_strategies(); // Register CALL/POP immediate loading strategies (priority 85)
+void register_shift_value_construction_strategies(); // Register shift value construction strategies (priority 78)
+void register_lea_arithmetic_substitution_strategies(); // Register LEA arithmetic substitution strategies (priority 80)
+void register_stack_string_construction_strategies(); // Register stack string construction strategies (priority 85)
+void register_salc_conditional_flag_strategies(); // Register SALC + conditional flag strategies (priority 91)
+void register_register_swapping_immediate_strategies(); // Register register swapping immediate strategies (priority 70)
 void register_peb_strategies(); // Forward declaration
 void register_conservative_strategies(); // Forward declaration
 // void register_lea_strategies(); // Forward declaration
@@ -209,6 +223,15 @@ void init_strategies(int use_ml) {
     register_xchg_preservation_strategies(); // Register PUSH immediate optimization strategies (priority 86) - was in 03bbf99
     register_stack_string_strategies(); // Register stack-based string construction strategies (priority 85) - was in 03bbf99
     // DISABLED - NEW in 1d8cff3: register_salc_rep_stosb_strategies(); // Register SALC + REP STOSB strategies (priority 65)
+
+    // Register our new Windows-specific strategies
+    register_call_pop_immediate_strategies(); // Register CALL/POP immediate loading strategies (priority 85)
+    register_shift_value_construction_strategies(); // Register shift value construction strategies (priority 78)
+    register_lea_arithmetic_substitution_strategies(); // Register LEA arithmetic substitution strategies (priority 80)
+    register_stack_string_construction_strategies(); // Register stack string construction strategies (priority 85)
+    register_salc_conditional_flag_strategies(); // Register SALC + conditional flag strategies (priority 91)
+    register_register_swapping_immediate_strategies(); // Register register swapping immediate strategies (priority 70)
+
     register_syscall_strategies(); // Register Windows syscall direct invocation strategies (priority 95) - was in 03bbf99
     register_unicode_string_strategies(); // Register Unicode (UTF-16) string handling strategies (priority 74-78)
     register_byte_construct_strategy(); // Register byte construction strategy
@@ -423,6 +446,44 @@ void register_linux_string_push_strategies() {
     extern strategy_t null_free_path_construction_strategy;
     register_strategy(&safe_string_push_strategy);
     register_strategy(&null_free_path_construction_strategy);
+}
+
+// Register the CALL/POP immediate loading strategy
+void register_call_pop_immediate_strategies() {
+    extern strategy_t call_pop_immediate_strategy;
+    register_strategy(&call_pop_immediate_strategy);
+}
+
+
+// Register the shift-based value construction strategy
+void register_shift_value_construction_strategies() {
+    extern strategy_t shift_value_construction_strategy;
+    register_strategy(&shift_value_construction_strategy);
+}
+
+// Register the LEA arithmetic substitution strategy
+void register_lea_arithmetic_substitution_strategies() {
+    extern strategy_t lea_arithmetic_substitution_strategy;
+    register_strategy(&lea_arithmetic_substitution_strategy);
+}
+
+// Register the stack string construction strategy
+void register_stack_string_construction_strategies() {
+    extern strategy_t stack_string_construction_strategy;
+    register_strategy(&stack_string_construction_strategy);
+}
+
+
+// Register the SALC conditional flag strategy
+void register_salc_conditional_flag_strategies() {
+    extern strategy_t salc_conditional_flag_strategy;
+    register_strategy(&salc_conditional_flag_strategy);
+}
+
+// Register the register swapping immediate strategy
+void register_register_swapping_immediate_strategies() {
+    extern strategy_t register_swapping_immediate_strategy;
+    register_strategy(&register_swapping_immediate_strategy);
 }
 
 

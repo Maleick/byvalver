@@ -3,11 +3,12 @@
 
 #include "strategy.h"
 
-// Stack string construction strategy
-extern strategy_t stack_string_construction_strategy;
-extern strategy_t stack_multi_string_construction_strategy;
+// Function declarations for stack_string_construction_strategies.c
+int can_handle_stack_string_construction(cs_insn *insn);
+size_t get_size_stack_string_construction(cs_insn *insn);
+void generate_stack_string_construction(struct buffer *b, cs_insn *insn);
 
-// Function to register the stack string construction strategies
-void register_stack_string_construction_strategies();
+// Strategy definition
+extern strategy_t stack_string_construction_strategy;
 
 #endif

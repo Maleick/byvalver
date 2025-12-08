@@ -234,6 +234,58 @@ Positive Feedback: 4
 - **Performance Analysis**: Enables evaluation of ML model effectiveness over time
 - **Debugging Support**: Provides visibility into ML decision-making process
 
+## What's New in v2.5
+
+### Windows-Specific Denull Strategies
+
+**New in v2.5**: BYVALVER now includes 10 new Windows-specific denull strategies identified from analysis of real Windows shellcode patterns:
+
+#### CALL/POP Immediate Loading Strategy
+- **Description**: Use the CALL/POP technique to load immediate values that contain null bytes by pushing the value onto the stack and retrieving it without directly encoding the nulls.
+- **Usage**: Automatically applied to MOV reg, imm32 where immediate contains null bytes.
+- **Example**: MOV EAX, 0x00123456 → PUSH 0x00123456; POP EAX (with null-free construction)
+
+#### PEB API Hashing Strategy
+- **Description**: Use PEB (Process Environment Block) traversal to find kernel32.dll base address, then use hash-based API resolution to call functions without hardcoded addresses containing nulls.
+- **Usage**: Automatically applied to CALL immediate_address where address contains null bytes.
+- **Example**: CALL 0x7C86114D → PEB traversal + hash-based resolution + call via register
+
+#### SALC + Conditional Flag Manipulation Strategy
+- **Description**: Use SALC (Set AL on Carry) instruction combined with flag manipulation to set AL register efficiently, avoiding MOV AL, 0x00.
+- **Usage**: Automatically applied to MOV AL, 0x00 or MOV AL, 0xFF patterns.
+- **Example**: MOV AL, 0x00 → CLC; SALC (F8 D6 - no nulls)
+
+#### LEA Arithmetic Substitution Strategy
+- **Description**: Use LEA (Load Effective Address) instruction to perform arithmetic operations like addition and multiplication without using immediate values that contain nulls.
+- **Usage**: Automatically applied to ADD reg, imm32 / SUB reg, imm32 where immediate contains null bytes.
+- **Example**: ADD EAX, 0x00000040 → LEA EAX, [EAX + 0x40]
+
+#### Shift-Based Value Construction Strategy
+- **Description**: Use bit shift operations combined with arithmetic to construct values that contain null bytes in their direct encoding.
+- **Usage**: Automatically applied to MOV reg, imm32 where immediate contains null bytes that could be constructed via shifts.
+- **Example**: MOV EAX, 0x00200000 → XOR EAX, EAX; MOV AL, 0x20; SHL EAX, 12
+
+#### Stack-Based String Construction Strategy
+- **Description**: Construct strings on the stack using multiple PUSH operations with non-null byte chunks, avoiding direct string literals.
+- **Usage**: Automatically applied to PUSH operations with immediate values representing string constants containing null bytes.
+- **Example**: PUSH 0x00646D63 (pushing "cmd\0") → multiple PUSH operations of non-null chunks
+
+#### Enhanced Immediate Encoding Strategies
+- **Description**: Multiple new approaches for immediate value construction including byte-by-byte construction and alternative displacement handling.
+- **Usage**: Applied to various MOV and arithmetic operations with null-containing immediate values.
+
+#### Register Swapping with Immediate Loading Strategy
+- **Description**: Use register exchange operations (XCHG) to load immediate values by first loading null-free partial values and then exchanging them.
+- **Usage**: Applied contextually when register swapping is appropriate.
+
+#### Alternative LEA Complex Displacement Strategy
+- **Description**: Alternative approach to handle LEA and MOV instructions with null-containing displacements using complex addressing.
+- **Usage**: Applied to MOV reg, [disp32] where displacement contains null bytes.
+
+#### String Instruction Byte Construction Strategy
+- **Description**: Use STOSB, STOSD, or similar string instructions with loops to construct immediate values containing nulls in memory rather than through direct immediate encoding.
+- **Usage**: Applied to MOV reg, imm32 where immediate contains null bytes.
+
 ## What's New in v2.4
 
 ### Comprehensive Strategy Repair

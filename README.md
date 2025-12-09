@@ -290,3 +290,7 @@ python3 test_all_bins.py
 For issues with null-byte elimination, ensure your input file format is correct and verify that your system has the required dependencies installed. Check that the shellcode doesn't contain instructions that are particularly difficult to transform without null bytes.
 
 If using the ML functionality, verify that the model file exists at the expected location. The application will fall back to default weights if the model file is not found.
+
+## LICENSE
+
+`byvalver` is freely sicced upon the world under the ![UNLICENSE](./UNLICENSE)

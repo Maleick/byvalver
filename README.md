@@ -60,6 +60,10 @@ BYVALVER includes 120+ instruction transformation strategies that handle complex
 - **Shift-Based Value Construction**: Use bit shift operations combined with arithmetic to build values containing null bytes
 - **Stack-Based String Construction**: Construct strings using multiple PUSH operations to avoid null-laden string literals
 - **Enhanced Immediate Encoding**: Advanced immediate construction methods for Windows-specific patterns
+- **Enhanced PEB API Resolution**: Sophisticated Windows API resolution patterns with null-byte displacement handling
+- **Conditional Jump Displacement Strategies**: Advanced conditional jump handling with null-byte displacement resolution
+- **Register Allocation Strategies**: Dynamic register remapping to avoid null-byte patterns
+- **LEA Displacement Optimization**: Specialized LEA instruction handling for displacement values containing null bytes
 
 **Key Features:**
 - **Strategy Registration**: Comprehensive registration system for all transformation strategies

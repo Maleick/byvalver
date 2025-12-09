@@ -24,6 +24,10 @@
 #include "bitwise_flag_manipulation_strategies.h"
 #include "salc_zero_flag_strategies.h"
 #include "xchg_immediate_construction_strategies.h"
+#include "peb_api_resolution_strategies.h"
+#include "conditional_jump_displacement_strategies.h"
+#include "register_allocation_strategies.h"
+#include "lea_displacement_optimization_strategies.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
@@ -87,6 +91,10 @@ void register_push_pop_immediate_strategies(); // Forward declaration - PUSH-POP
 void register_bitwise_flag_manipulation_strategies(); // Forward declaration - Bitwise flag manipulation strategy
 void register_salc_zero_flag_strategies(); // Forward declaration - SALC zero flag strategy
 void register_xchg_immediate_construction_strategies(); // Forward declaration - XCHG immediate construction strategy
+void register_peb_api_resolution_strategies(); // Forward declaration - Enhanced PEB API resolution strategies (priority 97)
+void register_conditional_jump_displacement_strategies(); // Forward declaration - Conditional jump displacement strategies (priority 88)
+void register_register_allocation_strategies(); // Forward declaration - Register allocation strategies for null avoidance (priority 78)
+void register_lea_displacement_optimization_strategies(); // Forward declaration - LEA displacement optimization strategies (priority 82)
 void init_advanced_transformations(); // Forward declaration
 void register_getpc_strategies(); // Forward declaration
 void register_movzx_strategies(); // Forward declaration
@@ -249,11 +257,14 @@ void init_strategies(int use_ml) {
     register_stack_string_construction_strategies(); // Register stack string construction strategies (priority 85)
     register_salc_conditional_flag_strategies(); // Register SALC + conditional flag strategies (priority 91)
     register_register_swapping_immediate_strategies(); // Register register swapping immediate strategies (priority 70)
+    register_register_allocation_strategies(); // Register register allocation strategies for null avoidance (priority 78)
 
     // Register additional Windows-relevant denull strategies
     register_scasb_cmpsb_strategies(); // Register SCASB/CMPSB conditional operations strategies (priority 75)
     register_short_conditional_jump_strategies(); // Register short conditional jump strategies (priority 85)
+    register_conditional_jump_displacement_strategies(); // Register conditional jump displacement strategies (priority 88)
     register_lea_complex_addressing_strategies(); // Register LEA complex addressing strategies (priority 80)
+    register_lea_displacement_optimization_strategies(); // Register LEA displacement optimization strategies (priority 82)
     register_inc_dec_chain_strategies(); // Register INC/DEC chain strategies (priority 75)
     register_lea_arithmetic_calculation_strategies(); // Register LEA arithmetic calculation strategies (priority 78)
     register_push_pop_immediate_strategies(); // Register PUSH-POP immediate loading strategies (priority 77)
@@ -262,6 +273,7 @@ void init_strategies(int use_ml) {
     register_xchg_immediate_construction_strategies(); // Register XCHG immediate construction strategies (priority 70)
 
     register_syscall_strategies(); // Register Windows syscall direct invocation strategies (priority 95) - was in 03bbf99
+    register_peb_api_resolution_strategies(); // Register enhanced PEB API resolution strategies (priority 87-89)
     register_unicode_string_strategies(); // Register Unicode (UTF-16) string handling strategies (priority 74-78)
     register_byte_construct_strategy(); // Register byte construction strategy
     // register_anti_debug_strategies();  // DISABLED - causes issues with non-NOP instructions

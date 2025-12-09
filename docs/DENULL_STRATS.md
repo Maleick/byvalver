@@ -77,7 +77,7 @@ Strategies are registered in priority order, with higher priority strategies tak
 #### 7. Arithmetic Original Strategy
 - **Name:** `arithmetic_original`
 - **Priority:** 10
-- **Description:** Pass-through strategy for arithmetic instructions without null bytes.
+- **Description:** Pass-through strategy for arithmetic operations without null bytes.
 - **Condition:** Applies to arithmetic operations (ADD, SUB, AND, OR, XOR, CMP) that don't contain null bytes.
 - **Transformation:** No transformation; original instruction is preserved.
 - **Generated code:** Original arithmetic instruction.
@@ -332,434 +332,272 @@ Strategies are registered in priority order, with higher priority strategies tak
 
 ### Enhanced Strategies for Null-Byte Elimination
 
-#### 38. Enhanced MOV Immediate Strategy
-- **Name:** `mov_imm_enhanced`
-- **Priority:** 160 (highest)
-- **Description:** Advanced MOV immediate value processing using XOR encoding, arithmetic decomposition, or register chaining to eliminate null bytes.
-- **Condition:** Applies to MOV reg, imm instructions where immediate contains null bytes but alternative encodings are possible.
-- **Transformation:** Multiple techniques including XOR encoding, arithmetic addition/subtraction, or NOT/NEG sequences.
-- **Generated code:** MOV operations using null-free construction methods.
+#### 38. Enhanced MOV Memory Strategy
+- **Name:** `enhanced_mov_mem_strategies`
+- **Priority:** Medium
+- **Description:** Enhanced MOV memory operations with alternative addressing modes to avoid null bytes.
+- **Condition:** Applies to MOV operations with memory operands that may contain null bytes in displacement or encoding.
+- **Transformation:** Uses alternative addressing techniques to avoid null bytes in ModR/M and SIB bytes.
+- **Generated code:** MOV instructions with null-free addressing modes.
 
-#### 39. Enhanced LEA Displacement Strategy
-- **Name:** `lea_disp_enhanced`
-- **Priority:** 160 (highest)
-- **Description:** Advanced LEA displacement processing using SIB addressing to eliminate null bytes in displacement values.
-- **Condition:** Applies to LEA reg, [disp32] instructions with null-containing displacements.
-- **Transformation:** Uses register-based address calculation with SIB addressing to avoid null bytes.
-- **Generated code:** LEA with SIB encoding or alternative address construction.
+#### 39. Enhanced Register Chaining Strategy
+- **Name:** `enhanced_register_chaining_strategies`
+- **Priority:** Medium
+- **Description:** Enhanced register chaining operations to avoid null bytes in complex operations.
+- **Condition:** Applies when register chaining can avoid null bytes in instruction encoding.
+- **Transformation:** Sequence of register operations with null-avoiding patterns.
+- **Generated code:** Register chaining sequences optimized for null-byte elimination.
 
-#### 40. Enhanced MOV Memory Displacement Strategy
-- **Name:** `mov_mem_disp_enhanced`
-- **Priority:** 160 (highest)
-- **Description:** Advanced MOV memory displacement processing to eliminate null bytes in displacement values.
-- **Condition:** Applies to MOV reg, [disp32]/MOV [disp32], reg instructions with null-containing displacements.
-- **Transformation:** Uses alternative addressing modes or register-based memory access.
-- **Generated code:** MOV with alternative addressing to eliminate displacement nulls.
+#### 40. Enhanced Arithmetic Strategy
+- **Name:** `enhanced_arithmetic_strategies`
+- **Priority:** High
+- **Description:** Enhanced arithmetic operations using multiple techniques to eliminate null bytes.
+- **Condition:** Applies to arithmetic operations where immediate values contain null bytes.
+- **Transformation:** Uses XOR encoding, negation, or other arithmetic techniques to avoid nulls.
+- **Generated code:** Arithmetic operations with null-free immediate encoding.
 
-#### 41. Enhanced Arithmetic Immediate Strategy
-- **Name:** `arithmetic_imm_enhanced`
-- **Priority:** 160 (highest)
-- **Description:** Advanced arithmetic operation processing with null-containing immediate values using multiple encoding techniques.
-- **Condition:** Applies to ADD, SUB, AND, OR, XOR, CMP reg, imm instructions with null bytes in immediate.
-- **Transformation:** Multiple techniques including XOR encoding, arithmetic decomposition, or register-based operations.
-- **Generated code:** Arithmetic operations using null-free immediate construction.
+#### 41. Enhanced Immediate Strategy
+- **Name:** `enhanced_immediate_strategies`
+- **Priority:** High
+- **Description:** Enhanced immediate value encoding techniques to avoid null bytes.
+- **Condition:** Applies to operations with immediate values containing null bytes.
+- **Transformation:** Uses multiple encoding methods to construct immediate values without nulls.
+- **Generated code:** Immediate operations with null-free encoding.
 
-#### 42. Enhanced Arithmetic NEG Strategy
-- **Name:** `arithmetic_neg_enhanced`
+#### 42. Improved MOV Strategy
+- **Name:** `improved_mov_strategies`
+- **Priority:** High
+- **Description:** Improved MOV operations with better null-byte avoidance techniques.
+- **Condition:** Applies to MOV operations with immediate values containing null bytes.
+- **Transformation:** Advanced MOV transformation techniques.
+- **Generated code:** MOV instructions with null-free immediate encoding.
+
+#### 43. Improved Arithmetic Strategy
+- **Name:** `improved_arithmetic_strategies`
+- **Priority:** High
+- **Description:** Improved arithmetic operations with better null-byte avoidance techniques.
+- **Condition:** Applies to arithmetic operations with immediate values containing null bytes.
+- **Transformation:** Advanced arithmetic decomposition techniques.
+- **Generated code:** Arithmetic operations with null-free encoding.
+
+### Remaining Null Elimination Strategies
+
+#### 44. Remaining Null Elimination Strategy
+- **Name:** `remaining_null_elimination_strategies`
+- **Priority:** 160 (highest)
+- **Description:** Final cleanup strategy for remaining null bytes after all other strategies have been applied.
+- **Condition:** Applied to any remaining instructions that still contain null bytes.
+- **Transformation:** Comprehensive techniques to ensure final null-byte elimination.
+- **Generated code:** Various techniques depending on instruction type.
+
+### Windows-Specific Strategies
+
+#### 45. CALL/POP Immediate Loading Strategy
+- **Name:** `call_pop_immediate_strategy`
 - **Priority:** 85
-- **Description:** Advanced arithmetic operations using two's complement negation to handle null-byte containing immediates.
-- **Condition:** Applies to arithmetic operations where negated immediate values are null-free.
-- **Transformation:** Uses NEG operation on pre-loaded negated value: MOV reg, ~imm+1; NEG reg.
-- **Generated code:** MOV + NEG sequence for null-free arithmetic operations.
+- **Description:** Uses CALL/POP technique to load immediate values without encoding nulls in instructions.
+- **Condition:** Applies to MOV reg, imm32 patterns where immediate contains null bytes.
+- **Transformation:** MOV reg, imm32 → CALL next; PUSH imm32; POP reg; next:
+- **Generated code:** CALL/POP sequence to load immediate values.
 
-#### 43. Enhanced Arithmetic XOR Strategy
-- **Name:** `arithmetic_xor_enhanced`
-- **Priority:** 82
-- **Description:** Advanced arithmetic operations using XOR encoding to handle null-byte containing immediates.
-- **Condition:** Applies to arithmetic operations where XOR-encoded immediates avoid null bytes.
-- **Transformation:** Uses XOR operation: MOV reg, encoded_val; XOR reg, key.
-- **Generated code:** MOV + XOR sequence for null-free arithmetic operations.
-
-#### 44. Enhanced Arithmetic ADD/SUB Strategy
-- **Name:** `arithmetic_addsub_enhanced`
-- **Priority:** 80
-- **Description:** Advanced arithmetic operations using ADD/SUB decomposition for null-byte containing immediates.
-- **Condition:** Applies to arithmetic operations where immediate can be decomposed into null-free ADD/SUB components.
-- **Transformation:** Uses ADD/SUB sequence: MOV reg, base_val; ADD reg, offset_val.
-- **Generated code:** MOV + ADD/SUB sequence for null-free arithmetic operations.
-
-#### 45. Enhanced Register Chaining Immediate Strategy
-- **Name:** `register_chaining_immediate_enhanced`
-- **Priority:** 70
-- **Description:** Advanced register chaining to handle immediate values containing null bytes through temporary registers.
-- **Condition:** Applies to operations with immediate values that contain nulls but can be loaded via temporary registers.
-- **Transformation:** Uses temporary registers to build complex values: PUSH temp; MOV temp, imm; OP reg, temp; POP temp.
-- **Generated code:** Register-based operations using temporary registers to avoid immediate nulls.
-
-#### 46. Enhanced Cross-Register Operation Strategy
-- **Name:** `cross_register_operation_enhanced`
-- **Priority:** 68
-- **Description:** Advanced cross-register operations to eliminate null bytes through intermediate register usage.
-- **Condition:** Applies to operations that can be performed through intermediate register chains.
-- **Transformation:** Uses multiple register operations: MOV temp, imm; OP reg, temp.
-- **Generated code:** Multi-register operation sequences to avoid null bytes.
-
-#### 47. Enhanced Immediate Splitting Strategy
-- **Name:** `immediate_splitting_enhanced`
-- **Priority:** 77
-- **Description:** Advanced immediate splitting to handle large immediate values containing null bytes through byte-wise construction.
-- **Condition:** Applies to operations with immediate values where byte-wise construction avoids nulls.
-- **Transformation:** Builds value byte by byte: XOR reg, reg; SHL reg, 8; OR reg, byte_value; etc.
-- **Generated code:** Byte-by-byte construction sequences for null-free immediate values.
-
-#### 48. Enhanced Small Immediate Strategy
-- **Name:** `small_immediate_enhanced`
-- **Priority:** 75
-- **Description:** Advanced processing for small immediate values containing null bytes.
-- **Condition:** Applies to operations with small immediate values that contain null bytes.
-- **Transformation:** Uses alternative encodings for small values: MOVZX, sign extension, or register construction.
-- **Generated code:** Optimized small value encodings without null bytes.
-
-#### 49. Enhanced Large Immediate Strategy
-- **Name:** `large_immediate_enhanced`
-- **Priority:** 85
-- **Description:** Advanced processing for large immediate values containing null bytes.
-- **Condition:** Applies to operations with large immediate values that contain null bytes.
-- **Transformation:** Uses register-based construction: MOV EAX, imm (constructed null-free); MOV reg, EAX.
-- **Generated code:** Register-based large immediate construction.
-
-#### 50. Ultra-Cleanup Strategy
-- **Name:** `ultra_cleanup`
-- **Priority:** 200 (highest priority for final pass)
-- **Description:** Final fallback strategy for eliminating any remaining null bytes using the most comprehensive approaches.
-- **Condition:** Applies to any instruction that still contains null bytes after all other strategies.
-- **Transformation:** Most comprehensive approaches using XOR encoding, arithmetic decomposition, or register chaining.
-- **Generated code:** Last-resort null-free encodings using multiple techniques.
-
-### Arithmetic Decomposition Strategies
-
-#### 38. Arithmetic Decomposition Strategy
-- **Name:** `mov_arith_decomp_strategy`
-- **Priority:** 70
-- **Description:** Decomposes MOV operations into arithmetic sequences to avoid nulls.
-- **Condition:** Applies to MOV operations where immediate contains nulls but arithmetic decomposition is possible.
-- **Transformation:** MOV reg, value → sequence of arithmetic operations to build value.
-- **Generated code:** Arithmetic sequence to achieve target value.
-
-### Byte Construction Strategy
-
-#### 39. Byte Construction Strategy
-- **Name:** `byte_construct_strategy`
-- **Priority:** Variable
-- **Description:** Constructs values byte-by-byte to avoid null bytes.
-- **Condition:** Applies to operations where byte-level construction avoids nulls.
-- **Transformation:** Series of byte operations to build the value.
-- **Generated code:** Byte-level construction sequence.
-
-### Context and Preservation Strategies
-
-#### 40. Context Preservation Strategy
-- **Name:** (Context preservation strategies)
-- **Priority:** Variable
-- **Description:** Preserves processor context during transformations.
-- **Condition:** Applies to transformations that must maintain context.
-- **Transformation:** Uses PUSH/POP or other context preservation.
-- **Generated code:** Context preservation sequences.
-
-#### 41. Sequence Preservation Strategy
-- **Name:** (Sequence preservation strategies)
-- **Priority:** Variable
-- **Description:** Preserves execution sequence during transformations.
-- **Condition:** Applies to transformations that must maintain order.
-- **Transformation:** Maintains execution flow while avoiding nulls.
-- **Generated code:** Sequenced operations without null bytes.
-
-### Advanced Transformation Strategies (Cont.)
-
-#### 42. Byte Granularity Strategy
-- **Name:** `Byte-Granularity Null Elimination`
-- **Priority:** High (part of advanced transformations)
-- **Description:** Handles byte-level operations that might introduce null bytes.
-- **Condition:** Applies to low-byte register operations (AL, BL, CL, DL) that might have encoding issues.
-- **Transformation:** Uses full register operations to avoid low-byte addressing nulls.
-- **Generated code:** Full register operations instead of byte-specific ones.
-
-#### 43. Conditional Jump Target Strategy
-- **Name:** `Conditional Jump Target Preservation`
-- **Priority:** High (part of advanced transformations)
-- **Description:** Handles conditional jumps to addresses containing null bytes.
-- **Condition:** Applies to conditional jumps (JE, JNE, JG, etc.) where the target address contains null bytes.
-- **Transformation:** Complex sequence involving register-based indirect jumps while preserving condition flags.
-- **Generated code:** Conditional jump sequence with indirect target access.
-
-### Other Specialized Strategies
-
-#### 44. RET Strategy
-- **Name:** `ret_strategies`
-- **Priority:** 78
-- **Description:** Handles RET instructions with immediate operands containing null bytes.
-- **Condition:** Applies to RET imm16 instructions where immediate contains nulls.
-- **Transformation:** Alternative return methods that avoid null bytes.
-- **Generated code:** Return sequences without null bytes.
-
-#### 45. RETF Strategy
-- **Name:** `retf_strategies`
-- **Priority:** 85
-- **Description:** Handles far return instructions with null bytes.
-- **Condition:** Applies to RETF instructions containing null bytes.
-- **Transformation:** Alternative far return patterns.
-- **Generated code:** Far return without null bytes.
-
-#### 46. CMP Strategy
-- **Name:** `cmp_strategies`
-- **Priority:** 85-88
-- **Description:** Handles CMP instructions with null bytes.
-- **Condition:** Applies to CMP operations containing null bytes.
-- **Transformation:** Alternative comparison methods.
-- **Generated code:** Comparison operations without null bytes.
-
-#### 47. Shift Strategy
-- **Name:** `shift_based_strategy`
-- **Priority:** Variable
-- **Description:** Uses bit shifting to avoid null bytes.
-- **Condition:** Applies to operations where shifting can avoid nulls.
-- **Transformation:** Shift-based arithmetic alternatives.
-- **Generated code:** Shift operations without null bytes.
-
-#### 48. XCHG Strategy
-- **Name:** `xchg_strategies`
-- **Priority:** 60
-- **Description:** Handles XCHG operations with potential null bytes.
-- **Condition:** Applies to XCHG instructions containing null bytes.
-- **Transformation:** Alternative register exchange methods.
-- **Generated code:** Register exchange without null bytes.
-
-#### 49. BT Strategy
-- **Name:** `bt_strategies`
-- **Priority:** 80
-- **Description:** Handles BT (Bit Test) operations with null bytes.
-- **Condition:** Applies to BT instructions containing null bytes.
-- **Transformation:** Alternative bit testing methods.
-- **Generated code:** Bit testing without null bytes.
-
-#### 50. Loop Strategy
-- **Name:** `loop_strategies`
-- **Priority:** 75-80
-- **Description:** Handles loop instructions with null bytes.
-- **Condition:** Applies to LOOP family instructions containing null bytes.
-- **Transformation:** Alternative loop patterns.
-- **Generated code:** Loop operations without null bytes.
-
-#### 51. ADC Strategy
-- **Name:** `adc_strategies`
-- **Priority:** 69-70
-- **Description:** Handles ADC (Add with Carry) operations with null bytes.
-- **Condition:** Applies to ADC instructions containing null bytes.
-- **Transformation:** Alternative add-with-carry methods.
-- **Generated code:** ADC operations without null bytes.
-
-#### 52. SBB Strategy
-- **Name:** `sbb_strategies`
-- **Priority:** 69-70
-- **Description:** Handles SBB (Subtract with Borrow) operations with null bytes.
-- **Condition:** Applies to SBB instructions containing null bytes.
-- **Transformation:** Alternative subtract-with-borrow methods.
-- **Generated code:** SBB operations without null bytes.
-
-#### 53. SETcc Strategy
-- **Name:** `setcc_strategies`
-- **Priority:** 70-75
-- **Description:** Handles SETcc (Set on Condition) operations with null bytes.
-- **Condition:** Applies to SETcc family instructions containing null bytes.
-- **Transformation:** Alternative conditional set methods.
-- **Generated code:** Conditional set operations without null bytes.
-
-#### 54. IMUL Strategy
-- **Name:** `imul_strategies`
-- **Priority:** 71-72
-- **Description:** Handles IMUL (Signed Multiply) operations with null bytes.
-- **Condition:** Applies to IMUL instructions containing null bytes.
-- **Transformation:** Alternative signed multiplication methods.
-- **Generated code:** Multiplication operations without null bytes.
-
-#### 55. FPU Strategy
-- **Name:** `fpu_strategies`
-- **Priority:** 60
-- **Description:** Handles x87 FPU (Floating Point Unit) operations with null bytes.
-- **Condition:** Applies to FPU instructions containing null bytes.
-- **Transformation:** Alternative FPU operations.
-- **Generated code:** FPU operations without null bytes.
-
-#### 56. SLDT Strategy
-- **Name:** `sldt_strategies`
-- **Priority:** 60
-- **Description:** Handles SLDT (Store Local Descriptor Table) operations with null bytes.
-- **Condition:** Applies to SLDT instructions containing null bytes.
-- **Transformation:** Alternative descriptor table operations.
-- **Generated code:** Descriptor table operations without null bytes.
-
-#### 57. SLDT Replacement Strategy
-- **Name:** `sldt_replacement_strategy`
+#### 46. PEB API Hashing Strategy
+- **Name:** `peb_api_hashing_strategy`
 - **Priority:** 95
-- **Description:** High-priority strategy for SLDT replacement when null bytes are present.
-- **Condition:** Applies to SLDT instructions containing null bytes.
-- **Transformation:** Alternative register operations that achieve the same effect.
-- **Generated code:** Equivalent operations without using SLDT.
+- **Description:** Uses PEB traversal to find kernel32.dll and hash-based API resolution for stealthy function calls.
+- **Condition:** Applies to direct API calls with addresses that contain null bytes.
+- **Transformation:** Direct API call → PEB traversal → hash-based API resolution → call via register.
+- **Generated code:** PEB traversal and API hashing code for stealthy API calls.
 
-#### 58. ARPL Strategy
-- **Name:** `arpl_strategies`
-- **Priority:** 75
-- **Description:** Handles ARPL (Adjust RPL) operations with null bytes.
-- **Condition:** Applies to ARPL instructions containing null bytes.
-- **Transformation:** Alternative RPL adjustment methods.
-- **Generated code:** RPL adjustment without null bytes.
-
-#### 59. BOUND Strategy
-- **Name:** `bound_strategies`
-- **Priority:** 70
-- **Description:** Handles BOUND operations with null bytes.
-- **Condition:** Applies to BOUND instructions containing null bytes.
-- **Transformation:** Alternative bounds checking methods.
-- **Generated code:** Bounds checking without null bytes.
-
-#### 60. ROR/ROL Strategy
-- **Name:** `ror_rol_strategies`
-- **Priority:** 70
-- **Description:** Handles rotation operations with null bytes.
-- **Condition:** Applies to ROR/ROL instructions containing null bytes.
-- **Transformation:** Alternative rotation patterns.
-- **Generated code:** Rotation operations without null bytes.
-
-#### 61. SALC Strategy
-- **Name:** `salc_zero_al_strategy`
+#### 47. SALC + Conditional Flag Strategy
+- **Name:** `salc_conditional_flag_strategy`
 - **Priority:** 91
-- **Description:** Uses SALC (Set AL on Carry) to efficiently zero AL register.
-- **Condition:** Applies when setting AL register with null-free instruction.
-- **Transformation:** SALC instruction for AL zeroing.
-- **Generated code:** SALC instruction for efficient AL zeroing.
+- **Description:** Uses SALC (Set AL on Carry) instruction for efficient AL register zeroing without MOV AL, 0x00.
+- **Condition:** Applies to MOV AL, 0x00 patterns and other zero-setting operations.
+- **Transformation:** MOV AL, 0x00 → CLC; SALC (if AL needs to be 0 when carry is clear).
+- **Generated code:** SALC-based register manipulation without null bytes.
 
-#### 62. XCHG Preservation Strategy
-- **Name:** `push_imm_preservation_strategy`
-- **Priority:** 86
-- **Description:** Optimizes PUSH immediate operations using XCHG preservation.
-- **Condition:** Applies to PUSH operations that can use register preservation.
-- **Transformation:** PUSH alternative using register exchanges.
-- **Generated code:** PUSH operations optimized for null elimination.
+#### 48. LEA Arithmetic Substitution Strategy
+- **Name:** `lea_arithmetic_substitution_strategy`
+- **Priority:** 80
+- **Description:** Uses LEA instruction to perform arithmetic operations without immediate null bytes.
+- **Condition:** Applies to arithmetic operations where immediate values contain null bytes.
+- **Transformation:** ADD reg, value → LEA reg, [reg + value] (when value is suitable for LEA).
+- **Generated code:** LEA instructions for arithmetic operations with null-free encoding.
 
-#### 63. REP STOSB Strategy
-- **Name:** `rep_stosb_count_setup_strategy`
-- **Priority:** 92
-- **Description:** Uses REP STOSB for efficient memory initialization without null bytes.
-- **Condition:** Applies to memory initialization sequences with null bytes.
-- **Transformation:** REP STOSB for null-free memory operations.
-- **Generated code:** REP STOSB memory initialization.
+#### 49. Shift Value Construction Strategy
+- **Name:** `shift_value_construction_strategy`
+- **Priority:** 78
+- **Description:** Uses bit shift operations combined with arithmetic to build values containing null bytes.
+- **Condition:** Applies to MOV reg, imm patterns where immediate contains null bytes but can be constructed via shifts.
+- **Transformation:** MOV reg, value → sequence of SHL/SHR/ADD operations to build value.
+- **Generated code:** Shift and arithmetic sequences to construct target values.
 
-#### 64. Stack String Strategy
-- **Name:** `enhanced_stack_string_strategy`
+#### 50. Stack String Construction Strategy
+- **Name:** `stack_string_construction_strategy`
 - **Priority:** 85
-- **Description:** Constructs strings on the stack without introducing null bytes.
-- **Condition:** Applies to string construction operations that would contain nulls.
-- **Transformation:** Stack-based string construction methods.
-- **Generated code:** Stack string operations without null bytes.
+- **Description:** Constructs strings using multiple PUSH operations to avoid null-laden string literals.
+- **Condition:** Applies to string construction operations containing null bytes.
+- **Transformation:** MOV string → sequence of PUSH operations for each part of string.
+- **Generated code:** Stack-based string construction without null bytes.
 
-#### 65. Syscall Strategy
-- **Name:** `syscall_number_mov_strategy`
-- **Priority:** 95
-- **Description:** Handles Windows syscall direct invocation without null bytes.
-- **Condition:** Applies to Windows syscall operations with null bytes.
-- **Transformation:** Alternative syscall patterns.
-- **Generated code:** Syscall operations without null bytes.
+#### 51. Register Swapping Immediate Strategy
+- **Name:** `register_swapping_immediate_strategy`
+- **Priority:** 70
+- **Description:** Uses XCHG and register swapping techniques for immediate value loading.
+- **Condition:** Applies to MOV operations with immediate values containing null bytes.
+- **Transformation:** MOV reg, imm → use register swapping with null-free construction.
+- **Generated code:** XCHG-based immediate value loading.
 
-## Strategy Priority System
+#### 52. SCASB/CMPSB Strategy
+- **Name:** `scasb_cmpsb_strategy`
+- **Priority:** 75
+- **Description:** Uses SCASB/CMPSB conditional operations as alternatives to other patterns.
+- **Condition:** Applies to conditional operations and comparisons.
+- **Transformation:** Alternative string comparison/scan operations.
+- **Generated code:** SCASB/CMPSB-based conditional operations.
 
-The strategy selection system uses a priority-based approach:
+#### 53. Short Conditional Jump Strategy
+- **Name:** `short_conditional_jump_strategy`
+- **Priority:** 85
+- **Description:** Uses short conditional jumps with 8-bit displacement to avoid null-byte offsets.
+- **Condition:** Applies to conditional jumps where 32-bit displacement contains null bytes.
+- **Transformation:** Jcc far_target → J!cc skip; JMP far_target; skip: (or use short jump if target is near).
+- **Generated code:** Short conditional jumps or alternative jump patterns.
 
-- **Highest Priority (150):** Critical transformations like conditional jump null offset elimination
-- **High Priority (90-150):** Essential transformations like SLDT replacement, REP STOSB, SALC
-- **Medium Priority (70-89):** Common transformations like memory operations, arithmetic
-- **Low Priority (60-69):** Specialized transformations
-- **Fallback Priority (<60):** General-purpose transformations used as last resort
+#### 54. LEA Complex Addressing Strategy
+- **Name:** `lea_complex_addressing_strategy`
+- **Priority:** 80
+- **Description:** Uses LEA with complex addressing for value construction strategy.
+- **Condition:** Applies when LEA can be used to construct values with null-containing displacements.
+- **Transformation:** Alternative LEA addressing modes to avoid null bytes.
+- **Generated code:** LEA with complex addressing modes.
 
-## Implementation Notes
+#### 55. INC/DEC Chain Strategy
+- **Name:** `inc_dec_chain_strategy`
+- **Priority:** 75
+- **Description:** Uses INC/DEC chain strategies for register operations.
+- **Condition:** Applies to INC/DEC operations that might contain null bytes in encoding.
+- **Transformation:** INC/DEC reg → MOV temp_reg, reg; INC/DEC temp_reg; MOV reg, temp_reg.
+- **Generated code:** INC/DEC with register preservation to avoid null bytes.
 
-1. **Functional Equivalence:** All strategies must preserve the original functionality of the shellcode.
+#### 56. LEA Arithmetic Calculation Strategy
+- **Name:** `lea_arithmetic_calculation_strategy`
+- **Priority:** 78
+- **Description:** Uses LEA arithmetic calculation strategy for complex value construction.
+- **Condition:** Applies when LEA can be used to perform arithmetic calculations.
+- **Transformation:** Arithmetic operations → LEA-based calculations.
+- **Generated code:** LEA-based arithmetic operations.
 
-2. **Null-Free Guarantee:** Each strategy must ensure that its output contains no null bytes.
+#### 57. PUSH-POP Immediate Strategy
+- **Name:** `push_pop_immediate_strategy`
+- **Priority:** 77
+- **Description:** PUSH-POP immediate loading strategy for immediate value handling.
+- **Condition:** Applies to immediate value loading operations containing null bytes.
+- **Transformation:** MOV reg, imm → PUSH imm (null-free construction); POP reg.
+- **Generated code:** PUSH-POP sequences for immediate value loading.
 
-3. **Size Considerations:** Strategies may increase the size of instructions, which can affect relative jumps.
+#### 58. Bitwise Flag Manipulation Strategy
+- **Name:** `bitwise_flag_manipulation_strategy`
+- **Priority:** 72
+- **Description:** Bitwise flag manipulation strategy for flag handling.
+- **Condition:** Applies to flag manipulation operations containing null bytes.
+- **Transformation:** Alternative bitwise operations for flag manipulation.
+- **Generated code:** Bitwise operations without null bytes.
 
-4. **Context Awareness:** Some strategies must consider the surrounding context to avoid breaking program flow.
+#### 59. SALC Zero Flag Strategy
+- **Name:** `salc_zero_flag_strategy`
+- **Priority:** 75
+- **Description:** SALC zero flag strategy for AL register manipulation.
+- **Condition:** Applies to AL register zeroing and flag manipulation.
+- **Transformation:** MOV AL, 0 → SALC based on carry flag state.
+- **Generated code:** SALC-based AL manipulation.
 
-5. **Register Availability:** Strategies must be mindful of register availability and context preservation.
+#### 60. XCHG Immediate Construction Strategy
+- **Name:** `xchg_immediate_construction_strategy`
+- **Priority:** 70
+- **Description:** XCHG immediate construction strategy for value loading.
+- **Condition:** Applies to immediate value loading operations.
+- **Transformation:** Value loading using XCHG instructions.
+- **Generated code:** XCHG-based value loading.
 
-## Performance Characteristics
+### New Gap-Fill Strategies (Added to Address Specific Gaps)
 
-- **Strategy Selection Time:** O(n) where n is the number of applicable strategies
-- **Transformation Complexity:** Varies by strategy, typically O(1) to O(k) where k is constant
-- **Output Size:** Most strategies increase code size, requiring offset recalculation
-- **Memory Usage:** Proportional to input shellcode size
+#### 61. Enhanced PEB API Resolution Strategy
+- **Name:** `enhanced_peb_traversal_strategy`
+- **Priority:** 88
+- **Description:** Enhanced PEB-based API resolution strategies that handle sophisticated Windows API resolution patterns with null-byte displacements in PEB traversal.
+- **Condition:** Applies to MOV operations in PEB traversal patterns (e.g., `mov eax, [ebx + 0x3c]`) where displacement contains null bytes.
+- **Transformation:** MOV reg, [base + disp_with_nulls] → MOV reg, base; ADD reg, disp (constructed without nulls); MOV reg, [reg].
+- **Generated code:** PEB traversal code without null-byte displacements.
 
-## Testing Considerations
+#### 62. Hash-Based API Resolution Strategy
+- **Name:** `hash_based_resolution_strategy`
+- **Priority:** 89
+- **Description:** Handles hash-based API resolution patterns that contain null bytes in function name comparisons.
+- **Condition:** Applies to CMP operations comparing function names (e.g., `cmp [eax], 0x50746547` for "GetProc") where immediate contains null bytes.
+- **Transformation:** CMP [mem], imm_with_nulls → MOV temp_reg, imm (constructed without nulls); CMP [mem], temp_reg.
+- **Generated code:** Hash-based API resolution without null-byte immediates.
 
-Each strategy should be tested with:
-- Various immediate values containing different null byte patterns
-- Different register combinations
-- Different addressing modes
-- Edge cases like extreme values, zero values
-- Functional equivalence verification
-- Null byte elimination verification
+#### 63. PEB Conditional Jump Strategy
+- **Name:** `peb_conditional_jump_strategy`
+- **Priority:** 87
+- **Description:** Handles conditional jumps in PEB API resolution loops that have null bytes in displacement or encoding.
+- **Condition:** Applies to conditional jumps (jz, jnz, je, jne, etc.) in PEB traversal loops that contain null bytes.
+- **Transformation:** Jcc target_with_nulls → alternative jump pattern using short jumps or conditional logic.
+- **Generated code:** PEB traversal conditional jumps without null-byte displacements.
 
-## New Strategies in Version 2.1
+#### 64. Conditional Jump Displacement Strategy
+- **Name:** `conditional_jump_displacement_strategy`
+- **Priority:** 88
+- **Description:** Handles conditional jumps that contain null bytes in displacement fields, common in API resolution loops.
+- **Condition:** Applies to conditional jumps (jz, jnz, je, jne, etc.) where instruction encoding or displacement contains null bytes.
+- **Transformation:** Jcc near_label_with_nulls → inverse condition with short jump over long jump.
+- **Generated code:** Conditional jump alternatives without null-byte displacements.
 
-### MOV Register Self-Reference Strategy
+#### 65. Short Conditional Jump with Nulls Strategy
+- **Name:** `short_conditional_jump_with_nulls_strategy`
+- **Priority:** 85
+- **Description:** Handles short conditional jumps that contain null bytes in their encoding.
+- **Condition:** Applies to short conditional jumps where the instruction encoding contains null bytes.
+- **Transformation:** Jcc rel8_with_nulls → Convert to alternative conditional pattern.
+- **Generated code:** Short conditional jump alternatives without null bytes.
 
-#### 66. MOV Register Memory Self Reference Strategy
-- **Name:** `transform_mov_reg_mem_self`
-- **Priority:** 100
-- **Description:** Handles the common `mov reg32, [reg32]` pattern that produces null bytes in the ModR/M byte, such as `mov eax, [eax]` (opcode `8B 00`).
-- **Condition:** Applies when the MOV instruction has a 32-bit register as destination and the same register as a memory operand with zero displacement (e.g., `[eax]`).
-- **Transformation:** Uses a temporary register with displacement arithmetic to avoid the null-byte ModR/M encoding:
-  ```
-  push temp_reg      ; Save temporary register
-  lea temp_reg, [src_reg - 1]  ; Load effective address with non-null displacement
-  mov dest_reg, [temp_reg + 1] ; Dereference the correct address
-  pop temp_reg       ; Restore temporary register
-  ```
-- **Generated code:** Null-byte-free sequence that preserves all registers (except flags) and achieves the same result as the original `mov reg, [reg]` instruction.
+#### 66. Register Remap Nulls Strategy
+- **Name:** `register_remap_nulls_strategy`
+- **Priority:** 75
+- **Description:** Handles register remapping to avoid null-byte patterns by selecting alternative registers.
+- **Condition:** Applies to instructions that use registers in ways that create null bytes in encoding, especially EBP/R13 addressing without displacement.
+- **Transformation:** Use alternative registers and transfer values when needed to avoid problematic encodings.
+- **Generated code:** Register remapped code that avoids null bytes.
 
-### ADD Memory Register8 Strategy
+#### 67. MOV Register Remap Strategy
+- **Name:** `mov_register_remap_strategy`
+- **Priority:** 78
+- **Description:** Specific MOV register remapping to avoid null-byte patterns in addressing modes.
+- **Condition:** Applies to MOV instructions with memory operands that would create null bytes in addressing.
+- **Transformation:** MOV operations using alternative registers to avoid null-byte addressing.
+- **Generated code:** MOV instructions with null-byte-free addressing.
 
-#### 67. ADD Memory Register8 Strategy
-- **Name:** `transform_add_mem_reg8`
-- **Priority:** 100
-- **Description:** Handles the `add [mem], reg8` pattern that creates null bytes, such as `add [eax], al` (opcode `00 00`). This instruction encodes null bytes in both the opcode and ModR/M byte.
-- **Condition:** Applies when an ADD instruction has a memory operand as the destination and an 8-bit register as the source, where the original encoding contains null bytes.
-- **Transformation:** Replaces the null-byte instruction with a sequence using null-byte-free instructions:
-  ```
-  push temp_reg                 ; Save temporary register
-  movzx temp_reg, byte ptr [mem] ; Load the byte from memory into temp register
-  add temp_reg, src_reg8        ; Perform the addition
-  mov byte ptr [mem], temp_reg  ; Store the result back into memory
-  pop temp_reg                  ; Restore temporary register
-  ```
-- **Generated code:** Null-byte-free sequence that performs the same memory addition operation as the original instruction.
+#### 68. Contextual Register Swap Strategy
+- **Name:** `contextual_register_swap_strategy`
+- **Priority:** 72
+- **Description:** Contextual register swapping that considers the whole instruction context to avoid nulls.
+- **Condition:** Applies when register swapping could reduce null bytes based on instruction context.
+- **Transformation:** Alternative register usage to avoid null-byte patterns.
+- **Generated code:** Contextually optimized register usage.
 
-### Disassembly Validation Enhancement
+#### 69. LEA Displacement Nulls Strategy
+- **Name:** `lea_displacement_nulls_strategy`
+- **Priority:** 82
+- **Description:** Handles LEA instructions with null-byte displacements in addressing modes.
+- **Condition:** Applies to LEA reg, [base + disp32] where disp32 contains null bytes.
+- **Transformation:** LEA reg, [base + disp_with_nulls] → MOV reg, base; ADD reg, disp (constructed without nulls).
+- **Generated code:** LEA alternatives without displacement null bytes.
 
-- **Description:** Added robust validation to detect invalid shellcode input. If Capstone disassembler returns zero instructions, BYVALVER now provides a clear error message instead of proceeding with invalid data.
-
-## Strategy Priority System Updates
-
-With the addition of the new strategies in v2.1:
-- **Critical Priority (100+):** The new MOV and ADD strategies have high priority (100) to ensure they are applied before general fallback strategies
-- **Strategy Selection:** The new strategies are specifically designed to handle common null-byte patterns that were previously unhandled
-
-## Implementation Notes for New Strategies
-
-1. **Register Preservation:** Both new strategies preserve all registers except flags, maintaining functional equivalence.
-
-2. **Null-Free Output:** Both strategies guarantee null-byte-free output sequences.
-
-3. **Size Impact:** The new strategies may increase the size of the shellcode due to multi-instruction sequences, which is properly handled by the offset recalculation system.
-
-4. **Specific Targeting:** These strategies specifically target common x86 patterns that frequently produce null bytes in shellcode.
+#### 70. LEA Problematic Encoding Strategy
+- **Name:** `lea_problematic_encoding_strategy`
+- **Priority:** 81
+- **Description:** Handles LEA instructions with problematic addressing that creates null encoding bytes.
+- **Condition:** Applies to LEA operations with EBP/R13 base registers and zero displacement that require null displacement bytes.
+- **Transformation:** LEA dst, [EBP] (requires 00 displacement) → MOV dst_reg, base_reg.
+- **Generated code:** LEA alternatives with null-byte-free encoding.

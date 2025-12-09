@@ -1,143 +1,150 @@
-FEATURE: Add 10 new Windows-specific denull strategies based on shellcode analysis
+ENHANCEMENT: Add 4 strategic null-elimination modules to fill critical gaps in BYVALVER
 
 ## Summary
 
-This commit adds 10 new Windows-specific denull strategies to BYVALVER based on analysis of real Windows shellcode patterns. The strategies were discovered by examining 100+ Windows shellcode files and implementing their null-elimination techniques as automated transformation strategies. The system now includes comprehensive Windows-specific approaches including CALL/POP immediate loading, PEB API hashing, SALC register manipulation, LEA arithmetic substitution, and more.
+This commit addresses 4 critical gaps in BYVALVER's null-byte elimination capabilities by implementing sophisticated new strategies. The additions include: Enhanced PEB API Resolution, Conditional Jump Displacement Optimization, Register Allocation Strategies, and LEA Displacement Optimization to handle real-world shellcode patterns that were previously not optimally processed. All new strategies use appropriate priority levels to avoid interfering with critical Windows API strategies.
 
 ## Problem
 
-Original BYVALVER had effective general-purpose null-byte elimination but lacked Windows-specific strategies found in real shellcode. Many Windows shellcode techniques for avoiding null bytes were not automatically recognized or applied by the transformation engine, resulting in less optimal processing of Windows-specific shellcode patterns.
+BYVALVER had several gaps in its null-elimination strategy coverage:
+1. PEB traversal and API resolution patterns with null-byte displacements weren't handled optimally
+2. Conditional jump displacement patterns with nulls weren't addressed
+3. Register allocation for null-byte avoidance was not implemented
+4. LEA instruction displacement patterns weren't properly optimized
+
+These gaps resulted in suboptimal transformation of shellcode patterns commonly found in real-world Windows exploits, potentially leaving null bytes unhandled.
 
 ## Solution
 
-### 1. Windows Shellcode Analysis
-Analyzed 100+ Windows shellcode files in the shellcodes/ directory to identify common null-elimination patterns:
-- CALL/POP immediate loading techniques
-- PEB traversal and API hashing methods
-- SALC + flag manipulation approaches
-- LEA arithmetic substitution patterns
-- Shift-based value construction methods
-- Stack-based string construction techniques
+### Gap #1: Enhanced PEB API Resolution Strategies
+- **Files:** `src/peb_api_resolution_strategies.c/h`
+- **Strategies Added:**
+  - Enhanced PEB Traversal Strategy (priority 88): Handles MOV operations with PEB offset displacements containing nulls
+  - Hash-Based Resolution Strategy (priority 89): Handles CMP operations with function name comparisons containing null bytes  
+  - PEB Conditional Jump Strategy (priority 87): Handles jumps in PEB traversal loops with null displacement bytes
+- **Implementation:** Uses register arithmetic to avoid null-byte displacements in PEB traversal instructions like `mov eax, [ebx + 0x3c]`
+- **Priority:** Set to 87-89 range to complement, not compete with, critical Windows API strategies
 
-### 2. Implementation of 10 New Strategies
-Implemented comprehensive Windows-specific transformation strategies:
+### Gap #2: Conditional Jump Displacement Strategies
+- **Files:** `src/conditional_jump_displacement_strategies.c/h` 
+- **Strategies Added:**
+  - Conditional Jump Displacement Strategy (priority 85): Handles conditional jumps with null-byte displacement fields
+  - Short Conditional Jump with Nulls Strategy (priority 82): Handles short conditional jumps with problematic encodings
+  - Conditional Jump Alternative Strategy (priority 84): Alternative conditional jump patterns to avoid displacement nulls
+- **Implementation:** Converts near conditional jumps with null displacements to alternative patterns using short jumps
+- **Priority:** Set to 82-85 range to focus on displacement issues without interfering with critical jumps
 
-1. **CALL/POP Immediate Loading Strategy** - Handles MOV reg, imm32 using PUSH/POP sequences
-2. **PEB API Hashing Strategy** - Uses PEB traversal for dynamic API resolution
-3. **SALC + Conditional Flag Manipulation** - Uses SALC for AL register zeroing
-4. **LEA Arithmetic Substitution** - Uses LEA for arithmetic without immediate nulls
-5. **Shift-Based Value Construction** - Uses bit shifts to build complex values
-6. **Stack-Based String Construction** - Builds strings with multiple PUSH operations
-7. **Enhanced Immediate Encoding** - Multiple approaches for immediate construction
-8. **Register Swapping with Immediate Loading** - Uses XCHG for value loading
-9. **Alternative LEA Complex Displacement** - Handles null-containing displacements
-10. **String Instruction Byte Construction** - Uses STOSB/STOSD for byte-level construction
+### Gap #3: Register Allocation Strategies
+- **Files:** `src/register_allocation_strategies.c/h`
+- **Strategies Added:**
+  - Register Remap Nulls Strategy (priority 75): Handles register usage that creates null bytes in encoding
+  - MOV Register Remap Strategy (priority 78): Specific MOV register remapping to avoid addressing nulls
+  - Contextual Register Swap Strategy (priority 72): Context-aware register swapping to avoid nulls
+- **Implementation:** Uses alternative registers to avoid problematic addressing modes like EBP/R13 with zero displacement
+- **Priority:** Set to 72-78 range to handle general register allocation without competing with specialized strategies
 
-### 3. Integration with Existing Architecture
-All new strategies follow the existing strategy pattern interface:
-- can_handle() function to detect applicable instructions
-- get_size() function to estimate output size
-- generate() function to produce null-free output
-- Priority-based selection system integration
+### Gap #4: LEA Displacement Optimization Strategies
+- **Files:** `src/lea_displacement_optimization_strategies.c/h`
+- **Strategies Added:**
+  - LEA Displacement Nulls Strategy (priority 82): Handles LEA with null-byte displacements
+  - LEA Problematic Encoding Strategy (priority 81): Handles LEA with EBP/R13 addressing requiring null displacement bytes
+- **Implementation:** Converts LEA instructions with problematic displacements to register arithmetic sequences
+- **Priority:** Set to 81-82 range to handle LEA displacement patterns specifically
 
-### 4. Comprehensive Documentation
-Updated README.md, USAGE.md, and BUILD.md with detailed information about the new strategies, their implementation, and usage patterns.
+### Strategic Prioritization
+
+New priorities were carefully assigned to avoid disrupting existing high-priority Windows API strategies:
+- **PEB strategies:** 87-89 (below syscall and critical Windows strategies)
+- **Conditional jump strategies:** 82-85 (complement existing jump strategies)
+- **Register allocation strategies:** 72-78 (general optimization level)
+- **LEA strategies:** 81-82 (address LEA displacement specifically)
 
 ## Technical Implementation
 
-### New Implementation Files
-- `src/call_pop_immediate_strategies.c` - CALL/POP immediate loading
-- `src/peb_api_hashing_strategies.c` - PEB traversal and API hashing
-- `src/salc_conditional_flag_strategies.c` - SALC register manipulation
-- `src/lea_arithmetic_substitution_strategies.c` - LEA arithmetic substitution
-- `src/shift_value_construction_strategies.c` - Shift-based construction
-- `src/stack_string_construction_strategies.c` - Stack string construction
-- Enhanced integration in `src/strategy_registry.c`
+### New Strategy Patterns Implemented
 
-### Key Technical Approaches Implemented
-
-#### 1. CALL/POP Immediate Loading
+#### 1. PEB Traversal Null Handling
 ```c
-// For MOV EAX, imm32 with null bytes, use PUSH/POP sequence
-generate_push_imm32(b, imm);  // Construct immediate without nulls
-uint8_t pop_reg = 0x58 + get_reg_index(dst_op->reg);
-buffer_append(b, &pop_reg, 1);
+// For: mov eax, [ebx + 0x3c] where 0x3c contains nulls
+// Becomes: MOV temp_reg, base_reg; ADD temp_reg, disp (null-free); MOV dst_reg, [temp_reg]
+generate_mov_reg_imm(b, &(cs_insn){...});  // Copy base
+generate_op_reg_imm(b, &(cs_insn){...});   // Add displacement without nulls
+// Load from calculated address
 ```
 
-#### 2. PEB API Hashing Strategy
+#### 2. Conditional Jump Displacement Alternatives
 ```c
-// For CALL with null-containing addresses, use register-based call
-generate_mov_eax_imm(b, target_addr);  // Load address without nulls
-uint8_t call_eax[] = {0xFF, 0xD0};     // CALL EAX instead of immediate
-buffer_append(b, call_eax, 2);
+// For: jz target_with_nulls in displacement
+// Becomes: inverse_condition short_jump; jmp target; short_jump_label:
+// Uses J!cc short_over; JMP target; short_over:
 ```
 
-#### 3. SALC Conditional Flag Manipulation
+#### 3. Register Remapping to Avoid Nulls
 ```c
-// For MOV AL, 0x00, use SALC instead of null-containing MOV
-if (target_value == 0x00) {
-    buffer_write_byte(b, 0xF8);  // CLC (Clear Carry)
-    buffer_write_byte(b, 0xD6);  // SALC (Set AL on Carry)
-}
+// For: mov reg, [EBP] which requires 00 displacement byte
+// Becomes: mov reg, EBP (avoiding problematic addressing)
+// Or: use alternative register addressing modes
 ```
 
-### Registry Integration
-- All new strategies registered in `strategy_registry.c` with appropriate priorities
-- Function declarations added for proper compilation
-- Registration calls integrated into initialization sequence
+#### 4. LEA Displacement Handling
+```c
+// For: lea reg, [base + disp_with_nulls]
+// Becomes: MOV reg, base_reg; ADD reg, disp (constructed without nulls)
+```
+
+### Integration with Existing Architecture
+- All new strategies follow BYVALVER's strategy pattern interface
+- Proper registration in `strategy_registry.c` with appropriate priorities
+- Compatible with ML-powered strategy selection
+- Maintain backward compatibility with existing functionality
 
 ## Performance Impact
 
 ### New Capabilities:
-- ✅ 10 new Windows-specific denull strategies
-- ✅ Automatic detection of Windows shellcode patterns
-- ✅ More efficient processing of Windows-specific instructions
-- ✅ Enhanced null-byte elimination for Windows shellcode
-- ✅ Better preservation of Windows-specific functionality
-- ✅ Improved compatibility with Windows API calls
+- ✅ Enhanced PEB-based API resolution with null displacement handling
+- ✅ Conditional jump displacement optimization for null-elimination  
+- ✅ Dynamic register allocation to avoid null-byte patterns
+- ✅ LEA instruction optimization for displacement null-elimination
+- ✅ Improved processing of complex Windows shellcode patterns
+- ✅ Better preservation of functional equivalence in complex cases
+- ✅ More comprehensive coverage of shellcode techniques
 
 ### Compatibility:
 - ✅ All existing functionality preserved
-- ✅ Backward compatibility maintained
-- ✅ Same build process and interface
-- ✅ No breaking changes to existing code
+- ✅ No breaking changes to existing APIs
+- ✅ Compatible with ML-powered prioritization
+- ✅ Appropriate priority levels to avoid conflicts
+- ✅ No performance regression in existing capabilities
 
 ## Files Changed
 
 ### New Implementation Files
-- Added `src/call_pop_immediate_strategies.c`
-- Added `src/peb_api_hashing_strategies.c`
-- Added `src/salc_conditional_flag_strategies.c`
-- Added `src/lea_arithmetic_substitution_strategies.c`
-- Added `src/shift_value_construction_strategies.c`
-- Added `src/stack_string_construction_strategies.c`
+- Added `src/peb_api_resolution_strategies.c/h` - Enhanced PEB API resolution
+- Added `src/conditional_jump_displacement_strategies.c/h` - Conditional jump displacement handling
+- Added `src/register_allocation_strategies.c/h` - Register allocation strategies
+- Added `src/lea_displacement_optimization_strategies.c/h` - LEA displacement optimization
 
 ### Updated Implementation Files
-- Updated `src/strategy_registry.c` with new strategy registrations
-- Updated documentation in README.md, USAGE.md, BUILD.md
-
-### Documentation Updates
-- Updated `README.md` with new Windows features
-- Updated `docs/USAGE.md` with strategy details
-- Updated `docs/BUILD.md` with analysis information
+- Updated `src/strategy_registry.c` - New strategy registrations with appropriate priorities
+- Updated documentation in README.md and DNULL_STRATS.md
 
 ## Verification
 
 - ✅ All new strategies compile without warnings
 - ✅ Project builds successfully with new implementations
-- ✅ New strategies integrated into the registry system
-- ✅ Priority-based selection works correctly
+- ✅ Appropriate priority levels assigned (not disrupting critical strategies)
+- ✅ New strategies integrated into registry system properly
 - ✅ No conflicts with existing strategy implementations
-- ✅ Documentation reflects the new capabilities
+- ✅ Documentation updated to reflect new capabilities
 - ✅ Test execution confirms proper functionality
 
 ## Impact
 
-This represents a significant enhancement to BYVALVER's Windows-specific capabilities, providing:
-1. Specialized strategies for Windows shellcode patterns
-2. Better null-byte elimination for Windows-specific code
-3. Enhanced compatibility with Windows API calls
-4. Improved processing of real-world Windows shellcode
-5. More comprehensive coverage of shellcode techniques
-6. Better functional preservation for Windows code
-7. Enhanced strategy selection for Windows targets
+This enhancement significantly improves BYVALVER's capability to handle complex shellcode patterns by:
+1. Addressing 4 critical strategy gaps identified in real shellcode analysis
+2. Providing sophisticated approaches for complex Windows shellcode patterns
+3. Maintaining appropriate priority levels for strategic compatibility
+4. Enhancing null-byte elimination for advanced shellcode techniques
+5. Improving overall shellcode transformation completeness
+6. Better handling of PEB traversal and API resolution patterns
+7. More robust handling of control flow and addressing mode transformations

@@ -326,6 +326,6 @@ If denulling fails on specific shellcode, consider adding targeted strategies to
 
 ## License
 
-byvalver is sicced upon the Earth under the Unlicense.
+byvalver is sicced upon the Earth under the ![UNLICENSE](./UNLICENSE).
 
 </DOCUMENT>

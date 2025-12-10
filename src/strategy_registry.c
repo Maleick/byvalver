@@ -28,6 +28,9 @@
 #include "conditional_jump_displacement_strategies.h"
 #include "register_allocation_strategies.h"
 #include "lea_displacement_optimization_strategies.h"
+#include "advanced_hash_api_resolution.h"
+#include "multi_stage_peb_traversal.h"
+#include "stack_based_structure_construction.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
@@ -92,6 +95,9 @@ void register_bitwise_flag_manipulation_strategies(); // Forward declaration - B
 void register_salc_zero_flag_strategies(); // Forward declaration - SALC zero flag strategy
 void register_xchg_immediate_construction_strategies(); // Forward declaration - XCHG immediate construction strategy
 void register_peb_api_resolution_strategies(); // Forward declaration - Enhanced PEB API resolution strategies (priority 97)
+void register_advanced_hash_api_resolution_strategies(); // Forward declaration - Advanced hash-based API resolution strategies (priority 96)
+void register_multi_stage_peb_traversal_strategies(); // Forward declaration - Multi-stage PEB traversal strategies (priority 97)
+void register_stack_based_structure_construction_strategies(); // Forward declaration - Stack-based structure construction strategies (priority 94)
 void register_conditional_jump_displacement_strategies(); // Forward declaration - Conditional jump displacement strategies (priority 88)
 void register_register_allocation_strategies(); // Forward declaration - Register allocation strategies for null avoidance (priority 78)
 void register_lea_displacement_optimization_strategies(); // Forward declaration - LEA displacement optimization strategies (priority 82)
@@ -280,6 +286,12 @@ void init_strategies(int use_ml) {
     register_shift_strategy();  // Register shift-based strategy
     // DISABLED - NEW in 1d8cff3: register_peb_api_hashing_strategies();  // Register PEB API hashing strategies (priority 95)
     // register_peb_strategies();  // ALSO DISABLE THIS - was causing inappropriate application to non-NOP instructions
+
+    // Register our new advanced strategies
+    register_advanced_hash_api_resolution_strategies(); // Register advanced hash-based API resolution strategies (priority 96)
+    register_multi_stage_peb_traversal_strategies(); // Register multi-stage PEB traversal strategies (priority 97)
+    register_stack_based_structure_construction_strategies(); // Register stack-based structure construction strategies (priority 94)
+
     register_new_strategies(); // Register new strategies for specific null-byte patterns
 
     // Register enhanced strategies for better null-byte elimination

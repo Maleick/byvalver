@@ -65,13 +65,18 @@ While it has demonstrated 100% success on a comprehensive test corpus representi
 120+ strategies covering virtually all common null-byte sources:
 - CALL/POP and stack-based immediate loading
 - PEB traversal with hashed API resolution
+- Advanced hash-based API resolution with complex algorithms
+- Multi-stage PEB traversal for multiple DLL loading
 - SALC, XCHG, and flag-based zeroing
 - LEA for arithmetic substitution
 - Shift and arithmetic value construction
 - Multi-PUSH string building
+- Stack-based structure construction for Windows structures
+- Stack-based string construction with advanced patterns
 - SIB and displacement rewriting
 - Conditional jump displacement handling
 - Register remapping and chaining
+- Enhanced SALC+REP STOSB for buffer initialization
 - Comprehensive support for MOV, ADD/SUB, XOR, LEA, CMP, PUSH, and more
 
 The engine employs multi-pass processing (obfuscation → denulling) with robust fallback mechanisms for edge cases

@@ -330,9 +330,49 @@ Strategies are registered in priority order, with higher priority strategies tak
 - **Transformation:** Alternative syscall number encoding.
 - **Generated code:** Syscall operations without null bytes.
 
-#### 38. Register Remap Nulls Strategy (DISABLED)
+#### 38. Advanced Hash-Based API Resolution Strategy
+- **Name:** `Advanced Hash-Based API Resolution Strategy`
+- **Priority:** 96
+- **Description:** Handles sophisticated hash algorithms used in modern shellcode for API resolution, including complex combinations of ROR/ROL operations with XOR, 16-bit hashes, and multi-stage hash resolution patterns.
+- **Condition:** Applies to instructions that are part of complex hash-based API resolution sequences.
+- **Transformation:** Identifies and preserves complex hashing algorithms while eliminating any null bytes in immediate values or related operations.
+- **Generated code:** Null-free hash algorithm implementations with preserved functionality.
 
-#### 39. Generic Memory Null Displacement Enhanced Strategy
+#### 39. Multi-Stage PEB Traversal Strategy
+- **Name:** `Multi-Stage PEB Traversal Strategy`
+- **Priority:** 97
+- **Description:** Handles complex PEB (Process Environment Block) traversal sequences that load multiple DLLs sequentially (e.g., kernel32, user32, ws2_32) before resolving APIs from different modules in a single shellcode.
+- **Condition:** Applies to PEB traversal sequences that load multiple DLLs or perform multi-stage API resolution.
+- **Transformation:** Maintains the multi-stage loading pattern while eliminating null bytes in addresses, offsets, and intermediate values.
+- **Generated code:** Multi-stage PEB traversal without null bytes.
+
+#### 40. Stack-Based Structure Construction Strategy
+- **Name:** `Stack-Based Structure Construction Strategy`
+- **Priority:** 94
+- **Description:** Constructs complex Windows structures (like STARTUPINFO, PROCESS_INFORMATION, sockaddr_in, etc.) directly on the stack during runtime while eliminating any null bytes.
+- **Condition:** Applies to sequences of instructions that build structures on the stack using multiple PUSH operations, MOV operations to stack addresses, or SUB operations for allocation.
+- **Transformation:** Preserves the structure construction pattern while using null-safe methods to assign field values.
+- **Generated code:** Runtime structure construction on stack without null bytes.
+
+#### 41. Enhanced SALC Strategy
+- **Name:** `Enhanced SALC + Conditional Flag Manipulation + REP STOSB`
+- **Priority:** 93
+- **Description:** Enhanced SALC (Set AL on Carry) strategy to handle more complex SALC+REP STOSB patterns used for efficient null-filled buffer initialization.
+- **Condition:** Applies to SALC operations, MOV ECX/EDI with immediate values containing nulls, and REP STOSB bulk initialization patterns.
+- **Transformation:** Expands the original SALC capabilities to handle more complex buffer initialization sequences.
+- **Generated code:** Enhanced SALC and REP STOSB operations without null bytes.
+
+#### 42. Enhanced Stack String Construction Strategy
+- **Name:** `Advanced Stack-Based String Construction Strategy`
+- **Priority:** 95
+- **Description:** Enhanced stack string construction to handle more complex patterns including MOV operations to stack addresses, SUB operations for stack allocation, and CALL operations that might use constructed strings.
+- **Condition:** Applies to PUSH, MOV, SUB, and CALL patterns in string construction sequences.
+- **Transformation:** Handles multiple instruction types in string construction while maintaining null-byte safety.
+- **Generated code:** Advanced string building on stack without null bytes.
+
+#### 43. Register Remap Nulls Strategy (DISABLED)
+
+#### 44. Generic Memory Null Displacement Enhanced Strategy
 - **Name:** `generic_mem_null_disp_enhanced`
 - **Priority:** 65
 - **Description:** Enhanced strategy for handling generic memory operations with null displacement values, using register-based addressing to avoid null bytes in displacement encoding.

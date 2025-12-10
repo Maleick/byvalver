@@ -188,7 +188,7 @@ void init_strategies(int use_ml) {
     init_advanced_transformations();      // Initialize the can_handle functions
     register_indirect_call_strategies();  // Register indirect CALL/JMP strategies (priority 100)
     register_sldt_replacement_strategy();  // Register SLDT replacement strategy (priority 95)
-    // DISABLED - BROKEN: register_push_immediate_strategies();  // INTRODUCES nulls instead of eliminating them!
+    register_push_immediate_strategies();  // Register PUSH immediate null elimination strategies (priority 75)
     register_lea_displacement_strategies();  // Register LEA displacement null elimination strategies (priority 80)
     register_sequence_preservation_strategies();  // Register sequence preservation strategies
     register_context_preservation_strategies();  // Register context preservation strategies

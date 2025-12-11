@@ -233,33 +233,33 @@ byvalver -r --pattern "*.bin" shellcodes/ output/
 
 byvalver's obfuscation pass (enabled via `--biphasic`) applies anti-analysis techniques:
 
-- `**MOV Register Exchange**`: XCHG/push-pop patterns
-- `**MOV Immediate**`: Arithmetic decomposition
-- `**Arithmetic Substitution**`: Complex equivalents
-- `**Memory Access**`: Indirection and LEA
-- `**Stack Operations**`: Manual ESP handling
-- `**Conditional Jumps**`: SETcc and moves
-- `**Unconditional Jumps**`: Indirect mechanisms
-- `**Calls**`: PUSH + JMP
-- `**Control Flow Flattening**`: Dispatcher states
-- `**Instruction Substitution**`: Equivalent ops
-- `**Dead Code**`: Harmless insertions
-- `**Register Reassignment**`: Data flow hiding
-- `**Multiplication by One**`: IMUL patterns
-- `**NOP Sleds**`: Variable padding
-- `**Jump Decoys**`: Fake targets
-- `**Relative Offsets**`: Calculated jumps
-- `**Switch-Based**`: Computed flow
-- `**Boolean Expressions**`: De Morgan equivalents
-- `**Variable Encoding**`: Reversible transforms
-- `**Timing Variations**`: Delays
-- `**Register State**`: Complex manipulations
-- `**Stack Frames**`: Custom management
-- `**API Resolution**`: Complex hashing
-- `**String Encoding**`: Runtime decoding
-- `**Constants**`: Expression generation
-- `**Debugger Detection**`: Obfuscated checks
-- `**VM Detection**`: Concealed methods
+- **`MOV Register Exchange`**: XCHG/push-pop patterns
+- **`MOV Immediate`**: Arithmetic decomposition
+- **`Arithmetic Substitution`**: Complex equivalents
+- **`Memory Access`**: Indirection and LEA
+- **`Stack Operations`**: Manual ESP handling
+- **`Conditional Jumps`**: SETcc and moves
+- **`Unconditional Jumps`**: Indirect mechanisms
+- **`Calls`**: PUSH + JMP
+- **`Control Flow Flattening`**: Dispatcher states
+- **`Instruction Substitution`**: Equivalent ops
+- **`Dead Code`**: Harmless insertions
+- **`Register Reassignment`**: Data flow hiding
+- **`Multiplication by One`**: IMUL patterns
+- **`NOP Sleds`**: Variable padding
+- **`Jump Decoys`**: Fake targets
+- **`Relative Offsets`**: Calculated jumps
+- **`Switch-Based`**: Computed flow
+- **`Boolean Expressions`**: De Morgan equivalents
+- **`Variable Encoding`**: Reversible transforms
+- **`Timing Variations`**: Delays
+- **`Register State`**: Complex manipulations
+- **`Stack Frames`**: Custom management
+- **`API Resolution`**: Complex hashing
+- **`String Encoding`**: Runtime decoding
+- **`Constants`**: Expression generation
+- **`Debugger Detection`**: Obfuscated checks
+- **`VM Detection`**: Concealed methods
 
 Priorities favor anti-analysis (high) over simple substitutions (low).
 

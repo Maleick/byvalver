@@ -39,8 +39,19 @@ NON_CLI_SRCS = $(filter-out $(CLI_SRCS), $(ALL_SRCS))
 SRCS = $(CLI_SRCS) $(NON_CLI_SRCS)
 
 # Obfuscation modules (Pass 1 of biphasic architecture)
+# NOTE: Using wildcard for automatic inclusion - these are documented for reference
 OBFUSCATION_SRCS = $(SRC_DIR)/obfuscation_strategy_registry.c \
-                   $(SRC_DIR)/obfuscation_strategies.c
+                   $(SRC_DIR)/obfuscation_strategies.c \
+                   $(SRC_DIR)/mutated_junk_insertion_obfuscation.c \
+                   $(SRC_DIR)/semantic_equivalence_substitution.c \
+                   $(SRC_DIR)/fpu_stack_obfuscation.c \
+                   $(SRC_DIR)/register_shuffle_obfuscation.c \
+                   $(SRC_DIR)/syscall_instruction_substitution.c \
+                   $(SRC_DIR)/mixed_arithmetic_base_obfuscation.c \
+                   $(SRC_DIR)/runtime_selfmod_obfuscation.c \
+                   $(SRC_DIR)/incremental_decoder_obfuscation.c \
+                   $(SRC_DIR)/overlapping_instruction_obfuscation.c \
+                   $(SRC_DIR)/control_flow_dispatcher_obfuscation.c
 
 # Final source list - pic_generation.c is already included in ALL_SRCS via wildcard
 SRCS = $(filter-out $(EXCLUDE_FILES), $(ALL_SRCS))

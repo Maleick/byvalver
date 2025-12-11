@@ -282,13 +282,153 @@ The obfuscation strategies are registered in `src/obfuscation_strategy_registry.
 - **Transformation:** Uses obfuscated methods to detect virtualized environments.
 - **Generated code:** VM detection with additional concealment.
 
+## NEW: v3.0 Advanced Obfuscation Strategies
+
+### 29. Mutated Junk Insertion Obfuscation (Priority 93)
+
+- **Name:** `mutated_junk_insertion_obfuscation`
+- **Priority:** 93
+- **Status:** IMPLEMENTED
+- **Description:** Inserts semantically meaningless but syntactically valid instruction sequences using opaque predicates and conditional jumps. Creates complex control flow with dead code paths.
+- **Condition:** Applies to ~15% of non-control-flow instructions
+- **Transformation:**
+  - Pattern 1: XOR reg, reg; JZ +N (always taken)
+  - Pattern 2: TEST EAX, EAX; JNZ +N after XOR (never taken)
+  - Pattern 3: CMP reg, reg; JE +N (always taken)
+- **Generated code:** Opaque predicates followed by junk payloads (INT3, dead operations, garbage bytes)
+- **File:** `src/mutated_junk_insertion_obfuscation.c`
+
+### 30. Semantic Equivalence Substitution (Priority 88-84)
+
+- **Name:** `semantic_equivalence_substitution`
+- **Priority:** 88 (XOR→SUB), 87 (INC→ADD), 86 (DEC→SUB), 85 (MOV 0→XOR), 84 (INC→LEA)
+- **Status:** IMPLEMENTED (5 sub-strategies)
+- **Description:** Replaces common instructions with functionally equivalent but less common sequences for signature breaking.
+- **Condition:** Applies to XOR reg,reg / INC / DEC / MOV reg,0 / INC (32-bit)
+- **Transformation:**
+  - `XOR EAX, EAX` → `SUB EAX, EAX`
+  - `INC EAX` → `ADD EAX, 1`
+  - `DEC EAX` → `SUB EAX, 1`
+  - `MOV EAX, 0` → `XOR EAX, EAX`
+  - `INC EAX` → `LEA EAX, [EAX+1]`
+- **Generated code:** Semantically equivalent instructions with different bytecode
+- **File:** `src/semantic_equivalence_substitution.c`
+
+### 31. FPU Stack Obfuscation (Priority 86)
+
+- **Name:** `fpu_stack_obfuscation`
+- **Priority:** 86
+- **Status:** IMPLEMENTED
+- **Description:** Leverages FPU (x87) instructions for obfuscation. Inserts dead FPU operations that analyzers often ignore.
+- **Condition:** Applies to ~10% of non-control-flow, non-FPU instructions
+- **Transformation:**
+  - Pattern 1: FNOP (FPU NOP)
+  - Pattern 2: FLD1; FSTP ST(0) (push/pop 1.0)
+  - Pattern 3: FLDZ; FSTP ST(0) (push/pop 0.0)
+  - Pattern 4: FLDPI; FSTP ST(0) (push/pop PI)
+- **Generated code:** 6 bytes of FPU junk before original instruction
+- **File:** `src/fpu_stack_obfuscation.c`
+
+### 32. Register Shuffle Obfuscation (Priority 82)
+
+- **Name:** `register_shuffle_obfuscation`
+- **Priority:** 82
+- **Status:** IMPLEMENTED
+- **Description:** Inserts self-canceling XCHG operations to confuse data flow analysis without changing program state.
+- **Condition:** Applies to ~12% of non-control-flow, non-stack instructions
+- **Transformation:**
+  - `XCHG reg1, reg2; XCHG reg1, reg2` (double XCHG = NOP)
+  - Register pairs: ECX/EDX, EBX/ESI, ESI/EDI
+- **Generated code:** 2-4 bytes of self-canceling register exchanges
+- **File:** `src/register_shuffle_obfuscation.c`
+
+### 33. Syscall Instruction Substitution (Priority 79-78)
+
+- **Name:** `syscall_instruction_substitution`
+- **Priority:** 79 (INT 0x80), 78 (SYSCALL)
+- **Status:** IMPLEMENTED (2 sub-strategies)
+- **Description:** Replaces standard syscall mechanisms with alternative invocation methods for IDS/hook evasion.
+- **Condition:** Applies to INT 0x80 and SYSCALL instructions
+- **Transformation:**
+  - `INT 0x80` → `CALL +2; INT 0x80; RET` (8 bytes)
+  - `SYSCALL` → `CALL +1; SYSCALL; RET` (8 bytes)
+- **Generated code:** Syscalls wrapped in CALL/RET trampolines
+- **File:** `src/syscall_instruction_substitution.c`
+
+### 34. Mixed Arithmetic Base Obfuscation (Priority 73)
+
+- **Name:** `mixed_arithmetic_base_obfuscation`
+- **Priority:** 73
+- **Status:** IMPLEMENTED
+- **Description:** Expresses immediate values using complex arithmetic expressions for constant hiding.
+- **Condition:** Applies to MOV reg, imm (32-bit regs, imm ≤ 0xFFFF)
+- **Transformation:**
+  - `MOV EAX, 0` → `XOR EAX, EAX`
+  - `MOV EAX, 11` → `XOR EAX, EAX; MOV AL, 8; ADD AL, 3`
+  - Power of 2: `MOV EAX, 16` → `MOV EAX, 1; SHL EAX, 4`
+  - Others: Decompose using shifts, additions
+- **Generated code:** Multi-step arithmetic sequences producing the same value
+- **File:** `src/mixed_arithmetic_base_obfuscation.c`
+
+### 35. Runtime Self-Modification Obfuscation (Priority 99) - STUB
+
+- **Name:** `runtime_selfmod_obfuscation`
+- **Priority:** 99
+- **Status:** STUBBED (future implementation)
+- **Description:** Implements runtime self-modifying code where instructions are encoded with marker bytes and decoded at runtime.
+- **Future Implementation:**
+  - Marker byte selection and encoding scheme
+  - Runtime decoder loop generation
+  - Self-modifying code support
+  - End marker detection
+- **File:** `src/runtime_selfmod_obfuscation.c` (stub)
+
+### 36. Incremental Decoder Obfuscation (Priority 97) - STUB
+
+- **Name:** `incremental_decoder_obfuscation`
+- **Priority:** 97
+- **Status:** STUBBED (future implementation)
+- **Description:** Transforms instructions using incremental arithmetic decoding (XOR/ROT13/SUB chains).
+- **Future Implementation:**
+  - Full shellcode block encoding
+  - Decoder stub with loop and counter
+  - Multiple encoding key support
+  - Integration with offset calculation
+- **File:** `src/incremental_decoder_obfuscation.c` (stub)
+
+### 37. Overlapping Instruction Obfuscation (Priority 84) - STUB
+
+- **Name:** `overlapping_instruction_obfuscation`
+- **Priority:** 84
+- **Status:** STUBBED (future implementation)
+- **Description:** Creates instruction sequences where bytes decode differently based on entry point.
+- **Future Implementation:**
+  - Multi-interpretation byte sequence construction
+  - Careful offset management for jump targets
+  - Disassembler confusion analysis
+- **File:** `src/overlapping_instruction_obfuscation.c` (stub)
+
+### 38. Control Flow Dispatcher Obfuscation (Priority 77) - STUB
+
+- **Name:** `control_flow_dispatcher_obfuscation`
+- **Priority:** 77
+- **Status:** STUBBED (future implementation)
+- **Description:** Implements state-machine dispatcher for CFG flattening.
+- **Future Implementation:**
+  - Basic block identification and extraction
+  - CFG construction
+  - Dispatcher loop generation
+  - State variable management
+  - Block reordering
+- **File:** `src/control_flow_dispatcher_obfuscation.c` (stub)
+
 ### Obfuscation Strategy Priority System
 
 The obfuscation strategy selection system uses a priority-based approach:
-- **Highest Priority (85-85):** Anti-analysis techniques like debugger detection obfuscation
-- **High Priority (75-84):** Control flow obfuscation and register reassignment
-- **Medium Priority (65-74):** Arithmetic and memory operation obfuscation
-- **Low Priority (55-64):** Padding and simple substitution techniques
+- **Highest Priority (99-90):** Runtime encoding/decoding and advanced anti-analysis
+- **High Priority (88-80):** Instruction transformation and equivalence substitution
+- **Medium Priority (79-70):** Syscall substitution, control flow, register manipulation
+- **Low Priority (73-55):** Constant hiding, padding, simple substitutions
 
 ### Implementation Notes
 

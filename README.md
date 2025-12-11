@@ -1,11 +1,11 @@
 <DOCUMENT filename="README.md">
   
-# byvalver
+# byvalver (·𐑚𐑲𐑝𐑨𐑤𐑝𐑼)
 
-## NULL-BYTE ELIMINATION FRAMEWORK
+## THE SHELLCODE NULL-BYTE ELIMINATOR / 𐑞 𐑖𐑧𐑤𐑒𐑴𐑛 𐑯𐑫𐑤–𐑚𐑲𐑑 𐑧𐑤𐑦𐑥𐑦𐑯𐑱𐑑𐑼
 
 <div align="center">
-  <img src="./images/byvalver_logo.png" alt="byvalver logo" width="550">
+  <img src="./images/byvalver_logo.png" alt="byvalver logo" width="750">
 </div>
 
 <div align="center">
@@ -234,6 +234,8 @@ byvalver -r --pattern "*.bin" shellcodes/ output/
 
 byvalver's obfuscation pass (enabled via `--biphasic`) applies anti-analysis techniques:
 
+### Core Obfuscation Techniques
+
 - **`MOV Register Exchange`**: `XCHG`/push-pop patterns
 - **`MOV Immediate`**: Arithmetic decomposition
 - **`Arithmetic Substitution`**: Complex equivalents
@@ -263,6 +265,8 @@ byvalver's obfuscation pass (enabled via `--biphasic`) applies anti-analysis tec
 - **`VM Detection`**: Concealed methods
 
 Priorities favor anti-analysis (high) over simple substitutions (low).
+
+See ![OBFUSCATION_STRATS](docs/OBFUSCATION_STRATS.md) for detailed strategy documentation.
 
 ## Denullification Strategies
 
@@ -295,6 +299,8 @@ Strategies are prioritized and selected via ML or deterministic order
 
 The modular registry allows easy addition of new strategies to handle emerging shellcode patterns.
 
+See ![DENULL_STRATS](docs/DENULL_STRATS.md) for detailed strategy documentation.
+
 ## ML Training
 
 Build trainer: `make train`
@@ -313,35 +319,6 @@ Model auto-loaded at runtime with path resolution.
 - Test suite: `python3 test_all_bins.py`
 - Code style: Clang-Format
 - Analysis: Cppcheck, Valgrind
-
-## Recent Improvements (v2.9)
-
-### Critical Bug Fixes & Performance Enhancements
-
-**Phase 1: Critical Infrastructure Fixes**
-- **Null-Byte Rollback Validation**: Added critical buffer rollback mechanism that prevents strategies from introducing null bytes. When a strategy generates code containing nulls, the output is automatically rolled back and a fallback strategy is used instead.
-- **Conditional Jump Fix**: Fixed `conditional_jump_displacement` strategy that was introducing null bytes via `CMP ECX, 0` (encodes as `83 F9 00`). Now uses null-free `TEST ECX, ECX` (encodes as `85 C9`).
-- **Disabled Broken Strategies**: Identified and disabled 4 strategies with 0% success rates that were wasting ~17,000 strategy attempts:
-  - `string_instruction_null_construct` (6,822 failed attempts)
-  - `byte_by_byte_construction` (6,822 failed attempts)
-  - `mov_mem_imm_enhanced` (3,286 failed attempts)
-  - `salc_rep_stosb_null_fill` (105 failed attempts)
-- **ML Mode Warning**: Added experimental warnings for ML mode, which is now clearly documented as potentially reducing success rate by ~35%. Disabled by default.
-
-**Phase 2: High-Impact Strategy Improvements**
-- **LEA Displacement Enhancement**: Improved `lea_disp_null` strategy from 47.80% to estimated >85% success rate by adding:
-  - Edge case handling for `LEA reg, [disp32]` (no base register)
-  - EBP/R13 special case handling (requires displacement in encoding)
-  - Comprehensive ModR/M byte null validation on 6+ instruction types
-  - SIB addressing with missing base register support
-- **Strategy Validation**: Verified 6 previously disabled high-priority strategies (70-89) remain properly disabled until fixes can be implemented.
-
-**Expected Impact**:
-- Success rate improved from 91.3% (116/127) to estimated **96-99%** (122-126/127)
-- Eliminated 17,135+ wasted strategy attempts per batch run
-- Null-byte escapes now impossible due to rollback validation
-
-**Testing Recommendation**: Run on complex shellcode samples with `--verbose` to see the new rollback validation in action.
 
 ## Troubleshooting
 

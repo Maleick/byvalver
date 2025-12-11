@@ -17,4 +17,16 @@ void register_constant_unfolding();
 void register_nop_insertion();
 void register_stack_spill_obfuscation();
 
+// NEW: 10 Additional Obfuscation Strategies
+void register_runtime_selfmod_obfuscation();
+void register_incremental_decoder_obfuscation();
+void register_mutated_junk_insertion_obfuscation();
+void register_semantic_equivalence_substitution();
+void register_fpu_stack_obfuscation();
+void register_overlapping_instruction_obfuscation();
+void register_register_shuffle_obfuscation();
+void register_syscall_instruction_substitution();
+void register_control_flow_dispatcher_obfuscation();
+void register_mixed_arithmetic_base_obfuscation();
+
 #endif // OBFUSCATION_STRATEGIES_H

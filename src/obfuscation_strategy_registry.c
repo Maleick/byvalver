@@ -45,21 +45,51 @@ void register_constant_unfolding();                // Immediate value obfuscatio
 void register_nop_insertion();                     // NOP padding/polymorphism
 void register_stack_spill_obfuscation();           // Stack-based register hiding
 
+// NEW: 10 Additional Obfuscation Strategies
+void register_runtime_selfmod_obfuscation();                // Priority 99 - Runtime self-modifying code
+void register_incremental_decoder_obfuscation();            // Priority 97 - Incremental decoding
+void register_mutated_junk_insertion_obfuscation();         // Priority 93 - Mutated junk with opaque predicates
+void register_semantic_equivalence_substitution();          // Priority 88 - Instruction equivalence
+void register_fpu_stack_obfuscation();                      // Priority 86 - FPU instruction obfuscation
+void register_overlapping_instruction_obfuscation();        // Priority 84 - Overlapping instructions
+void register_register_shuffle_obfuscation();               // Priority 82 - Register shuffling
+void register_syscall_instruction_substitution();           // Priority 79 - Syscall method substitution
+void register_control_flow_dispatcher_obfuscation();        // Priority 77 - CFG flattening
+void register_mixed_arithmetic_base_obfuscation();          // Priority 73 - Arithmetic constant hiding
+
 // Initialize all obfuscation strategies
 void init_obfuscation_strategies() {
     DEBUG_LOG("Initializing Pass 1 (Obfuscation) strategy registry...");
 
     // Register obfuscation transformations (order matters - higher priority first)
-    register_opaque_predicate_obfuscation();      // Priority 95 - Complex control flow
-    register_junk_code_insertion();               // Priority 90 - Dead code
-    register_arithmetic_negation_obfuscation();   // Priority 85 - Arithmetic identities
-    register_test_to_and_obfuscation();           // Priority 80 - TEST → AND
-    register_mov_push_pop_obfuscation();          // Priority 75 - MOV → PUSH/POP
-    register_register_renaming_obfuscation();     // Priority 70 - Register substitution
-    register_constant_unfolding();                // Priority 65 - Immediate obfuscation
-    register_instruction_reordering();            // Priority 60 - Instruction shuffle
-    register_stack_spill_obfuscation();           // Priority 55 - Stack hiding
-    register_nop_insertion();                     // Priority 50 - Polymorphic padding
+
+    // HIGH PRIORITY: Advanced obfuscation (99-90)
+    register_runtime_selfmod_obfuscation();           // Priority 99 - Runtime self-modification (STUB)
+    register_incremental_decoder_obfuscation();       // Priority 97 - Incremental decoding (STUB)
+    register_opaque_predicate_obfuscation();          // Priority 95 - Complex control flow (DISABLED)
+    register_mutated_junk_insertion_obfuscation();    // Priority 93 - Mutated junk with predicates
+    register_junk_code_insertion();                   // Priority 90 - Dead code (DISABLED)
+
+    // MEDIUM-HIGH PRIORITY: Instruction transformation (88-80)
+    register_semantic_equivalence_substitution();     // Priority 88-84 - Multiple equivalences
+    register_fpu_stack_obfuscation();                 // Priority 86 - FPU obfuscation
+    register_arithmetic_negation_obfuscation();       // Priority 85 - Arithmetic identities
+    register_overlapping_instruction_obfuscation();   // Priority 84 - Overlapping instructions (STUB)
+    register_register_shuffle_obfuscation();          // Priority 82 - Register shuffling
+    register_test_to_and_obfuscation();               // Priority 80 - TEST → AND
+
+    // MEDIUM PRIORITY: Syscall & control flow (79-70)
+    register_syscall_instruction_substitution();      // Priority 79-78 - Syscall substitution
+    register_control_flow_dispatcher_obfuscation();   // Priority 77 - CFG flattening (STUB)
+    register_mov_push_pop_obfuscation();              // Priority 75 - MOV → PUSH/POP
+    register_mixed_arithmetic_base_obfuscation();     // Priority 73 - Constant hiding
+    register_register_renaming_obfuscation();         // Priority 70 - Register substitution (STUB)
+
+    // LOW PRIORITY: Remaining strategies (65-50)
+    register_constant_unfolding();                    // Priority 65 - Immediate obfuscation (STUB)
+    register_instruction_reordering();                // Priority 60 - Instruction shuffle (STUB)
+    register_stack_spill_obfuscation();               // Priority 55 - Stack hiding (STUB)
+    register_nop_insertion();                         // Priority 50 - Polymorphic padding (STUB)
 
     DEBUG_LOG("Pass 1 initialized with %d obfuscation strategies", obfuscation_strategy_count);
 }

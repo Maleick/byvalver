@@ -92,7 +92,7 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "    Processing Options:\n");
     fprintf(stream, "      --biphasic                    Enable biphasic processing (obfuscation + null-elimination)\n");
     fprintf(stream, "      --pic                         Generate position-independent code\n");
-    fprintf(stream, "      --ml                          Use ML-enhanced strategy selection (optional)\n");
+    fprintf(stream, "      --ml                          [EXPERIMENTAL] Use ML strategy selection (may degrade performance)\n");
     fprintf(stream, "      --xor-encode KEY              XOR encode output with 4-byte key (hex)\n");
     fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n\n");
 
@@ -188,7 +188,7 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"xor-encode", required_argument, 0, 0},
         {"format", required_argument, 0, 0},
         {"arch", required_argument, 0, 0},
-        {"ml", no_argument, 0, 0},
+        {"ml", no_argument, 0, 0},  // EXPERIMENTAL: Known to degrade performance
 
         // ML Metrics options
         {"metrics", no_argument, 0, 0},

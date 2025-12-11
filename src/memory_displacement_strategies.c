@@ -186,9 +186,51 @@ static void generate_lea_disp_null(struct buffer *b, cs_insn *insn) {
 
     // Handle simple case: LEA reg, [base + disp]
     if (src_op->mem.index == X86_REG_INVALID) {
-        // MOV dst, base
+        // EDGE CASE 1: No base register - LEA reg, [disp32]
+        if (base_reg == X86_REG_INVALID) {
+            // Just load the displacement value directly
+            // LEA EAX, [0x12345678] -> MOV EAX, 0x12345678
+            if (dst_reg == X86_REG_EAX) {
+                generate_mov_eax_imm(b, (uint32_t)disp);
+            } else {
+                // Use EAX as temp
+                buffer_write_byte(b, 0x50);  // PUSH EAX
+                generate_mov_eax_imm(b, (uint32_t)disp);
+                // MOV dst, EAX
+                uint8_t mov_dst_eax[] = {0x89, 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(dst_reg)};
+                buffer_append(b, mov_dst_eax, 2);
+                buffer_write_byte(b, 0x58);  // POP EAX
+            }
+            return;
+        }
+
+        // EDGE CASE 2: Base is EBP and disp is 0
+        // EBP cannot be encoded without displacement, so LEA reg, [EBP] requires special handling
+        if ((base_reg == X86_REG_EBP || base_reg == X86_REG_RBP || base_reg == X86_REG_R13) && disp == 0) {
+            // Just copy the base register - no arithmetic needed
+            if (dst_reg != base_reg) {
+                uint8_t mov_code[] = {0x89, 0xC0 | (get_reg_index(base_reg) << 3) | get_reg_index(dst_reg)};
+                // Validate ModR/M byte is not null
+                if (mov_code[1] == 0x00) {
+                    // This should never happen with valid registers, but fail safely
+                    buffer_append(b, insn->bytes, insn->size);
+                    return;
+                }
+                buffer_append(b, mov_code, 2);
+            }
+            // else: LEA EBP, [EBP] is a NOP, skip it
+            return;
+        }
+
+        // Normal case: MOV dst, base
         uint8_t mov_code[] = {0x89, 0xC0};  // MOV r32, r32 template
         mov_code[1] = 0xC0 | (get_reg_index(base_reg) << 3) | get_reg_index(dst_reg);
+
+        // Validate ModR/M byte is not null
+        if (mov_code[1] == 0x00) {
+            buffer_append(b, insn->bytes, insn->size);
+            return;
+        }
         buffer_append(b, mov_code, 2);
 
         // ADD dst, disp (using null-free construction)
@@ -230,6 +272,14 @@ static void generate_lea_disp_null(struct buffer *b, cs_insn *insn) {
                 // ADD dst, EAX
                 uint8_t add_code[] = {0x01, 0xC0};  // ADD r32, r32 template
                 add_code[1] = 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(dst_reg);
+
+                // Validate ModR/M byte is not null
+                if (add_code[1] == 0x00) {
+                    // Fallback - restore EAX and use original
+                    buffer_write_byte(b, 0x58);  // POP EAX
+                    buffer_append(b, insn->bytes, insn->size);
+                    return;
+                }
                 buffer_append(b, add_code, 2);
 
                 // Restore EAX
@@ -252,6 +302,12 @@ static void generate_lea_disp_null(struct buffer *b, cs_insn *insn) {
 
         // MOV temp, index
         uint8_t mov1[] = {0x89, 0xC0 | (get_reg_index(index_reg) << 3) | get_reg_index(temp)};
+        // Validate ModR/M is not null
+        if (mov1[1] == 0x00) {
+            buffer_write_byte(b, 0x58 + get_reg_index(temp));  // POP temp
+            buffer_append(b, insn->bytes, insn->size);
+            return;
+        }
         buffer_append(b, mov1, 2);
 
         // Scale: SHL temp, log2(scale)
@@ -265,9 +321,17 @@ static void generate_lea_disp_null(struct buffer *b, cs_insn *insn) {
             buffer_append(b, shl, 3);
         }
 
-        // ADD temp, base
-        uint8_t add1[] = {0x01, 0xC0 | (get_reg_index(base_reg) << 3) | get_reg_index(temp)};
-        buffer_append(b, add1, 2);
+        // ADD temp, base (only if base exists)
+        if (base_reg != X86_REG_INVALID) {
+            uint8_t add1[] = {0x01, 0xC0 | (get_reg_index(base_reg) << 3) | get_reg_index(temp)};
+            // Validate ModR/M is not null
+            if (add1[1] == 0x00) {
+                buffer_write_byte(b, 0x58 + get_reg_index(temp));  // POP temp
+                buffer_append(b, insn->bytes, insn->size);
+                return;
+            }
+            buffer_append(b, add1, 2);
+        }
 
         // ADD temp, disp (null-free)
         if (disp != 0) {
@@ -279,6 +343,15 @@ static void generate_lea_disp_null(struct buffer *b, cs_insn *insn) {
             generate_mov_eax_imm(b, (uint32_t)disp);
 
             uint8_t add2[] = {0x01, 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(temp)};
+            // Validate ModR/M is not null
+            if (add2[1] == 0x00) {
+                if (temp != X86_REG_EAX && dst_reg != X86_REG_EAX) {
+                    buffer_write_byte(b, 0x58);  // POP EAX
+                }
+                buffer_write_byte(b, 0x58 + get_reg_index(temp));  // POP temp
+                buffer_append(b, insn->bytes, insn->size);
+                return;
+            }
             buffer_append(b, add2, 2);
 
             if (temp != X86_REG_EAX && dst_reg != X86_REG_EAX) {
@@ -288,6 +361,12 @@ static void generate_lea_disp_null(struct buffer *b, cs_insn *insn) {
 
         // MOV dst, temp
         uint8_t mov2[] = {0x89, 0xC0 | (get_reg_index(temp) << 3) | get_reg_index(dst_reg)};
+        // Validate ModR/M is not null
+        if (mov2[1] == 0x00) {
+            buffer_write_byte(b, 0x58 + get_reg_index(temp));  // POP temp
+            buffer_append(b, insn->bytes, insn->size);
+            return;
+        }
         buffer_append(b, mov2, 2);
 
         // POP temp

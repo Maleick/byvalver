@@ -576,6 +576,25 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                         fprintf(stderr, "ERROR: Strategy '%s' introduced null at offset %zu\n",
                                strategies[0]->name, i - before_gen);
                         strategy_success = 0; // Mark as failed if it introduced nulls
+                        break;  // Stop checking once we find a null
+                    }
+                }
+
+                // CRITICAL FIX: Rollback buffer if strategy introduced nulls
+                if (!strategy_success) {
+                    fprintf(stderr, "ROLLBACK: Reverting strategy '%s' output, using fallback\n",
+                           strategies[0]->name);
+                    new_shellcode.size = before_gen;  // Rollback to state before strategy
+
+                    // Use fallback instead
+                    fallback_general_instruction(&new_shellcode, current->insn);
+
+                    // Verify fallback didn't introduce nulls either
+                    for (size_t i = before_gen; i < new_shellcode.size; i++) {
+                        if (new_shellcode.data[i] == 0x00) {
+                            fprintf(stderr, "CRITICAL: Fallback also introduced null bytes!\n");
+                            break;
+                        }
                     }
                 }
 
@@ -1219,9 +1238,29 @@ struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size) {
 
         if (strategy != NULL) {
             // Apply obfuscation
-            fprintf(stderr, "[OBFUSC] %s %s → %s\n", 
+            fprintf(stderr, "[OBFUSC] %s %s → %s\n",
                     insn->mnemonic, insn->op_str, strategy->name);
+
+            size_t before_obfusc = obfuscated.size;
             strategy->generate(&obfuscated, insn);
+
+            // Validate obfuscation didn't introduce null bytes
+            int obfusc_success = 1;
+            for (size_t j = before_obfusc; j < obfuscated.size; j++) {
+                if (obfuscated.data[j] == 0x00) {
+                    fprintf(stderr, "ERROR: Obfuscation strategy '%s' introduced null at offset %zu\n",
+                           strategy->name, j - before_obfusc);
+                    obfusc_success = 0;
+                    break;
+                }
+            }
+
+            // Rollback if obfuscation introduced nulls
+            if (!obfusc_success) {
+                fprintf(stderr, "ROLLBACK: Reverting obfuscation, using original instruction\n");
+                obfuscated.size = before_obfusc;
+                buffer_append(&obfuscated, insn->bytes, insn->size);
+            }
         } else {
             // No obfuscation - copy original
             buffer_append(&obfuscated, insn->bytes, insn->size);

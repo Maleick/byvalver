@@ -8,30 +8,12 @@
 // memory regions with null bytes without embedding them in instructions,
 // useful for initializing structures or buffers.
 
-int can_handle_salc_rep_stosb_null_fill(cs_insn *insn) {
-    // Look for patterns where memory is being initialized or filled with zeros
-    // This might include multiple MOV operations to sequential memory locations
-    // or operations that suggest buffer initialization
-    
-    // For now, we'll look for MOV operations to memory that might benefit from 
-    // bulk initialization, particularly when multiple sequential memory writes
-    // are happening (though we can only analyze single instructions here)
-    
-    if (insn->id == X86_INS_MOV) {
-        // Check if we're moving zero to memory (MOV [mem], 0)
-        if (insn->detail->x86.op_count == 2) {
-            cs_x86_op *dst_op = &insn->detail->x86.operands[0];
-            cs_x86_op *src_op = &insn->detail->x86.operands[1];
-            
-            if (dst_op->type == X86_OP_MEM && src_op->type == X86_OP_IMM) {
-                if (src_op->imm == 0) {
-                    // This is a zero-to-memory operation, which could benefit from REP STOSB
-                    return 1;
-                }
-            }
-        }
-    }
-    
+int can_handle_salc_rep_stosb_null_fill(__attribute__((unused)) cs_insn *insn) {
+    // DISABLED: Strategy accepts single MOV instructions but cannot transform them
+    // Falls back to original instruction WITH null bytes (line 60)
+    // Designed for multi-instruction patterns but applied to single instructions
+    // See analysis report: 105 failures, 0% success rate
+    // Issue: https://github.com/mrnob0dy666/byvalver/issues/XXX
     return 0;
 }
 

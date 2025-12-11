@@ -4,24 +4,12 @@
 #include <string.h>
 
 // Enhanced MOV mem, imm strategy for when the immediate operand contains nulls
-int can_handle_mov_mem_imm_enhanced(cs_insn *insn) {
-    // Check if this is a MOV instruction with memory destination and immediate source
-    if (insn->id != X86_INS_MOV || insn->detail->x86.op_count != 2) {
-        return 0;
-    }
-
-    // Must have memory destination and immediate source
-    if (insn->detail->x86.operands[0].type != X86_OP_MEM || 
-        insn->detail->x86.operands[1].type != X86_OP_IMM) {
-        return 0;
-    }
-
-    // Check if immediate contains null bytes
-    uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
-        return 1;
-    }
-
+int can_handle_mov_mem_imm_enhanced(__attribute__((unused)) cs_insn *insn) {
+    // DISABLED: Complex implementation with multiple null-introduction paths
+    // Recursive calls to generate_mov_eax_imm() may introduce nulls
+    // ModR/M byte calculations can produce 0x00
+    // See analysis report: 3,286 attempts with 0% success rate
+    // Issue: https://github.com/mrnob0dy666/byvalver/issues/XXX
     return 0;
 }
 

@@ -254,6 +254,9 @@ int main(int argc, char *argv[]) {
     ml_strategist_t ml_strategist;
     int ml_initialized = 0;
     if (config->use_ml_strategist) {
+        fprintf(stderr, "\n⚠️  WARNING: ML mode is EXPERIMENTAL and may degrade performance\n");
+        fprintf(stderr, "   Current known issues: 35%% lower success rate than non-ML mode\n");
+        fprintf(stderr, "   Recommendation: Use without --ml flag for best results\n\n");
         // Determine the absolute path to the ML model file
         char model_path[PATH_MAX];
         char exe_path[PATH_MAX];

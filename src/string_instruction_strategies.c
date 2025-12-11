@@ -7,29 +7,11 @@
 // Use STOSB, STOSD, or similar string instructions with loops to construct 
 // immediate values containing nulls in memory rather than through direct immediate encoding.
 
-int can_handle_string_instruction_null_construct(cs_insn *insn) {
-    // Look for MOV instructions with immediate values containing nulls
-    if (insn->id != X86_INS_MOV) {
-        return 0;
-    }
-
-    if (insn->detail->x86.op_count != 2) {
-        return 0;
-    }
-
-    cs_x86_op *src_op = &insn->detail->x86.operands[1];
-    if (src_op->type != X86_OP_IMM) {
-        return 0;
-    }
-
-    // Check if the immediate contains null bytes
-    uint32_t imm = (uint32_t)src_op->imm;
-    for (int i = 0; i < 4; i++) {
-        if (((imm >> (i * 8)) & 0xFF) == 0) {
-            return 1; // Has null bytes in immediate
-        }
-    }
-
+int can_handle_string_instruction_null_construct(__attribute__((unused)) cs_insn *insn) {
+    // DISABLED: Implementation calls generate_mov_eax_imm() which may introduce nulls
+    // Strategy claims to use STOSB byte-by-byte construction but doesn't implement it
+    // See analysis report: 6,822 attempts with 0% success rate
+    // Issue: https://github.com/mrnob0dy666/byvalver/issues/XXX
     return 0;
 }
 
@@ -83,28 +65,11 @@ void generate_string_instruction_null_construct(struct buffer *b, cs_insn *insn)
 }
 
 // Alternative approach: Use STOSB to build value byte by byte
-int can_handle_byte_by_byte_construction(cs_insn *insn) {
-    // Same check as above
-    if (insn->id != X86_INS_MOV) {
-        return 0;
-    }
-
-    if (insn->detail->x86.op_count != 2) {
-        return 0;
-    }
-
-    cs_x86_op *src_op = &insn->detail->x86.operands[1];
-    if (src_op->type != X86_OP_IMM) {
-        return 0;
-    }
-
-    uint32_t imm = (uint32_t)src_op->imm;
-    for (int i = 0; i < 4; i++) {
-        if (((imm >> (i * 8)) & 0xFF) == 0) {
-            return 1; // Has null bytes in immediate
-        }
-    }
-
+int can_handle_byte_by_byte_construction(__attribute__((unused)) cs_insn *insn) {
+    // DISABLED: Implementation calls generate_mov_eax_imm() which may introduce nulls
+    // Strategy doesn't implement actual byte-by-byte construction as advertised
+    // See analysis report: 6,822 attempts with 0% success rate
+    // Issue: https://github.com/mrnob0dy666/byvalver/issues/XXX
     return 0;
 }
 

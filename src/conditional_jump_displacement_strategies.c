@@ -189,9 +189,10 @@ void generate_conditional_jump_displacement(struct buffer *b, cs_insn *insn) {
     // If ECX is 0 (condition not met) skip the RET
     // If ECX is 1 (condition met) execute the RET
 
-    // Compare ECX with 0
-    uint8_t cmp_ecx_0[] = {0x83, 0xF9, 0x00}; // CMP ECX, 0
-    buffer_append(b, cmp_ecx_0, 3);
+    // Test if ECX is 0 (null-free comparison)
+    // TEST ECX, ECX sets ZF if ECX is zero - no null bytes!
+    uint8_t test_ecx[] = {0x85, 0xC9}; // TEST ECX, ECX
+    buffer_append(b, test_ecx, 2);
 
     // Conditional jump to skip the RET if ECX is 0 (condition not met)
     uint8_t jz_skip_ret[] = {0x74, 0x02}; // JZ skip_next_instr (skip the RET)

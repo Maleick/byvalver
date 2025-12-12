@@ -57,6 +57,13 @@ void register_syscall_instruction_substitution();           // Priority 79 - Sys
 void register_control_flow_dispatcher_obfuscation();        // Priority 77 - CFG flattening
 void register_mixed_arithmetic_base_obfuscation();          // Priority 73 - Arithmetic constant hiding
 
+// NEW: 5 Additional Obfuscation Strategies (v3.0)
+void register_call_pop_pic_delta_obfuscation();             // Priority 95 - CALL/POP PIC delta retrieval
+void register_peb_namelength_fingerprint_obfuscation();     // Priority 84 - PEB module name length fingerprinting
+void register_partial_16bit_hash_obfuscation();             // Priority 83 - 16-bit partial hash comparison
+void register_unicode_negation_encoding_obfuscation();      // Priority 81 - Unicode negation encoding
+void register_loopnz_compact_search_obfuscation();          // Priority 76 - LOOPNZ compact search patterns
+
 // Initialize all obfuscation strategies
 void init_obfuscation_strategies() {
     DEBUG_LOG("Initializing Pass 1 (Obfuscation) strategy registry...");
@@ -66,6 +73,7 @@ void init_obfuscation_strategies() {
     // HIGH PRIORITY: Advanced obfuscation (99-90)
     register_runtime_selfmod_obfuscation();           // Priority 99 - Runtime self-modification (STUB)
     register_incremental_decoder_obfuscation();       // Priority 97 - Incremental decoding (STUB)
+    register_call_pop_pic_delta_obfuscation();        // Priority 95 - CALL/POP PIC delta retrieval
     register_opaque_predicate_obfuscation();          // Priority 95 - Complex control flow (DISABLED)
     register_mutated_junk_insertion_obfuscation();    // Priority 93 - Mutated junk with predicates
     register_junk_code_insertion();                   // Priority 90 - Dead code (DISABLED)
@@ -74,13 +82,17 @@ void init_obfuscation_strategies() {
     register_semantic_equivalence_substitution();     // Priority 88-84 - Multiple equivalences
     register_fpu_stack_obfuscation();                 // Priority 86 - FPU obfuscation
     register_arithmetic_negation_obfuscation();       // Priority 85 - Arithmetic identities
+    register_peb_namelength_fingerprint_obfuscation(); // Priority 84 - PEB module name length fingerprinting
     register_overlapping_instruction_obfuscation();   // Priority 84 - Overlapping instructions (STUB)
+    register_partial_16bit_hash_obfuscation();        // Priority 83 - 16-bit partial hash comparison
     register_register_shuffle_obfuscation();          // Priority 82 - Register shuffling
+    register_unicode_negation_encoding_obfuscation(); // Priority 81 - Unicode negation encoding
     register_test_to_and_obfuscation();               // Priority 80 - TEST → AND
 
     // MEDIUM PRIORITY: Syscall & control flow (79-70)
     register_syscall_instruction_substitution();      // Priority 79-78 - Syscall substitution
     register_control_flow_dispatcher_obfuscation();   // Priority 77 - CFG flattening (STUB)
+    register_loopnz_compact_search_obfuscation();     // Priority 76 - LOOPNZ compact search patterns
     register_mov_push_pop_obfuscation();              // Priority 75 - MOV → PUSH/POP
     register_mixed_arithmetic_base_obfuscation();     // Priority 73 - Constant hiding
     register_register_renaming_obfuscation();         // Priority 70 - Register substitution (STUB)

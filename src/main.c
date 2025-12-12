@@ -19,6 +19,82 @@
 
 size_t find_entry_point(const uint8_t *shellcode, size_t size);
 
+// Helper function to format shellcode based on output format
+static char* format_shellcode(const uint8_t *data, size_t size, const char *format) {
+    if (strcmp(format, "raw") == 0) {
+        // Raw binary - no formatting needed
+        return NULL;
+    }
+
+    // Calculate buffer size needed
+    size_t buffer_size = 0;
+    if (strcmp(format, "c") == 0) {
+        // C array format: "unsigned char shellcode[] = {\n  0xXX, 0xXX, ...\n};\n"
+        buffer_size = 100 + (size * 7); // ~7 chars per byte (0xXX, )
+    } else if (strcmp(format, "python") == 0) {
+        // Python format: "shellcode = b\"\xXX\xXX...\"\n"
+        buffer_size = 50 + (size * 4); // ~4 chars per byte (\xXX)
+    } else if (strcmp(format, "powershell") == 0) {
+        // PowerShell format: "$shellcode = @(0xXX,0xXX,...)\n"
+        buffer_size = 50 + (size * 6); // ~6 chars per byte (0xXX,)
+    } else if (strcmp(format, "hexstring") == 0) {
+        // Hex string format: "XXYY..."
+        buffer_size = size * 2 + 2;
+    } else {
+        return NULL;
+    }
+
+    char *output = malloc(buffer_size);
+    if (!output) {
+        return NULL;
+    }
+
+    size_t pos = 0;
+
+    if (strcmp(format, "c") == 0) {
+        pos += snprintf(output + pos, buffer_size - pos, "unsigned char shellcode[] = {\n  ");
+        for (size_t i = 0; i < size; i++) {
+            pos += snprintf(output + pos, buffer_size - pos, "0x%02x", data[i]);
+            if (i < size - 1) {
+                pos += snprintf(output + pos, buffer_size - pos, ", ");
+                if ((i + 1) % 12 == 0) {
+                    pos += snprintf(output + pos, buffer_size - pos, "\n  ");
+                }
+            }
+        }
+        pos += snprintf(output + pos, buffer_size - pos, "\n};\n");
+        pos += snprintf(output + pos, buffer_size - pos, "unsigned int shellcode_len = %zu;\n", size);
+    }
+    else if (strcmp(format, "python") == 0) {
+        pos += snprintf(output + pos, buffer_size - pos, "shellcode = b\"");
+        for (size_t i = 0; i < size; i++) {
+            pos += snprintf(output + pos, buffer_size - pos, "\\x%02x", data[i]);
+        }
+        pos += snprintf(output + pos, buffer_size - pos, "\"\n");
+    }
+    else if (strcmp(format, "powershell") == 0) {
+        pos += snprintf(output + pos, buffer_size - pos, "$shellcode = @(\n  ");
+        for (size_t i = 0; i < size; i++) {
+            pos += snprintf(output + pos, buffer_size - pos, "0x%02x", data[i]);
+            if (i < size - 1) {
+                pos += snprintf(output + pos, buffer_size - pos, ",");
+                if ((i + 1) % 12 == 0) {
+                    pos += snprintf(output + pos, buffer_size - pos, "\n  ");
+                }
+            }
+        }
+        pos += snprintf(output + pos, buffer_size - pos, "\n)\n");
+    }
+    else if (strcmp(format, "hexstring") == 0) {
+        for (size_t i = 0; i < size; i++) {
+            pos += snprintf(output + pos, buffer_size - pos, "%02x", data[i]);
+        }
+        pos += snprintf(output + pos, buffer_size - pos, "\n");
+    }
+
+    return output;
+}
+
 // Process a single file with the given configuration
 // Returns EXIT_SUCCESS on success, or an error code on failure
 static int process_single_file(const char *input_file, const char *output_file,
@@ -204,7 +280,12 @@ static int process_single_file(const char *input_file, const char *output_file,
         return EXIT_OUTPUT_FILE_ERROR;
     }
 
-    FILE *out_file = fopen(output_file, "wb");
+    // Format and write output based on output_format
+    char *formatted_output = format_shellcode(final_shellcode.data, final_shellcode.size,
+                                              config->output_format);
+
+    const char *write_mode = (formatted_output != NULL) ? "w" : "wb";
+    FILE *out_file = fopen(output_file, write_mode);
     if (!out_file) {
         if (!config->quiet) {
             fprintf(stderr, "Error: Cannot open output file '%s': %s\n",
@@ -213,10 +294,18 @@ static int process_single_file(const char *input_file, const char *output_file,
         free(shellcode);
         buffer_free(&new_shellcode);
         buffer_free(&final_shellcode);
+        if (formatted_output) free(formatted_output);
         return EXIT_OUTPUT_FILE_ERROR;
     }
 
-    fwrite(final_shellcode.data, 1, final_shellcode.size, out_file);
+    if (formatted_output != NULL) {
+        // Write formatted text
+        fprintf(out_file, "%s", formatted_output);
+        free(formatted_output);
+    } else {
+        // Write raw binary
+        fwrite(final_shellcode.data, 1, final_shellcode.size, out_file);
+    }
     fclose(out_file);
 
     free(shellcode);
@@ -254,9 +343,6 @@ int main(int argc, char *argv[]) {
     ml_strategist_t ml_strategist;
     int ml_initialized = 0;
     if (config->use_ml_strategist) {
-        fprintf(stderr, "\n⚠️  WARNING: ML mode is EXPERIMENTAL and may degrade performance\n");
-        fprintf(stderr, "   Current known issues: 35%% lower success rate than non-ML mode\n");
-        fprintf(stderr, "   Recommendation: Use without --ml flag for best results\n\n");
         // Determine the absolute path to the ML model file
         char model_path[PATH_MAX];
         char exe_path[PATH_MAX];

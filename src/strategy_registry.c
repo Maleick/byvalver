@@ -150,6 +150,13 @@ void register_linux_socketcall_strategies(); // Forward declaration - Linux sock
 void register_linux_string_push_strategies(); // Forward declaration - Linux string construction via PUSH - Priority 68-70
 void register_syscall_number_strategies(); // Forward declaration - Linux syscall number encoding strategies - Priority 77-78
 
+// NEW: 5 Additional Denulling Strategies (v3.0)
+void register_jcxz_null_safe_loop_termination_strategy(); // Priority 86 - JCXZ null-safe loop termination
+void register_push_byte_immediate_stack_construction_strategy(); // Priority 82 - PUSH byte immediate stack construction
+void register_arithmetic_constant_construction_sub_strategy(); // Priority 79 - Arithmetic constant construction via SUB
+void register_incremental_byte_register_syscall_strategy(); // Priority 78 - Incremental byte register syscall
+void register_word_inc_chain_nullfree_strategy(); // Priority 77 - Word-size INC chain null-free
+
 // Enhanced strategies for better null-byte elimination
 void register_enhanced_mov_mem_strategies(); // Enhanced MOV memory strategies
 void register_enhanced_register_chaining_strategies(); // Enhanced register chaining strategies
@@ -252,8 +259,13 @@ void init_strategies(int use_ml) {
     // register_ror13_hash_strategies(); // DISABLED - tries to handle memory operands as registers, causing errors
     register_rep_stosb_strategies(); // Register REP STOSB memory initialization strategies (priority 92) - was in 03bbf99
     register_salc_strategies(); // Register SALC AL zeroing optimization strategies (priority 91) - was in 03bbf99
+    register_jcxz_null_safe_loop_termination_strategy(); // Register JCXZ null-safe loop termination strategy (priority 86)
     register_xchg_preservation_strategies(); // Register PUSH immediate optimization strategies (priority 86) - was in 03bbf99
     register_stack_string_strategies(); // Register stack-based string construction strategies (priority 85) - was in 03bbf99
+    register_push_byte_immediate_stack_construction_strategy(); // Register PUSH byte immediate stack construction strategy (priority 82)
+    register_arithmetic_constant_construction_sub_strategy(); // Register arithmetic constant construction via SUB strategy (priority 79)
+    register_incremental_byte_register_syscall_strategy(); // Register incremental byte register syscall strategy (priority 78)
+    register_word_inc_chain_nullfree_strategy(); // Register word-size INC chain null-free strategy (priority 77)
     register_salc_rep_stosb_strategies(); // Register SALC + REP STOSB strategies (priority 65)
 
     // Register our new Windows-specific strategies

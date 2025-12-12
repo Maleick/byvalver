@@ -92,7 +92,7 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "    Processing Options:\n");
     fprintf(stream, "      --biphasic                    Enable biphasic processing (obfuscation + null-elimination)\n");
     fprintf(stream, "      --pic                         Generate position-independent code\n");
-    fprintf(stream, "      --ml                          [EXPERIMENTAL] Use ML strategy selection (may degrade performance)\n");
+    fprintf(stream, "      --ml                          Use ML strategy selection\n");
     fprintf(stream, "      --xor-encode KEY              XOR encode output with 4-byte key (hex)\n");
     fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n\n");
 

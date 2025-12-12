@@ -83,6 +83,10 @@ The engine employs multi-pass processing (obfuscation → denulling) with robust
 
 *While highly effective, certain edge-case shellcodes may still contain nulls → these can most always be addressed by extending the strategy registry*
 
+### DENULLING IN ACTION
+
+![byvalver batch processing](./images/denulling.gif)
+
 ### Obfuscation Layer
 Optional biphasic mode adds anti-analysis obfuscation before denulling:
 - Control flow flattening and dispatcher patterns

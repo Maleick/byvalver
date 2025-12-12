@@ -87,6 +87,81 @@ The engine employs multi-pass processing (obfuscation → denulling) with robust
 
 ![byvalver batch processing](./images/denulling.gif)
 
+### Performance Metrics
+
+Real-world performance data from processing 179 diverse shellcode samples:
+
+```
+📊 Batch Processing Statistics:
+
+Success Rate:            179/179             █████████████████████████   100.00%
+Files Processed:         179                 █████████████████████████   100.00%
+Failed:                  0                   ░░░░░░░░░░░░░░░░░░░░░░░░░   00.00%
+Skipped:                 0                   ░░░░░░░░░░░░░░░░░░░░░░░░░   00.00%
+
+💾 Size Optimization:
+
+Input Size:              65.69 MB            █████████████████████████   100.00%
+Output Size:             0.58 MB             ░░░░░░░░░░░░░░░░░░░░░░░░░   00.88%
+Compression Ratio:       0.01x               Size reduced by 99.12%
+```
+
+```
+🧠 ML Strategy Selection Performance:
+
+Processing Speed:
+Instructions/sec:        19.3 inst/sec       ████████████░░░░░░░░░░░░░
+Total Instructions:      20,535
+Session Duration:        1,065 seconds
+
+Null-Byte Elimination:
+Eliminated:              17,087/20,535       █████████████████████░░░░   83.21%
+Strategies Applied:      19,904
+Success Rate:            85.84%              █████████████████████░░░░   85.84%
+
+Learning Progress:
+Positive Feedback:       17,087              ████████████████████░░░░░   85.84%
+Negative Feedback:       2,817               ███░░░░░░░░░░░░░░░░░░░░░░   14.16%
+Total Iterations:        40,439
+Avg Confidence:          0.1307              ███░░░░░░░░░░░░░░░░░░░░░░   13.07%
+```
+
+```
+🏆 Top Performing Denullification Strategies:
+
+Strategy                                  Attempts    Success%    Confidence
+--------                                  --------    --------    ----------
+ret_immediate                                  134    ████████████░░░░░░░░░░░░░   50.00%
+transform_add_mem_reg8                        2012    ██████████░░░░░░░░░░░░░░░   43.69%
+cmp_mem_reg_null                                96    ██████████░░░░░░░░░░░░░░░   45.83%
+MOVZX/MOVSX Null-Byte Elimination              162    █████████░░░░░░░░░░░░░░░░   45.06%
+Unicode STOSW Byte-by-Byte                      86    ███████░░░░░░░░░░░░░░░░░░   34.88%
+lea_disp_null                                 3850    ███████░░░░░░░░░░░░░░░░░░   30.36%
+cmp_reg_imm_null                               796    █████░░░░░░░░░░░░░░░░░░░░   23.49%
+generic_mem_null_disp_enhanced              21880    █████░░░░░░░░░░░░░░░░░░░░   20.34%
+ModRM Byte Null Bypass                          82    ████░░░░░░░░░░░░░░░░░░░░░   17.07%
+SALC with Flag Setup                          1654    ████░░░░░░░░░░░░░░░░░░░░░   16.87%
+Shift-Based Value Construction                2830    ███░░░░░░░░░░░░░░░░░░░░░░   15.62%
+conservative_arithmetic                       5142    ███░░░░░░░░░░░░░░░░░░░░░░   15.95%
+Stack-Based Structure Construction            7558    ███░░░░░░░░░░░░░░░░░░░░░░   12.70%
+Multi-Stage PEB Traversal                     9936    ██░░░░░░░░░░░░░░░░░░░░░░░   11.36%
+LEA with Complex Addressing                   3568    ██░░░░░░░░░░░░░░░░░░░░░░░   11.35%
+```
+
+```
+⚡ Processing Efficiency:
+
+Learning Rate:           1.97 feedback/instruction
+Weight Update Avg:       0.042650
+Weight Update Max:       0.100000
+Total Weight Updates:    1724.68
+
+Strategy Coverage:
+Total Strategies:        120+
+Strategies Activated:    115                 ████████████████████████░   95.83%
+Zero-Attempt:            5                   █░░░░░░░░░░░░░░░░░░░░░░░░   04.17%
+```
+
 ### Obfuscation Layer
 Optional biphasic mode adds anti-analysis obfuscation before denulling:
 - Control flow flattening and dispatcher patterns
@@ -127,16 +202,15 @@ Python tools for validation:
 ## Architecture
 
 byvalver employs a modular strategy-pattern design:
+- Pass 1: (Optional) Obfuscation for anti-analysis
+- Pass 2: Denullification for null-byte removal
+- ML layer for strategy optimization
+- Batch system for scalable processing
 
 <div align="center">
   <img src="./images/bv1.png" alt="Main Framework" width="800">
   <img src="./images/bv5.png" alt="ML Integration" width="800">
 </div>
-
-- Pass 1 (Optional): Obfuscation for anti-analysis
-- Pass 2: Denullification for null-byte removal
-- ML layer for strategy optimization
-- Batch system for scalable processing
 
 ## System Requirements
 

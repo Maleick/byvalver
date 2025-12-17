@@ -223,19 +223,7 @@ byvalver employs a modular strategy-pattern design:
 
 ---
 
-![Overall Architecture Diagram](./images/Overall_Architecture_Diagram.png)
-
----
-
 ![Batch Processing Flow](./images/Batch_Processing_Flow_Compact.png)
-
----
-
-![Data Flow Diagram](./images/Data_Flow_Diagram_Balanced.png)
-
----
-
-![ML Integration Architecture](./images/ML_Integration_Architecture_Balanced.png)
 
 ---
 
@@ -248,8 +236,6 @@ byvalver employs a modular strategy-pattern design:
 ---
 
 ![Strategy System Architecture](./images/Strategy_System_Architecture_Compact.png)
-
----
 
 ---
 

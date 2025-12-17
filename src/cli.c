@@ -1,7 +1,96 @@
+#define _POSIX_C_SOURCE 200809L
 #include "cli.h"
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+/**
+ * Parse bad characters from comma-separated hex string
+ * @param input: String like "00,0a,0d"
+ * @return: Allocated bad_char_config_t or NULL on error
+ */
+bad_char_config_t* parse_bad_chars_string(const char *input) {
+    if (!input || strlen(input) == 0) {
+        return NULL;
+    }
+
+    bad_char_config_t *config = calloc(1, sizeof(bad_char_config_t));
+    if (!config) {
+        return NULL;
+    }
+
+    // Duplicate input for strtok
+    char *input_copy = strdup(input);
+    if (!input_copy) {
+        free(config);
+        return NULL;
+    }
+
+    // Parse comma-separated tokens
+    char *token = strtok(input_copy, ",");
+    while (token && config->bad_char_count < 256) {
+        // Trim leading whitespace
+        while (*token && isspace((unsigned char)*token)) {
+            token++;
+        }
+
+        // Trim trailing whitespace
+        char *end = token + strlen(token) - 1;
+        while (end > token && isspace((unsigned char)*end)) {
+            *end = '\0';
+            end--;
+        }
+
+        // Skip empty tokens
+        if (strlen(token) == 0) {
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        // Parse hex byte
+        unsigned int byte_val;
+        if (sscanf(token, "%02x", &byte_val) != 1 && sscanf(token, "%02X", &byte_val) != 1) {
+            // Invalid hex format
+            fprintf(stderr, "Error: Invalid hex byte: '%s'\n", token);
+            fprintf(stderr, "Expected: 2-character hex value (00-FF)\n");
+            free(input_copy);
+            free(config);
+            return NULL;
+        }
+
+        if (byte_val > 0xFF) {
+            // Out of range
+            fprintf(stderr, "Error: Hex value out of range: '%s' (must be 00-FF)\n", token);
+            free(input_copy);
+            free(config);
+            return NULL;
+        }
+
+        uint8_t byte = (uint8_t)byte_val;
+
+        // Add to bitmap if not already present (avoid duplicates)
+        if (config->bad_chars[byte] == 0) {
+            config->bad_chars[byte] = 1;
+            config->bad_char_list[config->bad_char_count++] = byte;
+        }
+
+        token = strtok(NULL, ",");
+    }
+
+    free(input_copy);
+
+    // Default to null byte if no bytes were successfully parsed
+    if (config->bad_char_count == 0) {
+        fprintf(stderr, "Warning: No valid bad characters specified, defaulting to null byte (00)\n");
+        config->bad_chars[0x00] = 1;
+        config->bad_char_list[0] = 0x00;
+        config->bad_char_count = 1;
+    }
+
+    return config;
+}
 
 // Create and initialize default configuration
 byvalver_config_t* config_create_default(void) {
@@ -49,12 +138,28 @@ byvalver_config_t* config_create_default(void) {
     config->continue_on_error = 1;  // Default to continuing on errors
     config->failed_files_output = NULL;  // No failed files output by default
 
+    // Bad character configuration defaults (v3.0)
+    // Default: only null byte (0x00) for backward compatibility
+    config->bad_chars = calloc(1, sizeof(bad_char_config_t));
+    if (config->bad_chars) {
+        config->bad_chars->bad_chars[0x00] = 1;      // Mark null byte as bad
+        config->bad_chars->bad_char_list[0] = 0x00;  // Add to list
+        config->bad_chars->bad_char_count = 1;        // Count = 1
+    }
+
     return config;
 }
 
 // Free configuration structure
 void config_free(byvalver_config_t *config) {
     if (!config) return;
+
+    // Free bad character configuration (v3.0)
+    if (config->bad_chars) {
+        free(config->bad_chars);
+        config->bad_chars = NULL;
+    }
+
     // Note: We don't free strings that point to argv or are static
     free(config);
 }
@@ -68,17 +173,21 @@ void print_usage(FILE *stream, const char *program_name) {
 
 // Print detailed help
 void print_detailed_help(FILE *stream, const char *program_name) {
-    fprintf(stream, "byvalver - Advanced Null-Byte Elimination Framework\n\n");
-    
+    fprintf(stream, "byvalver v3.0 - Generic Bad-Character Elimination Framework\n\n");
+
     fprintf(stream, "SYNOPSIS\n");
     fprintf(stream, "    %s [OPTIONS] <input_file> [output_file]\n\n", program_name);
-    
+
     fprintf(stream, "DESCRIPTION\n");
     fprintf(stream, "    byvalver is an advanced C-based command-line tool designed for automated \n");
-    fprintf(stream, "    removal of null bytes from shellcode while preserving functional equivalence. \n");
-    fprintf(stream, "    The tool leverages the Capstone disassembly framework to analyze x86/x64 \n");
-    fprintf(stream, "    assembly instructions and applies sophisticated transformation strategies to \n");
-    fprintf(stream, "    replace null-containing instructions with functionally equivalent alternatives.\n\n");
+    fprintf(stream, "    elimination of bad characters from shellcode while preserving functional \n");
+    fprintf(stream, "    equivalence. The tool leverages the Capstone disassembly framework to analyze \n");
+    fprintf(stream, "    x86/x64 assembly instructions and applies sophisticated transformation strategies \n");
+    fprintf(stream, "    to replace bad-character-containing instructions with functionally equivalent \n");
+    fprintf(stream, "    alternatives.\n\n");
+    fprintf(stream, "    By default, byvalver eliminates null bytes (0x00). Version 3.0 introduces generic \n");
+    fprintf(stream, "    bad character elimination via the --bad-chars option, allowing you to specify \n");
+    fprintf(stream, "    any set of bytes to eliminate (e.g., newlines, spaces, CRLF sequences).\n\n");
     
     fprintf(stream, "OPTIONS\n");
     fprintf(stream, "    General Options:\n");
@@ -94,7 +203,9 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --pic                         Generate position-independent code\n");
     fprintf(stream, "      --ml                          Use ML strategy selection\n");
     fprintf(stream, "      --xor-encode KEY              XOR encode output with 4-byte key (hex)\n");
-    fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n\n");
+    fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n");
+    fprintf(stream, "      --bad-chars BYTES             Comma-separated hex bytes to eliminate (e.g., \"00,0a,0d\")\n");
+    fprintf(stream, "                                    Default: \"00\" (null bytes only)\n\n");
 
     fprintf(stream, "    ML Metrics Options (requires --ml):\n");
     fprintf(stream, "      --metrics                     Enable ML metrics tracking and learning\n");
@@ -130,9 +241,15 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     
     fprintf(stream, "    With XOR encoding:\n");
     fprintf(stream, "      %s --biphasic --xor-encode 0x12345678 shellcode.bin output.bin\n\n", program_name);
-    
+
     fprintf(stream, "    Generate position-independent code:\n");
     fprintf(stream, "      %s --pic shellcode.bin output.bin\n\n", program_name);
+
+    fprintf(stream, "    Eliminate specific bad characters (v3.0+):\n");
+    fprintf(stream, "      # Eliminate null, newline, and carriage return (for network protocols)\n");
+    fprintf(stream, "      %s --bad-chars \"00,0a,0d\" shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "      # Avoid space character (for command injection)\n");
+    fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", program_name);
 
     fprintf(stream, "    Batch process directory:\n");
     fprintf(stream, "      %s input_dir/ output_dir/\n\n", program_name);
@@ -189,6 +306,7 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"format", required_argument, 0, 0},
         {"arch", required_argument, 0, 0},
         {"ml", no_argument, 0, 0},  // EXPERIMENTAL: Known to degrade performance
+        {"bad-chars", required_argument, 0, 0},  // NEW in v3.0: Generic bad character elimination
 
         // ML Metrics options
         {"metrics", no_argument, 0, 0},
@@ -290,6 +408,18 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                         config->xor_key = (uint32_t)strtol(optarg, &endptr, 16);
                         if (*endptr != '\0') {
                             fprintf(stderr, "Error: Invalid XOR key format: %s\n", optarg);
+                            return EXIT_INVALID_ARGUMENTS;
+                        }
+                    }
+                    else if (strcmp(opt_name, "bad-chars") == 0) {
+                        // Parse bad characters (v3.0)
+                        if (config->bad_chars) {
+                            free(config->bad_chars);  // Free default config
+                        }
+                        config->bad_chars = parse_bad_chars_string(optarg);
+                        if (!config->bad_chars) {
+                            fprintf(stderr, "Error: Invalid --bad-chars format: %s\n", optarg);
+                            fprintf(stderr, "Expected: comma-separated hex bytes (e.g., \"00,0a,0d\")\n");
                             return EXIT_INVALID_ARGUMENTS;
                         }
                     }

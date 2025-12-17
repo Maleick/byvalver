@@ -54,7 +54,7 @@ int can_handle_xor_encoded_ip(cs_insn *insn) {
     uint32_t imm = (uint32_t)op->imm;
 
     // Check if immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_char_free(imm)) {
         return 0; // Already null-free
     }
 
@@ -189,7 +189,7 @@ int can_handle_bytewise_ip(cs_insn *insn) {
     uint32_t imm = (uint32_t)op->imm;
 
     // Check if immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_char_free(imm)) {
         return 0; // Already null-free
     }
 

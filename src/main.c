@@ -100,6 +100,9 @@ static char* format_shellcode(const uint8_t *data, size_t size, const char *form
 static int process_single_file(const char *input_file, const char *output_file,
                                byvalver_config_t *config, size_t *input_size_out,
                                size_t *output_size_out) {
+    // Initialize bad character context with config
+    init_bad_char_context(config->bad_chars);
+
     // Open input file
     FILE *file = fopen(input_file, "rb");
     if (!file) {
@@ -574,6 +577,7 @@ int main(int argc, char *argv[]) {
             if (ml_initialized) {
                 ml_strategist_print_metrics_summary();
                 ml_strategist_print_strategy_breakdown();
+                ml_strategist_print_bad_char_breakdown();  // Added bad character breakdown (v3.0)
                 ml_strategist_print_learning_progress();
             } else {
                 // Provide basic statistics for batch processing even without ML
@@ -655,6 +659,7 @@ int main(int argc, char *argv[]) {
         if (ml_initialized) {
             ml_strategist_print_metrics_summary();
             ml_strategist_print_strategy_breakdown();
+            ml_strategist_print_bad_char_breakdown();  // Added bad character breakdown (v3.0)
             ml_strategist_print_learning_progress();
         } else {
             // Provide basic statistics even without ML

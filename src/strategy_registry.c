@@ -1,4 +1,5 @@
 #include "strategy.h"
+#include "utils.h"
 #include "new_strategies.h"
 #include "enhanced_mov_mem_strategies.h"
 #include "enhanced_register_chaining_strategies.h"
@@ -401,15 +402,9 @@ int is_arithmetic_instruction(cs_insn *insn) {
 }
 
 int has_null_bytes(cs_insn *insn) {
-    int has_null = 0;
-    for (size_t j = 0; j < insn->size; j++) {
-        if (insn->bytes[j] == 0x00) { 
-            has_null = 1; 
-            break; 
-        }
-    }
-    // printf("has_null_bytes: insn->id=0x%x, has_null=%d\n", insn->id, has_null); // Removed debug print
-    return has_null;
+    // Updated in v3.0: Now checks for generic bad characters, not just null bytes
+    // Function name kept for backward compatibility with 100+ strategy files
+    return !is_bad_char_free_buffer(insn->bytes, insn->size);
 }
 
 // Register the new strategies

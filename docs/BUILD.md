@@ -1,5 +1,7 @@
 # BYVALVER Build Guide
 
+**Version:** 3.0.0
+
 ## System Requirements
 
 ### Operating Systems

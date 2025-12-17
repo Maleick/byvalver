@@ -6,6 +6,59 @@
 #include "strategy.h"  // For provide_ml_feedback
 #include "ml_strategist.h"  // For metrics tracking functions
 
+// Global bad character context instance (v3.0)
+bad_char_context_t g_bad_char_context = {0};
+
+/**
+ * Initialize global bad character context
+ * @param config: Configuration to copy (NULL = default to null-byte only)
+ */
+void init_bad_char_context(bad_char_config_t *config) {
+    if (config) {
+        // Copy user configuration
+        memcpy(&g_bad_char_context.config, config, sizeof(bad_char_config_t));
+        g_bad_char_context.initialized = 1;
+
+        // Record bad character configuration for metrics tracking (v3.0)
+        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
+        if (metrics) {
+            ml_metrics_record_bad_char_config(metrics,
+                                            g_bad_char_context.config.bad_chars,
+                                            g_bad_char_context.config.bad_char_count);
+        }
+    } else {
+        // Default configuration: null byte only (for backward compatibility)
+        memset(&g_bad_char_context, 0, sizeof(bad_char_context_t));
+        g_bad_char_context.config.bad_chars[0x00] = 1;
+        g_bad_char_context.config.bad_char_list[0] = 0x00;
+        g_bad_char_context.config.bad_char_count = 1;
+        g_bad_char_context.initialized = 1;
+
+        // Record default bad character configuration
+        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
+        if (metrics) {
+            ml_metrics_record_bad_char_config(metrics,
+                                            g_bad_char_context.config.bad_chars,
+                                            g_bad_char_context.config.bad_char_count);
+        }
+    }
+}
+
+/**
+ * Reset context to uninitialized state
+ */
+void reset_bad_char_context(void) {
+    memset(&g_bad_char_context, 0, sizeof(bad_char_context_t));
+}
+
+/**
+ * Get pointer to current configuration (read-only)
+ * @return: Pointer to active bad character configuration
+ */
+bad_char_config_t* get_bad_char_config(void) {
+    return &g_bad_char_context.config;
+}
+
 void buffer_init(struct buffer *b) {
     b->data = NULL;
     b->size = 0;
@@ -490,27 +543,22 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     // First pass: calculate new sizes for each instruction
     current = head;
     while (current != NULL) {
-        int has_null = 0;
-        for (int j = 0; j < current->insn->size; j++) {
-            if (current->insn->bytes[j] == 0x00) {
-                has_null = 1;
-                break;
-            }
-        }
+        // Check if instruction contains bad characters (v3.0: generic check)
+        int has_bad_chars = !is_bad_char_free_buffer(current->insn->bytes, current->insn->size);
 
         // Special handling for relative jumps - they're transformed in process_relative_jump()
         // not via strategies, so we need to estimate their size here
         if (is_relative_jump(current->insn)) {
-            if (has_null || current->insn->size > 2) {
+            if (has_bad_chars || current->insn->size > 2) {
                 // Relative jump might need transformation
                 // Conservative estimate: opposite short jump (2) + MOV EAX (5-20) + JMP EAX (2)
                 // Use worst-case: 2 + 20 + 2 = 24 bytes
                 current->new_size = 24;
             } else {
-                // Short jump without nulls, likely stays same size
+                // Short jump without bad chars, likely stays same size
                 current->new_size = current->insn->size;
             }
-        } else if (has_null) {
+        } else if (has_bad_chars) {
             // Use strategy pattern to get new size
             int strategy_count;
             strategy_t** strategies = get_strategies_for_instruction(current->insn, &strategy_count);
@@ -541,20 +589,14 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     int insn_count = 0;
     while (current != NULL) {
         insn_count++;
-        int has_null = 0;
-        for (int j = 0; j < current->insn->size; j++) {
-            if (current->insn->bytes[j] == 0x00) {
-                has_null = 1;
-                break;
-            }
-        }
-        fprintf(stderr, "[GEN] Insn #%d: %s %s (has_null=%d, size=%d)\n",
+        int has_bad_chars = !is_bad_char_free_buffer(current->insn->bytes, current->insn->size);
+        fprintf(stderr, "[GEN] Insn #%d: %s %s (has_bad_chars=%d, size=%d)\n",
                 insn_count, current->insn->mnemonic, current->insn->op_str,
-                has_null, current->insn->size);
+                has_bad_chars, current->insn->size);
 
         if (is_relative_jump(current->insn)) {
             process_relative_jump(&new_shellcode, current->insn, current, head);
-        } else if (has_null) {
+        } else if (has_bad_chars) {
             // Use strategy pattern if it has nulls
             int strategy_count;
             size_t before_gen = new_shellcode.size;
@@ -569,18 +611,18 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                 // For now, we'll use a basic approach and record the prediction accuracy after generation
                 strategies[0]->generate(&new_shellcode, current->insn);
 
-                // Check if the strategy was successful (i.e., didn't introduce new nulls)
-                int strategy_success = 1;
-                for (size_t i = before_gen; i < new_shellcode.size; i++) {
-                    if (new_shellcode.data[i] == 0x00) {
-                        fprintf(stderr, "ERROR: Strategy '%s' introduced null at offset %zu\n",
-                               strategies[0]->name, i - before_gen);
-                        strategy_success = 0; // Mark as failed if it introduced nulls
-                        break;  // Stop checking once we find a null
-                    }
+                // Check if the strategy was successful (i.e., didn't introduce bad characters)
+                int strategy_success = is_bad_char_free_buffer(
+                    new_shellcode.data + before_gen,
+                    new_shellcode.size - before_gen
+                );
+
+                if (!strategy_success) {
+                    fprintf(stderr, "ERROR: Strategy '%s' introduced bad characters\n",
+                           strategies[0]->name);
                 }
 
-                // CRITICAL FIX: Rollback buffer if strategy introduced nulls
+                // CRITICAL FIX: Rollback buffer if strategy introduced bad characters
                 if (!strategy_success) {
                     fprintf(stderr, "ROLLBACK: Reverting strategy '%s' output, using fallback\n",
                            strategies[0]->name);
@@ -589,12 +631,10 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                     // Use fallback instead
                     fallback_general_instruction(&new_shellcode, current->insn);
 
-                    // Verify fallback didn't introduce nulls either
-                    for (size_t i = before_gen; i < new_shellcode.size; i++) {
-                        if (new_shellcode.data[i] == 0x00) {
-                            fprintf(stderr, "CRITICAL: Fallback also introduced null bytes!\n");
-                            break;
-                        }
+                    // Verify fallback didn't introduce bad characters either
+                    if (!is_bad_char_free_buffer(new_shellcode.data + before_gen,
+                                                  new_shellcode.size - before_gen)) {
+                        fprintf(stderr, "CRITICAL: Fallback also introduced bad characters!\n");
                     }
                 }
 
@@ -606,14 +646,11 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                 fallback_general_instruction(&new_shellcode, current->insn);
 
                 // Even fallback strategies should provide feedback
-                // In this case we'll treat it as successful if no nulls are introduced in the final result
-                int fallback_success = 1;
-                for (size_t i = before_gen; i < new_shellcode.size; i++) {
-                    if (new_shellcode.data[i] == 0x00) {
-                        fallback_success = 0;
-                        break;
-                    }
-                }
+                // In this case we'll treat it as successful if no bad characters are introduced in the final result
+                int fallback_success = is_bad_char_free_buffer(
+                    new_shellcode.data + before_gen,
+                    new_shellcode.size - before_gen
+                );
 
                 // We don't have a specific strategy pointer for fallback, so we pass NULL
                 // The provide_ml_feedback function handles NULL strategy gracefully
@@ -621,7 +658,7 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
 
             }
         } else {
-            // No nulls, output original instruction
+            // No bad characters, output original instruction
             buffer_append(&new_shellcode, current->insn->bytes, current->insn->size);
         }
         current = current->next;
@@ -629,13 +666,13 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
 
     // Final verification - DO THIS BEFORE CLEANUP
     DEBUG_LOG("Final verification pass");
-    int null_count = 0;
+    int bad_char_count = 0;
     for (size_t i = 0; i < new_shellcode.size; i++) {
-        if (new_shellcode.data[i] == 0x00) {
-            null_count++;
-            fprintf(stderr, "WARNING: Null byte at offset %zu\n", i);
-            
-            // Try to identify which original instruction caused this null
+        if (!is_bad_char_free_byte(new_shellcode.data[i])) {
+            bad_char_count++;
+            fprintf(stderr, "WARNING: Bad character 0x%02x at offset %zu\n", new_shellcode.data[i], i);
+
+            // Try to identify which original instruction caused this bad character
             struct instruction_node *debug_node = head;
             size_t current_offset = 0;
             while (debug_node != NULL) {
@@ -652,11 +689,11 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
         }
     }
 
-    if (null_count > 0) {
-        fprintf(stderr, "\nERROR: Final shellcode contains %d null bytes\n", null_count);
+    if (bad_char_count > 0) {
+        fprintf(stderr, "\nERROR: Final shellcode contains %d bad characters\n", bad_char_count);
         fprintf(stderr, "Recompile with -DDEBUG for details\n");
     } else {
-        DEBUG_LOG("SUCCESS: No null bytes in final shellcode");
+        DEBUG_LOG("SUCCESS: No bad characters in final shellcode");
     }
 
     // Clean up only AFTER verification

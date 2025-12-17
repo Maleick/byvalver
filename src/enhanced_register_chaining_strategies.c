@@ -18,7 +18,7 @@ int can_handle_register_chaining_immediate_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
         
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_null_free(imm)) {
+        if (!is_bad_char_free(imm)) {
             // This should be handled by mov_strategies, but we'll add as backup
             // with higher priority to catch cases that other strategies miss
             return 1;
@@ -33,7 +33,7 @@ int can_handle_register_chaining_immediate_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
         
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_null_free(imm)) {
+        if (!is_bad_char_free(imm)) {
             return 1;
         }
     }
@@ -156,7 +156,7 @@ int can_handle_cross_register_operation_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
         
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_null_free(imm)) {
+        if (!is_bad_char_free(imm)) {
             // If this immediate can't be handled by standard strategies, try cross-register
             return 1;
         }

@@ -109,35 +109,42 @@ int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* featu
     
     // Initialize features
     memset(features, 0, sizeof(instruction_features_t));
-    
+
     // Extract instruction type
     features->instruction_type = insn->id;
-    
-    // Check for null bytes
-    features->has_nulls = 0;
-    for (int i = 0; i < insn->size; i++) {
-        if (insn->bytes[i] == 0x00) {
-            features->has_nulls = 1;
-            break;
+
+    // Check for bad characters (v3.0: generic bad character awareness)
+    features->has_bad_chars = !is_bad_char_free_buffer(insn->bytes, insn->size);
+    features->has_nulls = features->has_bad_chars;  // Backward compatibility
+    features->bad_char_count = 0;
+
+    // Extract which specific bad characters are present
+    for (size_t i = 0; i < insn->size; i++) {
+        if (!is_bad_char_free_byte(insn->bytes[i])) {
+            if (features->bad_char_types[insn->bytes[i]] == 0) {
+                features->bad_char_types[insn->bytes[i]] = 1;
+                features->bad_char_count++;
+            }
         }
     }
-    
+
     // Extract operand information
     features->feature_count = 0;
     for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
         features->operand_types[i] = insn->detail->x86.operands[i].type;
-        
+
         if (insn->detail->x86.operands[i].type == X86_OP_REG) {
             features->register_indices[i] = insn->detail->x86.operands[i].reg;
         } else if (insn->detail->x86.operands[i].type == X86_OP_IMM) {
             features->immediate_value = (int)insn->detail->x86.operands[i].imm;
         }
     }
-    
+
     // Add basic features to the feature vector
     features->features[features->feature_count++] = (double)insn->id;
     features->features[features->feature_count++] = (double)insn->size;
-    features->features[features->feature_count++] = (double)features->has_nulls;
+    features->features[features->feature_count++] = (double)features->has_bad_chars;
+    features->features[features->feature_count++] = (double)features->bad_char_count;
     features->features[features->feature_count++] = (double)insn->detail->x86.op_count;
     
     // Add operand type features
@@ -529,9 +536,17 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         strategy_idx = (int)(hash % NN_OUTPUT_SIZE);
     }
 
-    // Track instruction processing
+    // Track instruction processing with bad character awareness (v3.0)
     if (g_ml_metrics) {
-        ml_metrics_record_instruction_processed(g_ml_metrics, features.has_nulls);
+        // Record the bad character configuration for this session if not already recorded
+        // This would typically happen once per session when processing starts
+        // For now, we'll record the instruction processing with bad character count
+        uint8_t bad_chars_in_insn[256] = {0};
+        for (int i = 0; i < 256; i++) {
+            bad_chars_in_insn[i] = features.bad_char_types[i];
+        }
+
+        ml_metrics_record_instruction_processed_v3(g_ml_metrics, bad_chars_in_insn, features.bad_char_count);
     }
 
     // Check if the applied strategy matches our prediction and record it
@@ -605,18 +620,25 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         }
     }
 
-    // Record strategy result metrics
+    // Record strategy result metrics with bad character awareness (v3.0)
     if (g_ml_metrics && applied_strategy != NULL) {
-        // Calculate nulls eliminated (original had nulls, strategy tried to eliminate them)
-        int nulls_eliminated = features.has_nulls && success ? 1 : 0;
+        // Calculate bad characters eliminated (more accurate than just using features.has_nulls)
+        int bad_chars_eliminated = 0;
 
-        // Record the strategy result
-        ml_metrics_record_strategy_result(g_ml_metrics,
-                                          applied_strategy->name,
-                                          success,
-                                          nulls_eliminated,
-                                          (int)new_shellcode_size,
-                                          0.0); // processing_time_ms placeholder
+        // In a real implementation, we'd compare the original instruction bytes
+        // with the transformed bytes to count how many bad characters were eliminated
+        // For now, we'll use features.bad_char_count as a proxy if the strategy was successful
+        if (success) {
+            bad_chars_eliminated = features.bad_char_count;
+        }
+
+        // Record the strategy result using the new v3 function
+        ml_metrics_record_strategy_result_v3(g_ml_metrics,
+                                             applied_strategy->name,
+                                             success,
+                                             bad_chars_eliminated,
+                                             (int)new_shellcode_size,
+                                             0.0); // processing_time_ms placeholder
     }
 
     if (applied_strategy != NULL) {
@@ -804,6 +826,15 @@ void ml_strategist_print_metrics_summary(void) {
 void ml_strategist_print_strategy_breakdown(void) {
     if (g_ml_metrics) {
         ml_metrics_print_strategy_breakdown(g_ml_metrics);
+    }
+}
+
+/**
+ * @brief Print bad character elimination breakdown
+ */
+void ml_strategist_print_bad_char_breakdown(void) {
+    if (g_ml_metrics) {
+        ml_metrics_print_bad_char_breakdown(g_ml_metrics);
     }
 }
 

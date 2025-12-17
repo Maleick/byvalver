@@ -8,10 +8,10 @@
 #include <getopt.h>
 
 // Application version information
-#define BYVALVER_VERSION_MAJOR 2
-#define BYVALVER_VERSION_MINOR 1
+#define BYVALVER_VERSION_MAJOR 3
+#define BYVALVER_VERSION_MINOR 0
 #define BYVALVER_VERSION_PATCH 0
-#define BYVALVER_VERSION_STRING "2.1.0"
+#define BYVALVER_VERSION_STRING "3.0.0"
 
 // Exit codes
 #define EXIT_SUCCESS 0
@@ -22,6 +22,14 @@
 #define EXIT_OUTPUT_FILE_ERROR 5
 #define EXIT_TIMEOUT_EXCEEDED 6
 #define EXIT_CONFIG_ERROR 7
+
+// Bad character configuration structure
+// Uses bitmap for O(1) lookup performance
+typedef struct {
+    uint8_t bad_chars[256];      // Bitmap: bad_chars[byte] = 1 if bad, 0 if ok
+    int bad_char_count;           // Number of distinct bad characters
+    uint8_t bad_char_list[256];   // Ordered list of bad character values
+} bad_char_config_t;
 
 // Configuration structure
 typedef struct {
@@ -64,7 +72,10 @@ typedef struct {
     int dry_run;
     int show_stats;
     int validate_output;
-    
+
+    // Bad character configuration (NEW in v3.0)
+    bad_char_config_t *bad_chars;  // Dynamically allocated bad character configuration
+
     // Internal flags
     int help_requested;
     int version_requested;
@@ -79,5 +90,8 @@ void print_usage(FILE *stream, const char *program_name);
 void print_version(FILE *stream);
 int load_config_file(const char *config_path, byvalver_config_t *config);
 void print_detailed_help(FILE *stream, const char *program_name);
+
+// Bad character configuration functions
+bad_char_config_t* parse_bad_chars_string(const char *input);
 
 #endif

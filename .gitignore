@@ -105,6 +105,8 @@ pyvenv.cfg
 
 # Archive and history files
 .archive/claude_history/
+.archive/.claude
+.archive/.qwen
 .archive/qwen_history/
 .archive/byvalver_results/
 

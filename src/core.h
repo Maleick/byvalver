@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <capstone/capstone.h>
 #include "strategy.h"
+#include "cli.h"  // For bad_char_config_t
 
 #ifdef DEBUG
   // C99 compliant debug macro
@@ -30,6 +31,21 @@ struct instruction_node {
     size_t new_size;
     struct instruction_node *next;
 };
+
+// Global bad character context (v3.0)
+// Thread-local in multi-threaded scenarios (future enhancement)
+typedef struct {
+    bad_char_config_t config;     // Active configuration
+    int initialized;               // 0 = uninitialized, 1 = ready
+} bad_char_context_t;
+
+// Global bad character context instance
+extern bad_char_context_t g_bad_char_context;
+
+// Bad character context management functions
+void init_bad_char_context(bad_char_config_t *config);
+void reset_bad_char_context(void);
+bad_char_config_t* get_bad_char_config(void);
 
 // Core functions
 struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size);

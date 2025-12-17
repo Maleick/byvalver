@@ -48,7 +48,7 @@ int can_handle_call_pop_immediate(cs_insn *insn) {
     uint32_t imm = (uint32_t)src_op->imm;
 
     // Check if the immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_char_free(imm)) {
         // Already null-free
         return 0;
     }

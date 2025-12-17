@@ -16,7 +16,9 @@ typedef struct {
     double total_confidence;
     double min_confidence;
     double max_confidence;
-    int nulls_eliminated;
+    int nulls_eliminated;                // DEPRECATED: Use bad_chars_eliminated instead
+    int bad_chars_eliminated;            // Total bad characters eliminated (v3.0)
+    int bad_char_breakdown[256];         // Count of each bad character eliminated (v3.0)
     int total_output_size_increase;
     double total_processing_time_ms;
 } strategy_metrics_t;
@@ -50,9 +52,14 @@ typedef struct {
     time_t session_end;
     int total_instructions_processed;
     int total_strategies_applied;
-    int total_nulls_eliminated;
-    int total_null_bytes_original;
-    double null_elimination_rate;
+    int total_nulls_eliminated;           // DEPRECATED: Use total_bad_chars_eliminated instead
+    int total_bad_chars_eliminated;       // Total bad characters eliminated (v3.0)
+    int total_null_bytes_original;        // Total null bytes in original input (for backward compatibility)
+    int total_bad_chars_original;         // Total bad characters in original input (v3.0)
+    int bad_char_set[256];                // Bitmap of which bad characters were configured (v3.0)
+    int bad_char_count;                   // Number of distinct bad characters configured (v3.0)
+    double null_elimination_rate;         // DEPRECATED: Use bad_char_elimination_rate instead
+    double bad_char_elimination_rate;     // Rate of bad character elimination (v3.0)
     double total_processing_time_ms;
     int model_saves;
     int model_loads;
@@ -83,6 +90,12 @@ void ml_metrics_record_strategy_result(ml_metrics_tracker_t* tracker,
                                       int nulls_eliminated,
                                       int size_increase,
                                       double processing_time_ms);
+void ml_metrics_record_strategy_result_v3(ml_metrics_tracker_t* tracker,
+                                          const char* strategy_name,
+                                          int success,
+                                          int bad_chars_eliminated,
+                                          int size_increase,
+                                          double processing_time_ms);
 
 // Learning tracking
 void ml_metrics_record_feedback(ml_metrics_tracker_t* tracker,
@@ -104,6 +117,9 @@ void ml_metrics_start_session(ml_metrics_tracker_t* tracker);
 void ml_metrics_end_session(ml_metrics_tracker_t* tracker);
 void ml_metrics_record_instruction_processed(ml_metrics_tracker_t* tracker,
                                             int nulls_in_instruction);
+void ml_metrics_record_instruction_processed_v3(ml_metrics_tracker_t* tracker,
+                                                uint8_t* bad_chars_in_instruction,
+                                                int bad_char_count);
 void ml_metrics_record_model_save(ml_metrics_tracker_t* tracker);
 void ml_metrics_record_model_load(ml_metrics_tracker_t* tracker);
 
@@ -123,5 +139,19 @@ double ml_metrics_get_strategy_success_rate(ml_metrics_tracker_t* tracker,
 int ml_metrics_get_top_strategies(ml_metrics_tracker_t* tracker,
                                   char* top_strategies[],
                                   int count);
+
+// Bad character-specific metrics (v3.0)
+void ml_metrics_record_bad_char_config(ml_metrics_tracker_t* tracker,
+                                       uint8_t* bad_chars,  // Bitmap of bad chars
+                                       int bad_char_count);
+void ml_metrics_record_bad_char_elimination_detail(ml_metrics_tracker_t* tracker,
+                                                   uint8_t* eliminated_chars,
+                                                   int count);
+void ml_metrics_print_bad_char_breakdown(ml_metrics_tracker_t* tracker);
+double ml_metrics_get_bad_char_elimination_rate(ml_metrics_tracker_t* tracker,
+                                                uint8_t bad_char);
+int ml_metrics_get_most_difficult_bad_chars(ml_metrics_tracker_t* tracker,
+                                            uint8_t* bad_chars,
+                                            int count);
 
 #endif // ML_METRICS_H

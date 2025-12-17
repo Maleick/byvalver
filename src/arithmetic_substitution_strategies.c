@@ -77,7 +77,7 @@ int find_shift_construction(uint32_t target, uint32_t *base, uint8_t *shift_amou
         *shift_amount = trailing_zeros;
 
         // Base must be null-free
-        if (!is_null_free(*base)) {
+        if (!is_bad_char_free(*base)) {
             return 0;
         }
 
@@ -88,7 +88,7 @@ int find_shift_construction(uint32_t target, uint32_t *base, uint8_t *shift_amou
             if (*base <= 0xFF) {
                 return 1; // Optimal: base fits in 8-bit register
             }
-            if (*base <= 0xFFFFFFFF && is_null_free(*base)) {
+            if (*base <= 0xFFFFFFFF && is_bad_char_free(*base)) {
                 return 1; // Acceptable: base is null-free 32-bit
             }
         }
@@ -120,7 +120,7 @@ int find_additive_decomposition(uint32_t target, uint32_t *val1, uint32_t *val2)
     uint32_t half = target / 2;
     uint32_t remainder = target - half;
 
-    if (is_null_free(half) && is_null_free(remainder)) {
+    if (is_bad_char_free(half) && is_bad_char_free(remainder)) {
         *val1 = half;
         *val2 = remainder;
         return 1;
@@ -128,9 +128,9 @@ int find_additive_decomposition(uint32_t target, uint32_t *val1, uint32_t *val2)
 
     // Try other decompositions: iterate through possible splits
     for (uint32_t candidate = 0x01010101; candidate < target; candidate += 0x01010101) {
-        if (is_null_free(candidate)) {
+        if (is_bad_char_free(candidate)) {
             uint32_t other = target - candidate;
-            if (is_null_free(other)) {
+            if (is_bad_char_free(other)) {
                 *val1 = candidate;
                 *val2 = other;
                 return 1;
@@ -147,9 +147,9 @@ int find_additive_decomposition(uint32_t target, uint32_t *val1, uint32_t *val2)
                 uint32_t candidate = power | (adjust << 8) | (adjust << 16) | (adjust << 24);
                 if (candidate >= target) break;
 
-                if (is_null_free(candidate)) {
+                if (is_bad_char_free(candidate)) {
                     uint32_t other = target - candidate;
-                    if (is_null_free(other)) {
+                    if (is_bad_char_free(other)) {
                         *val1 = candidate;
                         *val2 = other;
                         return 1;
@@ -191,7 +191,7 @@ int find_multiplication(uint32_t target, uint32_t *factor1, uint32_t *factor2) {
         uint32_t f = small_factors[i];
         if (target % f == 0) {
             uint32_t quotient = target / f;
-            if (is_null_free(quotient)) {
+            if (is_bad_char_free(quotient)) {
                 *factor1 = f;
                 *factor2 = quotient;
                 return 1;
@@ -296,7 +296,7 @@ int can_handle_arithmetic_substitution(cs_insn *insn) {
     uint32_t imm = (uint32_t)src_op->imm;
 
     // Only handle if immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_char_free(imm)) {
         return 0;
     }
 
@@ -463,7 +463,7 @@ void generate_arithmetic_substitution(struct buffer *b, cs_insn *insn) {
             }
 
             // Multiply by factor1 using IMUL if small
-            if (factor1 <= 0x7F && is_null_free(factor1)) {
+            if (factor1 <= 0x7F && is_bad_char_free(factor1)) {
                 // IMUL reg, reg, imm8
                 buffer_write_byte(b, 0x6B);
                 buffer_write_byte(b, 0xC0 + (reg_idx << 3) + reg_idx);

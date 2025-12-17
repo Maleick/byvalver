@@ -14,7 +14,7 @@ int can_handle_safe_string_push(cs_insn *insn) {
         if (insn->detail->x86.operands[0].type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)insn->detail->x86.operands[0].imm;
             // Check if the immediate value contains null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Additional check: make sure the instruction itself has null bytes
                 return has_null_bytes(insn);
             }
@@ -76,7 +76,7 @@ int can_handle_null_free_path_construction(cs_insn *insn) {
 
             uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
             // For path construction, check if immediate has null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Additional check: make sure the original instruction has null bytes
                 if (has_null_bytes(insn)) {
                     return 1;

@@ -52,7 +52,7 @@ int can_handle_mov_arith_decomp(cs_insn *insn) {
     uint32_t imm = (uint32_t)src_op->imm;
 
     // Check if immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_char_free(imm)) {
         return 0;
     }
 
@@ -67,7 +67,7 @@ int can_handle_mov_arith_decomp(cs_insn *insn) {
 
     // Try arithmetic decomposition (ADD/SUB) and ensure both values are null-free
     if (find_arithmetic_equivalent(imm, &base, &offset, &operation)) {
-        if (is_null_free(base) && is_null_free(offset)) {
+        if (is_bad_char_free(base) && is_bad_char_free(offset)) {
             return 1;
         }
     }
@@ -75,14 +75,14 @@ int can_handle_mov_arith_decomp(cs_insn *insn) {
     // Try XOR decomposition and ensure both values are null-free
     if (find_xor_key(imm, &xor_key)) {
         uint32_t val1 = imm ^ xor_key;  // The value to MOV initially
-        if (is_null_free(val1) && is_null_free(xor_key)) {
+        if (is_bad_char_free(val1) && is_bad_char_free(xor_key)) {
             return 1;
         }
     }
 
     // Try NEG decomposition and ensure the negated value is null-free
     if (find_neg_equivalent(imm, &neg_val)) {
-        if (is_null_free(neg_val)) {
+        if (is_bad_char_free(neg_val)) {
             return 1;
         }
     }
@@ -152,7 +152,7 @@ void generate_mov_arith_decomp(struct buffer *b, cs_insn *insn) {
     // Check each method and use the first one that has null-free components
 
     // Method 1: Try NEG decomposition
-    if (find_neg_equivalent(imm, &neg_val) && is_null_free(neg_val)) {
+    if (find_neg_equivalent(imm, &neg_val) && is_bad_char_free(neg_val)) {
         // Use NEG decomposition: MOV reg, -target; NEG reg
         if (dst_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, neg_val);
@@ -187,7 +187,7 @@ void generate_mov_arith_decomp(struct buffer *b, cs_insn *insn) {
         uint32_t val1 = imm ^ xor_key;
 
         // Check if both val1 and xor_key are null-free
-        if (is_null_free(val1) && is_null_free(xor_key)) {
+        if (is_bad_char_free(val1) && is_bad_char_free(xor_key)) {
             // Use XOR decomposition: MOV reg, val1; XOR reg, val2
             if (dst_reg == X86_REG_EAX) {
                 generate_mov_eax_imm(b, val1);
@@ -218,7 +218,7 @@ void generate_mov_arith_decomp(struct buffer *b, cs_insn *insn) {
                 buffer_append(b, xor_code, 3);
             } else {
                 // Use 32-bit immediate - but check if xor_key itself has nulls
-                if (is_null_free(xor_key)) {
+                if (is_bad_char_free(xor_key)) {
                     uint8_t xor32_code[] = {0x81, 0x00, 0x00, 0x00, 0x00, 0x00};
                     xor32_code[1] = 0xF0 + get_reg_index(dst_reg);  // F0-F7 for XOR
                     memcpy(xor32_code + 2, &xor_key, 4);
@@ -244,7 +244,7 @@ void generate_mov_arith_decomp(struct buffer *b, cs_insn *insn) {
 
     // Method 3: Try ADD/SUB decomposition
     if (find_arithmetic_equivalent(imm, &base, &offset, &operation) &&
-        is_null_free(base) && is_null_free(offset)) {
+        is_bad_char_free(base) && is_bad_char_free(offset)) {
         // Use ADD/SUB decomposition: MOV reg, base; ADD/SUB reg, offset
         if (dst_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, base);

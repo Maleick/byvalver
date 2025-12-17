@@ -52,7 +52,7 @@ int can_handle_large_immediate_optimization(cs_insn *insn) {
     uint32_t imm = (uint32_t)src_op->imm;
 
     // Check if immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_char_free(imm)) {
         // If immediate is already null-free, we don't need to optimize
         return 0;
     }
@@ -92,7 +92,7 @@ size_t get_size_large_immediate_optimization(cs_insn *insn) {
     }
 
     // For small values that fit in a byte: PUSH byte + POP (2 + 1 = 3 bytes) vs MOV immediate (5 bytes)
-    if (imm <= 0xFF && is_null_free_byte(imm)) {
+    if (imm <= 0xFF && is_bad_char_free_byte(imm)) {
         return 4; // PUSH byte + POP reg (or XOR + MOV byte)
     }
 
@@ -121,7 +121,7 @@ void construct_value_arithmetic(struct buffer *b, uint8_t reg_num, uint32_t imm)
     }
     
     // For byte-sized values that are null-free
-    if (imm <= 0xFF && is_null_free_byte(imm)) {
+    if (imm <= 0xFF && is_bad_char_free_byte(imm)) {
         // MOV reg, imm8
         buffer_write_byte(b, 0xB0 + reg_num);
         buffer_write_byte(b, imm);
@@ -137,7 +137,7 @@ void construct_value_arithmetic(struct buffer *b, uint8_t reg_num, uint32_t imm)
     
     // Set each byte that's non-zero and null-free
     for (int i = 0; i < 4; i++) {
-        if (bytes[i] != 0 && is_null_free_byte(bytes[i])) {
+        if (bytes[i] != 0 && is_bad_char_free_byte(bytes[i])) {
             if (i == 0) { // AL, CL, DL, BL
                 buffer_write_byte(b, 0xB0 + reg_num);  // MOV reg8_low, imm8
                 buffer_write_byte(b, bytes[i]);
@@ -163,7 +163,7 @@ void construct_value_arithmetic(struct buffer *b, uint8_t reg_num, uint32_t imm)
     if (imm > 0xFF) {
         // For now, use MOV with PUSH/POP technique for larger values
         // PUSH imm32 (or PUSH imm8 if it fits and is null-free)
-        if (imm <= 0xFF && is_null_free_byte(imm)) {
+        if (imm <= 0xFF && is_bad_char_free_byte(imm)) {
             buffer_write_byte(b, 0x6A);  // PUSH imm8
             buffer_write_byte(b, imm);
         } else {
@@ -224,7 +224,7 @@ void generate_large_immediate_optimization(struct buffer *b, cs_insn *insn) {
             // This is complex, so we'll handle register destinations for now
         }
     } 
-    else if (imm <= 0xFF && is_null_free_byte(imm)) {
+    else if (imm <= 0xFF && is_bad_char_free_byte(imm)) {
         // Strategy B: PUSH byte + POP for small null-free values
         if (dst_op->type == X86_OP_REG) {
             // PUSH imm8

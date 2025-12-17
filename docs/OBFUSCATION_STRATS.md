@@ -1,10 +1,10 @@
 # BYVALVER Obfuscation Strategies (OBFUSCATION_STRATS.md)
 
-  ## Overview
+## Overview
 
-  BYVALVER implements a comprehensive suite of obfuscation strategies that are applied during the first pass of biphasic
-    These strategies are designed to increase the complexity and analytical difficulty of shellcode before null-byte
-   is applied. The obfuscation layer adds significant anti-analysis features that make reverse engineering more
+BYVALVER implements a comprehensive suite of obfuscation strategies that are applied during the first pass of biphasic processing. These strategies are designed to increase the complexity and analytical difficulty of shellcode before bad-character elimination is applied (v3.0: generic bad-character elimination, v2.x: null-byte elimination only). The obfuscation layer adds significant anti-analysis features that make reverse engineering more difficult.
+
+**Note (v3.0):** Obfuscation strategies work in conjunction with the generic bad-character elimination framework. The obfuscated output from Pass 1 is then processed through Pass 2 (bad-character elimination) using the configured bad character set.
    
   ## Strategy Interface
 

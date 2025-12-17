@@ -2,7 +2,7 @@
   
 # byvalver (·𐑚𐑲𐑝𐑨𐑤𐑝𐑼)
 
-## THE SHELLCODE NULL-BYTE ANNIHILATOR
+## THE SHELLCODE BAD-CHARACTER BANISHER
 
 <div align="center">
   <img src="./images/byvalver_logo.png" alt="byvalver logo" width="750">
@@ -36,11 +36,11 @@
 
 ## Overview
 
-**byvalver** is a CLI tool built in `C` for automatically eliminating null-bytes (`\x00`) from x86/x64 shellcode while maintaining complete functional equivalence  
+**byvalver** is a CLI tool built in `C` for automatically eliminating null-bytes (`\x00`) from x86/x64 shellcode while maintaining complete functional equivalence
 
-It achieves a high success rate in producing null-free output across diverse, real-world shellcode test suites, including complex Windows payloads.
+The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 122 ranked transformation strategies to replace null-containing code with equivalent alternatives. It has been extensively tested on null-byte elimination and achieves a high success rate across diverse, real-world shellcode test suites, including complex Windows payloads.
 
-The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 122 ranked transformation strategies to replace null-containing code with equivalent alternatives
+**NEW in v3.0:** Generic bad character elimination framework. The `--bad-chars` option allows specification of arbitrary bytes to eliminate (e.g., `--bad-chars "00,0a,0d"` for newline-safe shellcode). **This feature is functional but newly implemented** - the 122+ transformation strategies were originally designed and optimized specifically for null-byte elimination. While they apply to other bad characters, they have not been extensively tested or optimized for non-null byte scenarios.
 
 Supports Windows, Linux, and macOS
 
@@ -53,14 +53,18 @@ Supports Windows, Linux, and macOS
 - Biphasic processing: Obfuscation followed by denullification
 
 > [!NOTE]
-While highly effective, certain edge-case shellcodes may still contain nulls → these can most always be addressed by extending the strategy registry
+> **Null-byte elimination** (`--bad-chars "00"` or default): Well-tested with 100% success rate on diverse test corpus
+>
+> **Generic bad-character elimination** (`--bad-chars "00,0a,0d"` etc.): Newly implemented in v3.0. The framework is functional and strategies apply generically, but effectiveness for non-null characters has not been comprehensively validated. Success rates may vary depending on the specific bad characters and shellcode complexity.
 
 ## Features
 
-### High Denulling Success Rate
+### High Null-Byte Elimination Success Rate
 <div align="center">
   <strong>Achieved 100% null-byte elimination on a diverse test corpus representing common and complex null sources.</strong>
 </div>
+
+> This success rate applies specifically to null-byte (`\x00`) elimination, which has been extensively tested and optimized.
 
 ### Advanced Transformation Engine
 122+ strategies covering virtually all common null-byte sources (2 new strategies added in v2.2):
@@ -178,7 +182,9 @@ Zero-Attempt:            5                   █░░░░░░░░░░�
 - Adaptive learning from success/failure feedback
 - Tracks predictions, accuracy, and confidence
 - Graceful fallback to deterministic ordering
-- **Note**: ML mode is experimental and may reduce success rate; use `--ml` flag to enable (disabled by default)
+
+> [!WARNING]
+> ML mode is experimental and may reduce success rate compared to the deterministic strategy selection. Use the `--ml` flag to enable (disabled by default).
 
 ### Batch Processing
 - Recursive directory traversal (`-r`)
@@ -186,6 +192,9 @@ Zero-Attempt:            5                   █░░░░░░░░░░�
 - Structure preservation or flattening
 - Continue-on-error or strict modes
 - Compatible with all options (biphasic, PIC, `XOR`, etc.)
+
+> [!TIP]
+> For batch processing large shellcode collections, use `--no-continue-on-error` to identify problematic files early, then process successfully with `--pattern` to exclude failures. The `--verbose` flag helps track progress and identify which strategies work best for your specific shellcode corpus.
 
 ### Output Options
 - Formats: raw binary, `C` array, Python bytes, hex string
@@ -329,6 +338,7 @@ byvalver [OPTIONS] <input> [output]
 - `-v, --version`: Version
 - `-V, --verbose`: Verbose
 - `-q, --quiet`: Quiet
+- `--bad-chars BYTES`: **[v3.0]** Comma-separated hex bytes to eliminate (default: "00")
 - `--biphasic`: Obfuscate + denull
 - `--pic`: Position-independent
 - `--ml`: ML strategy selection
@@ -341,10 +351,81 @@ byvalver [OPTIONS] <input> [output]
 
 **Examples:**
 ```bash
+# Default: eliminate null bytes only (well-tested, recommended)
 byvalver shellcode.bin clean.bin
+
+# v3.0 NEW: Eliminate newlines too (experimental - not extensively tested)
+byvalver --bad-chars "00,0a,0d" shellcode.bin clean.bin
+
+# v3.0 NEW: Eliminate multiple bad characters (experimental)
+byvalver --bad-chars "00,0a,0d,20" input.bin output.bin
+
+# Combined with other features (null-byte mode recommended for production)
 byvalver --biphasic --ml --xor-encode 0xCAFEBABE input.bin output.bin
+
+# Batch processing (null-byte elimination)
 byvalver -r --pattern "*.bin" shellcodes/ output/
+
+# Batch processing with custom bad chars (experimental)
+byvalver -r --bad-chars "00,0a,0d" --pattern "*.bin" shellcodes/ output/
 ```
+
+> [!IMPORTANT]
+> For production use, the default null-byte elimination mode (without `--bad-chars` or with `--bad-chars "00"`) is recommended as it has been extensively tested and validated. The generic bad-character elimination feature is functional but experimental.
+
+---
+
+## Generic Bad-Character Elimination (v3.0)
+
+### Overview
+
+Version 3.0 introduces a generic bad-character elimination framework that extends beyond null bytes. The `--bad-chars` option allows you to specify any set of bytes to eliminate from your shellcode.
+
+### Implementation Details
+
+The framework operates by:
+1. Parsing the comma-separated hex byte list (e.g., `"00,0a,0d"`)
+2. Using an O(1) bitmap lookup to identify bad characters in instructions
+3. Applying the same 122+ transformation strategies used for null-byte elimination
+4. Verifying that the output does not contain the specified bad characters
+
+### Current Status
+
+**Functional:** The framework is fully implemented and operational. All transformation strategies can detect and avoid any specified bad characters.
+
+**Experimental:** The strategies were originally designed, tested, and optimized specifically for null-byte elimination. While they now support generic bad characters at the implementation level, they have not been:
+- Extensively tested with non-null bad character sets
+- Optimized for specific bad character combinations
+- Validated against diverse real-world scenarios with arbitrary bad characters
+
+### Expected Behavior
+
+- **Null bytes only** (`--bad-chars "00"` or default): High success rate (100% on test corpus)
+- **Multiple bad characters** (`--bad-chars "00,0a,0d"`): Success rate may vary significantly depending on:
+  - Which specific bytes are marked as bad
+  - Complexity of the input shellcode
+  - Frequency of bad characters in the original shellcode
+  - Whether effective alternative encodings exist for the specific bad character set
+
+### Recommendations
+
+1. **For production use:** Stick with default null-byte elimination mode
+2. **For experimentation:** Test the `--bad-chars` feature with your specific use case and validate the output
+3. **Always verify:** Use `verify_denulled.py --bad-chars "XX,YY"` to confirm all bad characters were eliminated
+4. **Expect variability:** Some shellcode may not be fully cleanable with certain bad character sets
+
+### Future Improvements
+
+The generic bad-character feature provides a foundation for:
+- Strategy optimization for specific bad character patterns
+- Automated discovery of new strategies targeting common bad character combinations
+- ML model retraining with diverse bad character training data
+- Extended testing and validation
+
+> [!CAUTION]
+> Using `--bad-chars` with multiple bad characters significantly increases the complexity of the transformation task. Some shellcode may become impossible to transform if too many bytes are marked as bad, as the tool may run out of alternative encodings. Start with small bad character sets (e.g., `"00,0a"`) and expand gradually while testing the output. Always verify the result with `verify_denulled.py` before deployment.
+
+---
 
 ## Obfuscation Strategies
 
@@ -445,7 +526,7 @@ Model auto-loaded at runtime with path resolution.
 
 For persistent issues, use verbose mode and check logs  
 
-If denulling fails on specific shellcode, consider adding targeted strategies to the registry.
+If bad-char elimination fails on specific shellcode, consider adding targeted strategies to the registry.
 
 ## License
 

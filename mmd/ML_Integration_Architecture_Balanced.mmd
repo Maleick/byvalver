@@ -1,0 +1,63 @@
+graph TB
+    subgraph "ML Initialization"
+        A[ML Strategist Init] --> B[Load Model]
+        B --> C[Model Path]
+        C --> D[Neural Network Architecture]
+        D --> E[Input: 128 features]
+        D --> F[Hidden1: 64 neurons]
+        D --> G[Hidden2: 32 neurons]
+        D --> H[Output: Strategy scores]
+    end
+    
+    subgraph "Feature Extraction 128"
+        I[Instruction Input cs_insn] --> J[Instruction Features 20]
+        I --> K[Bad Char Features 10]
+        I --> L[Operand Features 40]
+        I --> M[Context Features 30]
+        I --> N[Encoding Features 28]
+        
+        J --> O[Mnemonic, Size, Opcodes]
+        K --> P[has_bad_chars, count, types]
+        L --> Q[Operand types, registers, values]
+        M --> R[Prev/Next insn, patterns]
+        N --> S[ModR/M, SIB, Disp, Imm bytes]
+        
+        O --> T[Extract Features]
+        P --> T
+        Q --> T
+        R --> T
+        S --> T
+        T --> U[Feature Vector]
+    end
+    
+    subgraph "Strategy Recommendation"
+        U --> V[Get Recommendation]
+        V --> W[Forward Pass]
+        W --> X[Compute Scores]
+        X --> Y[ML Prediction Result]
+    end
+    
+    subgraph "Strategy Re-prioritization"
+        Y --> Z[Re-prioritize Strategies]
+        AA[Current Strategies] --> Z
+        Z --> AB[New Priority Order]
+    end
+    
+    subgraph "Feedback Loop"
+        AB --> AC[Apply Strategy]
+        AC --> AD{Success?}
+        AD -->|Yes| AE[Positive Feedback 92.57%]
+        AD -->|No| AF[Negative Feedback 7.43%]
+        AE --> AG[Provide Feedback]
+        AF --> AG
+        AG --> AH[Calculate Error]
+        AH --> AI[Backpropagation]
+        AI --> AJ[Update Weights]
+    end
+    
+    subgraph "Metrics Tracking"
+        AK[ML Metrics Tracker] --> AL[Total Instructions: 20,760]
+        AK --> AM[Inst/sec: 19.5]
+        AK --> AN[Bad Chars Elim: 89.77%]
+        AK --> AO[Success Rate: 92.57%]
+    end

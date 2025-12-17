@@ -1,0 +1,38 @@
+flowchart TD
+    subgraph "Input & Setup"
+        A[Parse CLI Args] --> B{Input Directory?}
+        B -->|No| C[Error]
+        B -->|Yes| D[Set Batch Mode]
+        D --> E[Init File List]
+        E --> F[Find Files Recursively]
+    end
+    
+    subgraph "Processing Loop"
+        G[More Files?] -->|Yes| H[Get Next File]
+        H --> I[Construct Output Path]
+        I --> J{Output Exists?}
+        J -->|Yes| K[Skip File]
+        J -->|No| L[Read Input File]
+        K --> G
+        L --> M[Init Bad-Char Context]
+        M --> N[Disassemble with Capstone]
+        N --> O[Apply Strategies]
+        O --> P[Fix Jump Offsets]
+        P --> Q[Verify Output]
+        Q --> R{Success?}
+        R -->|Yes| S[Update Stats]
+        R -->|No| T[Update Failed Stats]
+        T --> U{Continue on Error?}
+        U -->|No| V[Stop Batch]
+        U -->|Yes| G
+        S --> G
+        V --> W[End]
+    end
+    
+    subgraph "Stats & Output"
+        X[Calculate Statistics] --> Y[Display Stats]
+        Y --> Z[Write Failed List]
+    end
+    
+    F --> G
+    G -->|No| X

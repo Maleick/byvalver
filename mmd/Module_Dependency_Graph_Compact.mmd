@@ -1,0 +1,7 @@
+graph LR
+    A[CLI] --> B[Core Engine]
+    B --> C[Strategy Registry 122+]
+    C --> D[MOV, Arithmetic, Memory, Jumps, etc.]
+    B --> E[ML Module]
+    B --> F[Capstone Disassembler]
+    F --> G[Utils/Hash/Output]

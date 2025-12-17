@@ -1,0 +1,43 @@
+graph LR
+    subgraph "Entry Point"
+        A[main.c] --> B[byvalver.h Public API]
+        A --> C[lib_api.c]
+    end
+    
+    subgraph "CLI Layer"
+        D[cli.c/h] --> E[Bad-Char Profiles 13]
+    end
+    
+    subgraph "Core Engine"
+        F[core.c/h] --> G[utils.c/h]
+        F --> H[hash_utils.c/h]
+    end
+    
+    subgraph "Disassembly"
+        I[Capstone Lib] --> F
+    end
+    
+    subgraph "Strategy System"
+        J[Strategy Interface] --> K[Registry 122+ Strategies]
+        K --> L[MOV Strategies]
+        K --> M[Arithmetic Strategies]
+        K --> N[Memory Strategies]
+        K --> O[Jump Strategies]
+        K --> P[General Strategies]
+        K --> Q[PEB Strategies]
+        K --> R[PEB API Hashing]
+        K --> S[Call-Pop Strategies]
+        K --> T[Stack String Construction]
+        K --> U[LEA Strategies]
+        K --> V[XOR Strategies]
+        K --> W[Advanced Strategies]
+    end
+    
+    subgraph "Integration"
+        B --> D
+        B --> F
+        D --> F
+        J --> F
+        I --> F
+        G --> F
+    end

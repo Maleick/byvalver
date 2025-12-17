@@ -1,0 +1,7 @@
+flowchart TD
+    A[Init: Config, ML, Bad-Char] --> B[Input: Read, Batch]
+    B --> C[Disassemble: Capstone]
+    C --> D[Process: Obfuscate-Denullify]
+    D --> E[Jump Fixup]
+    E --> F[Post-Process: Verify, XOR, PIC]
+    F --> G[Output]

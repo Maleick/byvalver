@@ -1,0 +1,64 @@
+flowchart LR
+    subgraph "Input Stage"
+        A[Input Shellcode File] --> B[Read Data]
+        B --> C[Input Buffer]
+    end
+    
+    subgraph "Config Stage"
+        D[CLI Args] --> E[Configuration]
+        E --> F[Bad-Char Config]
+        F --> G[Profile Data]
+    end
+    
+    subgraph "Disassembly Stage"
+        C --> H[Capstone Init]
+        E --> H
+        H --> I[Disassemble Loop]
+        I --> J[cs_insn Structures]
+        J --> K[Instruction List]
+    end
+    
+    subgraph "Analysis Stage"
+        K --> L[Iterate Instructions]
+        L --> M[Check Bad Characters]
+        M --> N{Has Bad Chars?}
+        N -->|Yes| O[Mark Transform]
+        N -->|No| P[Copy Original]
+    end
+    
+    subgraph "Strategy Selection"
+        O --> Q[Get Applicable Strategies]
+        Q --> R[ML Enabled?]
+        R -->|Yes| S[Extract Features]
+        S --> T[Neural Network]
+        T --> U[ML Scores]
+        U --> V[Reorder by Scores]
+        R -->|No| W[Sort by Priority]
+        V --> X[Ordered List]
+        W --> X
+    end
+    
+    subgraph "Transformation"
+        X --> Y[Select Strategy]
+        Y --> Z[can_handle Check]
+        Z --> AA[Calculate Size]
+        AA --> AB[Generate Code]
+        AB --> AC[Verify No Bad Chars]
+        AC --> AD{Success?}
+        AD -->|No| AE[Try Next Strategy]
+        AD -->|Yes| AF[Append to Output]
+        AE --> Y
+    end
+    
+    subgraph "Post-Processing"
+        AF --> AG[Jump Fixup]
+        AG --> AH[Verify Final]
+        AH --> AI{XOR Encode?}
+        AI -->|Yes| AJ[XOR Encode]
+        AI -->|No| AK{Generate PIC?}
+        AK -->|Yes| AL[PIC Transform]
+        AK -->|No| AM{Output Format?}
+        AJ --> AM
+        AL --> AM
+        AM --> AN[Raw/C/Python/Hex]
+    end

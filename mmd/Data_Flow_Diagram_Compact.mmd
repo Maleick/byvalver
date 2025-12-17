@@ -1,0 +1,9 @@
+flowchart LR
+    A[Input] --> B[Disassemble Capstone]
+    B --> C[Analyze Bad-Char Check]
+    C --> D[Strategy Selection ML/Manual]
+    D --> E[Transform]
+    E --> F[Buffer Construction]
+    F --> G[Jump Fixup]
+    G --> H[Post-Process XOR/PIC]
+    H --> I[Output]

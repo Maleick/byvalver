@@ -1,0 +1,30 @@
+graph TB
+    subgraph "Input & Config"
+        A[CLI Input] --> B[Direct or Profile]
+        B --> C[Parse Profile/Config]
+        C --> D[bad_char_config_t]
+    end
+    
+    subgraph "Bad Char Context"
+        D --> E[Bitmap Lookup 256-byte]
+        D --> F[List & Count]
+        E --> G[Global Context]
+    end
+    
+    subgraph "Detection & Transform"
+        H[Check Instruction] --> I[Iterate Bytes]
+        I --> J[Bitmap Lookup]
+        J --> K{Bad Char Found?}
+        K -->|Yes| L[Mark for Transform]
+        K -->|No| H
+        L --> M[Get Strategies]
+        M --> N[Filter & Sort]
+        N --> O[Apply Transform]
+        O --> P[Verify Output]
+    end
+    
+    subgraph "Profiles"
+        Q[null-only, http-newline, url-safe, sql-injection, json-string, alphanumeric-only]
+    end
+    
+    Q --> C

@@ -1,0 +1,11 @@
+flowchart TD
+    A[Input] --> B[Directory Traversal]
+    B --> C[File List]
+    C --> D[For Each File]
+    D --> E[Construct Output Path]
+    E --> F[Process: Disassemble-Transform-Verify]
+    F --> G[Update Stats]
+    G --> H{More Files?}
+    H -->|Yes| D
+    H -->|No| I[Report Statistics]
+    I --> J[End]

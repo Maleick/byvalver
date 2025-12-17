@@ -1,0 +1,88 @@
+flowchart TD
+    subgraph "Initialization Phase"
+        A[Parse CLI Args] --> B[Load Configuration]
+        B --> C[Init Bad-Char Context]
+        C --> D[Init Strategies 122+]
+        D --> E{ML Enabled?}
+        E -->|Yes| F[Load ML Model]
+        E -->|No| G[Read Input File]
+        F --> G
+    end
+    
+    subgraph "Input Processing"
+        G --> H{Batch Mode?}
+        H -->|Yes| I[Find Files Recursively]
+        H -->|No| J[Process Single File]
+        I --> J
+    end
+    
+    subgraph "Disassembly Phase"
+        J --> K[Init Capstone]
+        K --> L[Disassemble Shellcode]
+        L --> M[Build Instruction List]
+    end
+    
+    subgraph "Processing Mode Selection"
+        M --> N{Mode?}
+        N -->|Biphasic| O[Biphasic Process]
+        N -->|Denull Only| P[Denullify Only]
+        N -->|Adaptive| Q[Adaptive Process]
+    end
+    
+    subgraph "Pass 1: Obfuscation"
+        O --> R[Iterate Instructions]
+        R --> S[Find Obfuscation Strategy]
+        S --> T[Apply Obfuscation]
+        T --> U[Build Obfuscated Buffer]
+    end
+    
+    subgraph "Pass 2: Denullification"
+        U --> V[Iterate Instructions]
+        P --> V
+        Q --> V
+        V --> W{Has Bad Chars?}
+        W -->|No| X[Next Instruction]
+        W -->|Yes| Y[Get Applicable Strategies]
+        Y --> Z{ML Enabled?}
+        Z -->|Yes| AA[ML Re-prioritization]
+        Z -->|No| AB[Sort by Priority]
+        AA --> AB
+        AB --> AC[Try Strategy]
+        AC --> AD{Success?}
+        AD -->|Yes| AE[Apply Strategy]
+        AD -->|No| AF[Try Next Strategy]
+        AF --> AC
+        AE --> AG[ML Feedback]
+        AE --> AH[Next Instruction]
+        X --> AH
+        AH --> W
+        AH -->|No More| AI[Calc New Offsets]
+    end
+    
+    subgraph "Jump Fixup Phase"
+        AI --> AJ[Fix Relative Jumps]
+        AJ --> AK[Fix CALL Instructions]
+    end
+    
+    subgraph "Post-Processing"
+        AK --> AL{Verify?}
+        AL -->|Yes| AM[Check for Bad Chars]
+        AM --> AN{Bad Chars Found?}
+        AN -->|Yes| AO[Error]
+        AN -->|No| AP{XOR Encode?}
+        AL -->|No| AP
+        AP -->|Yes| AQ[XOR Encode + Decoder]
+        AP -->|No| AR{Generate PIC?}
+        AR -->|Yes| AS[PIC Transform]
+        AR -->|No| AT[Format Output]
+        AQ --> AT
+        AS --> AT
+    end
+    
+    subgraph "Output Phase"
+        AT --> AU[Write Output]
+        AU --> AV{More Files?}
+        AV -->|Yes| I
+        AV -->|No| AW[Generate Stats]
+        AW --> AX[End]
+    end

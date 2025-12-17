@@ -1,0 +1,10 @@
+graph LR
+    A[Bad-Char Input] --> B[Parse & Config]
+    B --> C[Bitmap O1 Lookup]
+    C --> D[Instruction Check]
+    D --> E[Transform]
+    E --> F[Verify Output]
+    F --> G[Success]
+    
+    H[Profiles] -.-> B
+    H -.-> I[null-only, http-newline, url-safe, etc.]

@@ -223,15 +223,33 @@ byvalver employs a modular strategy-pattern design:
 
 ---
 
-<div align="center">
-  <img src="./images/bv1.png" alt="Main Framework" width="800">
-</div>
+![Overall Architecture Diagram](./images/Overall_Architecture_Diagram.png)
 
 ---
 
-<div align="center">
-  <img src="./images/bv5.png" alt="ML Integration" width="800">
-</div>
+![Batch Processing Flow](./images/Batch_Processing_Flow_Compact.png)
+
+---
+
+![Data Flow Diagram](./images/Data_Flow_Diagram_Balanced.png)
+
+---
+
+![ML Integration Architecture](./images/ML_Integration_Architecture_Balanced.png)
+
+---
+
+![Module Dependency Graph](./images/Module_Dependency_Graph_Compact.png)
+
+---
+
+![Strategy Categories Taxonomy](./images/Strategy_Categories_Taxonomy_Compact.png)
+
+---
+
+![Strategy System Architecture](./images/Strategy_System_Architecture_Compact.png)
+
+---
 
 ---
 

@@ -1,0 +1,123 @@
+graph TB
+    subgraph "Strategy Registry System"
+        A[Strategy Registry strategy_registry.c] --> B[MAX_STRATEGIES: 200]
+    end
+    
+    subgraph "Strategy Interface"
+        C[strategy_t Structure] --> D[name: char64]
+        C --> E[can_handle: function ptr]
+        C --> F[get_size: function ptr]
+        C --> G[generate: function ptr]
+        C --> H[priority: int 150-45]
+    end
+    
+    subgraph "Registration & Management"
+        I[register_strategy] --> J[Add to global array]
+        K[init_strategies] --> L[Initialize all 122+ strategies]
+        M[get_strategies_for_instruction] --> N[Filter by can_handle]
+    end
+    
+    subgraph "Denullification Strategies 122+"
+        subgraph "High Priority 150-100"
+            O[Conditional Jump Offset - 150]
+            P[Indirect CALL/JMP - 100]
+            Q[Advanced Transformations - 95+]
+        end
+        
+        subgraph "Windows-Specific 97-85"
+            R[Multi-Stage PEB Traversal - 97]
+            S[PEB API Resolution - 97]
+            T[Advanced Hash API Resolution - 96]
+            U[SLDT Replacement - 95]
+            V[Windows Syscall - 95]
+            W[Stack Structure Construction - 94]
+            X[REP STOSB Buffer Init - 92]
+            Y[SALC Conditional Flag - 91]
+            Z[SALC Zero Register - 91]
+            AA[Multi-byte NOP - 90]
+            BB[Conditional Jump Displacement - 88]
+            CC[PUSHW Word Immediate - 87]
+            DD[JCXZ Loop Termination - 86]
+            EE[XCHG Preservation - 86]
+            FF[CALL/POP Immediate Loading - 85]
+            GG[Stack String Construction - 85]
+            HH[Short Conditional Jump - 85]
+            II[RETF Immediate - 85]
+            JJ[Relative Jump - 85]
+            KK[Large Immediate - 85]
+        end
+        
+        subgraph "Core Strategies 84-70"
+            LL[PUSH Byte Immediate Stack - 82]
+            MM[CLTD Zero Extension - 82]
+            NN[LEA Displacement Optimization - 82]
+            OO[Memory Displacement - 82-85]
+            PP[CMP Strategies - 85-88]
+            QQ[LEA Displacement - 80]
+            RR[LEA Arithmetic Substitution - 80]
+            SS[LEA Complex Addressing - 80]
+            TT[RIP-Relative Addressing - 80]
+            UU[BT Bit Test - 80]
+            VV[Socket Address - 77-80]
+            WW[Arithmetic Constant Construction - 79]
+            XX[Shift Value Construction - 78]
+            YY[RET Immediate - 78]
+            ZZ[Register Allocation - 78]
+            AAA[LEA Arithmetic Calculation - 78]
+            BBB[Incremental Byte Register Syscall - 78]
+            CCC[Syscall Number Encoding - 77-78]
+            DDD[Word INC Chain - 77]
+            EEE[PUSH-POP Immediate - 77]
+            FFF[Immediate Split - 77]
+            GGG[Unicode String - 74-78]
+            HHH[ARPL ModR/M - 75]
+            III[MOVZX/MOVSX - 75]
+            JJJ[SCASB/CMPSB - 75]
+            KKK[INC/DEC Chain - 75]
+            LLL[LOOP Family - 75-80]
+            MMM[PUSH Immediate - 75]
+            NNN[Small Immediate - 75]
+            OOO[Arithmetic Const Generation - 75]
+            PPP[Linux socketcall - 72-75]
+            QQQ[IMUL Signed Multiply - 71-72]
+            RRR[SETcc Conditional Set - 70-75]
+            SSS[Register Swapping Immediate - 70]
+            TTT[ROR/ROL Rotation - 70]
+            UUU[BOUND ModR/M - 70]
+            VVV[Arithmetic Decomposition - 70]
+        end
+        
+        subgraph "Standard Strategies 69-60"
+            WWW[ADC Add with Carry - 69-70]
+            XXX[SBB Subtract with Borrow - 69-70]
+            YYY[Linux String Push - 68-70]
+            ZZZ[SIB Addressing - 65]
+            AAAA[SALC + REP STOSB - 65]
+            BBBB[Register Chaining - 60-65]
+            CCCC[x87 FPU - 60]
+            DDDD[SLDT - 60]
+            EEEE[XCHG - 60]
+        end
+        
+        subgraph "Conservative Strategies 55-45"
+            FFFF[CMP Memory Displacement - 55]
+            GGGG[String Instruction - 45]
+        end
+    end
+    
+    subgraph "Obfuscation Strategies 25+"
+        HHHH[Control Flow Dispatcher]
+        IIII[Register Shuffle]
+        JJJJ[Runtime Self-Modification]
+        KKKK[Overlapping Instructions]
+    end
+    
+    C --> A
+    D --> C
+    E --> C
+    F --> C
+    G --> C
+    H --> C
+    I --> A
+    K --> A
+    M --> A

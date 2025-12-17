@@ -1,0 +1,63 @@
+graph TB
+    subgraph "User Interface Layer"
+        A[CLI Interface cli.c/h] --> B[Configuration]
+        A --> C[Bad-Char Profiles]
+    end
+    
+    subgraph "Core Processing Engine"
+        D[Main Entry Point main.c] --> E[Core Processing core.c/h]
+        E --> F[Bad-Char Context]
+        E --> G[Buffer Management]
+    end
+    
+    subgraph "Disassembly Layer"
+        H[Capstone Engine] --> I[Instruction Analysis]
+    end
+    
+    subgraph "Processing Modes"
+        J[Biphasic Mode] --> K[Obfuscation Pass]
+        J --> L[Denullification Pass]
+        J --> M[Adaptive Processing]
+    end
+    
+    subgraph "Strategy System"
+        N[Strategy Registry] --> O[Strategy Interface]
+        O --> P[Denull Strategies 122+]
+        O --> Q[Obfuscation Strategies 25+]
+    end
+    
+    subgraph "ML Enhancement Layer"
+        R[ML Strategist] --> S[Feature Extraction 128]
+        R --> T[Neural Network]
+        R --> U[Metrics Tracker]
+    end
+    
+    subgraph "Batch Processing"
+        V[Batch Processor] --> W[Directory Traversal]
+        V --> X[Statistics Tracking]
+    end
+    
+    subgraph "Output Generation"
+        Y[XOR Encoder] --> Z[PIC Generator]
+        Y --> AA[Format Output]
+        Y --> AB[Verification]
+    end
+    
+    subgraph "Utility Layer"
+        AC[Utilities] --> AD[Hash Functions]
+        AE[Public API] --> AC
+    end
+    
+    B --> D
+    C --> D
+    D --> E
+    E --> H
+    H --> I
+    E --> J
+    E --> N
+    E --> R
+    D --> V
+    E --> Y
+    E --> AC
+    AC --> AD
+    D --> AE

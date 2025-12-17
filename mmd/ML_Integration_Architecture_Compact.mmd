@@ -1,0 +1,8 @@
+graph LR
+    A[Feature Extraction 128] --> B[Neural Network 3-layer]
+    B --> C[Strategy Ranking]
+    C --> D[Apply Transform]
+    D --> E{Success?}
+    E -->|Yes| F[ML Feedback]
+    E -->|No| F
+    F --> G[Model Update]

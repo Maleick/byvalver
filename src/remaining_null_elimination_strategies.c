@@ -17,7 +17,7 @@ int can_handle_lea_disp_enhanced(cs_insn *insn) {
     int64_t disp = insn->detail->x86.operands[1].mem.disp;
     if (disp != 0) {
         uint32_t disp32 = (uint32_t)disp;
-        if (!is_null_free(disp32)) {
+        if (!is_bad_char_free(disp32)) {
             return 1;
         }
     }
@@ -157,7 +157,7 @@ int can_handle_mov_mem_disp_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].mem.index == X86_REG_INVALID) {
 
         uint32_t disp = (uint32_t)insn->detail->x86.operands[1].mem.disp;
-        if (!is_null_free(disp)) {
+        if (!is_bad_char_free(disp)) {
             return 1;
         }
     }
@@ -213,7 +213,7 @@ int can_handle_mov_imm_enhanced(cs_insn *insn) {
 
     // Check if immediate contains null bytes
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_char_free(imm)) {
         return 1;
     }
 
@@ -274,7 +274,7 @@ int can_handle_arithmetic_imm_enhanced(cs_insn *insn) {
 
     // Check if immediate contains null bytes
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_char_free(imm)) {
         return 1;
     }
 

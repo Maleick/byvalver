@@ -100,6 +100,9 @@ static char* format_shellcode(const uint8_t *data, size_t size, const char *form
 static int process_single_file(const char *input_file, const char *output_file,
                                byvalver_config_t *config, size_t *input_size_out,
                                size_t *output_size_out) {
+    // Initialize bad character context with config
+    init_bad_char_context(config->bad_chars);
+
     // Open input file
     FILE *file = fopen(input_file, "rb");
     if (!file) {

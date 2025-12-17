@@ -44,7 +44,7 @@ int can_handle_relative_jump_displacement_null(cs_insn *insn) {
     uint32_t imm32 = (uint32_t)imm;
     
     // Check if the immediate contains null bytes
-    if (is_null_free(imm32)) {
+    if (is_bad_char_free(imm32)) {
         return 0; // No null bytes, no need to handle
     }
     

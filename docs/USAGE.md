@@ -4,6 +4,8 @@
 
 BYVALVER is an advanced command-line tool for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies.
 
+**NEW in v3.0:** BYVALVER now supports generic bad-character elimination via the `--bad-chars` option, allowing users to specify arbitrary bytes to eliminate beyond just null bytes. This feature is functional but newly implemented - the 122+ transformation strategies were originally designed and optimized specifically for null-byte elimination.
+
 ## What's New in v2.1.1
 
 ### Automatic Output Directory Creation
@@ -299,6 +301,74 @@ Positive Feedback: 4
 - **Impact**: Strategies like `generic_mem_null_disp`, `mov_mem_disp_null`, and others failed due to incorrect MOD/RM byte construction
 - **Fix**: Replaced all occurrences with proper `get_reg_index()` function
 - **Files Affected**: `src/jump_strategies.c`, `src/memory_displacement_strategies.c`, `src/cmp_strategies.c`, `src/syscall_number_strategies.c`
+
+## What's New in v3.0
+
+### Generic Bad-Character Elimination Framework
+
+**New in v3.0**: BYVALVER now includes a generic bad-character elimination framework that extends beyond null-byte removal.
+
+#### New Command-Line Option
+
+- `--bad-chars "XX,YY,ZZ"` - Comma-separated hex bytes to eliminate (e.g., `--bad-chars "00,0a,0d"`)
+
+#### Auto-Detection
+
+When `--bad-chars` is not specified, the tool defaults to null-byte-only elimination (identical to v2.x behavior).
+
+```bash
+# Default mode (null-byte elimination only)
+byvalver input.bin output.bin
+
+# Generic bad-character mode (experimental)
+byvalver --bad-chars "00,0a,0d" input.bin output.bin
+```
+
+#### Usage Examples
+
+Eliminate null bytes only (default, well-tested):
+```bash
+byvalver samples/calc.bin output.bin
+```
+
+Eliminate newlines for network protocols (experimental):
+```bash
+byvalver --bad-chars "00,0a,0d" samples/calc.bin output.bin
+```
+
+Eliminate multiple bad characters (experimental):
+```bash
+byvalver --bad-chars "00,20,09,0a,0d" samples/calc.bin output.bin
+```
+
+> [!IMPORTANT]
+> **Null-byte elimination** (default mode or `--bad-chars "00"`): Well-tested with 100% success rate on test suite
+>
+> **Generic bad-character elimination** (`--bad-chars` with non-null values): Newly implemented in v3.0. The framework is functional and strategies apply generically, but effectiveness for non-null characters has not been comprehensively validated. Strategies were originally designed, tested, and optimized specifically for null-byte elimination.
+
+#### Implementation Details
+
+**Architecture:**
+- O(1) bitmap lookup for bad character checking
+- Global context pattern for configuration access
+- Backward compatible: no `--bad-chars` = identical to v2.x behavior
+
+**Python Verification:**
+The `verify_denulled.py` script now supports generic bad-character verification:
+```bash
+python3 verify_denulled.py output.bin --bad-chars "00,0a,0d"
+```
+
+#### Current Status
+
+**Functional:** The framework is fully implemented and operational. All 122+ strategies have been updated to use the generic bad-character API.
+
+**Experimental:** The strategies were originally designed, tested, and optimized specifically for null-byte elimination. While they now support generic bad characters at the implementation level, they have not been:
+- Extensively tested with non-null bad character sets
+- Optimized for specific bad character combinations
+- Validated against diverse real-world scenarios with arbitrary bad characters
+
+**Recommended Usage:** For production use, continue using default mode (null-byte elimination). Use `--bad-chars` for experimental purposes and report any issues encountered.
 
 ## What's New in v2.5
 

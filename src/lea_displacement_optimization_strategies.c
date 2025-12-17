@@ -177,7 +177,7 @@ void generate_lea_displacement_nulls(struct buffer *b, cs_insn *insn) {
 
     // Add displacement using null-free construction
     if (disp != 0) {
-        if (is_null_free((uint32_t)disp) && (int32_t)disp >= -128 && (int32_t)disp <= 127) {
+        if (is_bad_char_free((uint32_t)disp) && (int32_t)disp >= -128 && (int32_t)disp <= 127) {
             // If displacement is null-free and fits in signed 8-bit, add it directly with ADD reg, imm8
             uint8_t add_dst_disp[] = {0x83, 0xC0, (uint8_t)disp};
             add_dst_disp[1] = 0xC0 + (get_reg_index(dst_reg) << 3) + get_reg_index(dst_reg);

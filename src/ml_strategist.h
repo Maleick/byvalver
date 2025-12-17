@@ -25,12 +25,16 @@ extern "C" {
 
 /**
  * @brief Structure to represent instruction features for ML model
+ * Updated in v3.0 for generic bad character awareness
  */
 typedef struct {
     double features[MAX_INSTRUCTION_FEATURES];  // Feature vector
     int feature_count;                          // Number of active features
     int instruction_type;                       // Type of instruction (MOV, ADD, etc.)
-    int has_nulls;                             // Whether instruction has null bytes
+    int has_nulls;                             // DEPRECATED: Use has_bad_chars instead
+    int has_bad_chars;                         // Whether instruction has bad characters (v3.0)
+    int bad_char_count;                        // Number of bad characters in instruction (v3.0)
+    uint8_t bad_char_types[256];               // Bitmap of which bad chars present (v3.0)
     int operand_types[4];                      // Types of operands
     int immediate_value;                       // Immediate value if present
     int register_indices[4];                   // Register indices if present

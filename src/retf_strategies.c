@@ -114,7 +114,7 @@ static void generate_retf_imm_null(struct buffer *b, cs_insn *insn) {
          * Just use multiple ADD ESP instructions if needed
          */
 
-        if (is_null_free((uint32_t)pop_bytes)) {
+        if (is_bad_char_free((uint32_t)pop_bytes)) {
             /* ADD ESP, imm32 - if immediate is already null-free */
             buffer_write_byte(b, 0x81);  /* ADD r/m32, imm32 */
             buffer_write_byte(b, 0xC4);  /* ModR/M for ESP */

@@ -4,6 +4,8 @@
 
 BYVALVER implements a comprehensive suite of denullification strategies to eliminate null bytes from shellcode while preserving functional equivalence. These strategies form the core of the second pass in the biphasic processing architecture, following obfuscation in Pass 1 if enabled.
 
+**Note (v3.0):** All strategies have been updated to support generic bad-character elimination via the `--bad-chars` option. However, the strategies were originally designed, tested, and optimized specifically for null-byte elimination. While they now apply to generic bad characters at the implementation level, their effectiveness for non-null byte scenarios has not been comprehensively validated.
+
 ## Strategy Registry System
 
 The denullification strategies are organized using a strategy pattern with the following interface:
@@ -19,6 +21,8 @@ typedef struct {
 ```
 
 Strategies are registered in priority order, with higher priority strategies taking precedence when multiple strategies can handle the same instruction.
+
+**Important (v3.0):** In v3.0, all strategies use the generic bad-character checking API (`is_bad_char_free()`, `is_bad_char_free_byte()`, `is_bad_char_free_buffer()`) instead of null-specific functions. This allows strategies to work with any set of bad characters specified via `--bad-chars`. However, strategy logic and transformations were designed with null-byte patterns in mind and may require optimization for other bad character sets.
 
 ## Denullification Strategy Catalog
 

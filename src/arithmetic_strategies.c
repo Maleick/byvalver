@@ -68,7 +68,7 @@ int can_handle_arithmetic_neg(cs_insn *insn) {
     uint32_t negated_val;
     if (find_neg_equivalent(target, &negated_val)) {
         // Additional check: make sure negated value itself is null-free
-        return is_null_free(negated_val);
+        return is_bad_char_free(negated_val);
     }
     return 0;
 }
@@ -130,7 +130,7 @@ int can_handle_arithmetic_xor(cs_insn *insn) {
         // find_xor_key finds key such that both key and (target^key) are null-free
         // So we'll generate: MOV reg, (target^key); XOR reg, key
         uint32_t encoded_val = target ^ xor_key;
-        return is_null_free(xor_key) && is_null_free(encoded_val);
+        return is_bad_char_free(xor_key) && is_bad_char_free(encoded_val);
     }
     return 0;
 }
@@ -195,7 +195,7 @@ void generate_arithmetic_xor(struct buffer *b, cs_insn *insn) {
     }
 
     // Then XOR with xor_key
-    if (is_null_free(xor_key)) {
+    if (is_bad_char_free(xor_key)) {
         // Use immediate XOR
         if (xor_key <= 0xFF) {
             // Try to use 8-bit immediate if possible

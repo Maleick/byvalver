@@ -39,7 +39,7 @@ int can_handle_peb_api_hashing(cs_insn *insn) {
         uint32_t target_addr = (uint32_t)op->imm;
         
         // Check if address might contain nulls (typical Windows API addresses)
-        if (!is_null_free(target_addr)) {
+        if (!is_bad_char_free(target_addr)) {
             return 1;
         }
     }

@@ -42,7 +42,7 @@ void generate_mov_mem_imm_enhanced(struct buffer *b, cs_insn *insn) {
         uint32_t addr = (uint32_t)dst->mem.disp;
         
         // MOV EAX, addr (for address calculation)
-        if (is_null_free(addr)) {
+        if (is_bad_char_free(addr)) {
             // Direct addressing is safe
             uint8_t mov_addr[] = {0xB8, 0, 0, 0, 0};
             memcpy(mov_addr + 1, &addr, 4);
@@ -114,7 +114,7 @@ void generate_mov_mem_imm_enhanced(struct buffer *b, cs_insn *insn) {
         else {
             uint32_t disp = (uint32_t)dst->mem.disp;
             
-            if ((int32_t)disp >= -128 && (int32_t)disp <= 127 && is_null_free_byte((uint8_t)disp)) {
+            if ((int32_t)disp >= -128 && (int32_t)disp <= 127 && is_bad_char_free_byte((uint8_t)disp)) {
                 // Use disp8 format
                 uint8_t modrm = 0x40 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(base_reg);
                 if (modrm == 0x40) {
@@ -126,7 +126,7 @@ void generate_mov_mem_imm_enhanced(struct buffer *b, cs_insn *insn) {
                     uint8_t code[] = {0x89, modrm, (uint8_t)disp};
                     buffer_append(b, code, 3);
                 }
-            } else if (is_null_free(disp)) {
+            } else if (is_bad_char_free(disp)) {
                 // Use disp32 format
                 uint8_t modrm = 0x80 + (get_reg_index(X86_REG_EAX) << 3) + get_reg_index(base_reg);
                 uint8_t code[] = {0x89, modrm, 0, 0, 0, 0};
@@ -226,7 +226,7 @@ void generate_mov_mem_imm_enhanced(struct buffer *b, cs_insn *insn) {
         // Add displacement if exists
         if (dst->mem.disp != 0) {
             uint32_t disp = (uint32_t)dst->mem.disp;
-            if (is_null_free(disp)) {
+            if (is_bad_char_free(disp)) {
                 // ADD ECX, disp
                 uint8_t add_ecx_disp[] = {0x81, 0xC1, 0, 0, 0, 0};
                 memcpy(add_ecx_disp + 2, &disp, 4);
@@ -273,7 +273,7 @@ int can_handle_generic_mem_null_disp_enhanced(cs_insn *insn) {
         if (insn->detail->x86.operands[i].type == X86_OP_MEM) {
             if (insn->detail->x86.operands[i].mem.disp != 0) {
                 uint32_t disp = (uint32_t)insn->detail->x86.operands[i].mem.disp;
-                if (!is_null_free(disp)) {
+                if (!is_bad_char_free(disp)) {
                     return 1; // Has null in displacement
                 }
             }
@@ -295,7 +295,7 @@ void generate_generic_mem_null_disp_enhanced(struct buffer *b, cs_insn *insn) {
         if (insn->detail->x86.operands[i].type == X86_OP_MEM) {
             if (insn->detail->x86.operands[i].mem.disp != 0) {
                 uint32_t disp = (uint32_t)insn->detail->x86.operands[i].mem.disp;
-                if (!is_null_free(disp)) {
+                if (!is_bad_char_free(disp)) {
                     mem_operand_idx = i;
                     break;
                 }
@@ -414,7 +414,7 @@ void generate_generic_mem_null_disp_enhanced(struct buffer *b, cs_insn *insn) {
                 }
             } else if (insn->detail->x86.operands[1].type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-                if (is_null_free(imm)) {
+                if (is_bad_char_free(imm)) {
                     // MOV [addr_reg], imm32
                     uint8_t modrm = 0x80 + get_reg_index(addr_reg);
                     if (modrm == 0x80) {
@@ -480,7 +480,7 @@ void generate_generic_mem_null_disp_enhanced(struct buffer *b, cs_insn *insn) {
                 }
             } else if (insn->detail->x86.operands[1].type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-                if (is_null_free(imm)) {
+                if (is_bad_char_free(imm)) {
                     // ADD [addr_reg], imm32
                     uint8_t modrm = 0x80 + get_reg_index(addr_reg);
                     if (modrm == 0x80) {
@@ -528,7 +528,7 @@ void generate_generic_mem_null_disp_enhanced(struct buffer *b, cs_insn *insn) {
                 }
             } else if (insn->detail->x86.operands[1].type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-                if (is_null_free(imm)) {
+                if (is_bad_char_free(imm)) {
                     // CMP [addr_reg], imm32
                     uint8_t modrm = 0x80 + get_reg_index(addr_reg);
                     if (modrm == 0x80) {

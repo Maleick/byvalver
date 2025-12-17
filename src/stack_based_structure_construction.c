@@ -38,7 +38,7 @@ int can_handle_stack_structure_construction(cs_insn *insn) {
         
         if (op->type == X86_OP_IMM) {
             // Check if immediate value contains nulls
-            if (!is_null_free((uint32_t)op->imm)) {
+            if (!is_bad_char_free((uint32_t)op->imm)) {
                 return 1;
             }
         }
@@ -53,7 +53,7 @@ int can_handle_stack_structure_construction(cs_insn *insn) {
         if (dst_op->type == X86_OP_MEM && src_op->type == X86_OP_IMM) {
             if (dst_op->mem.base == X86_REG_ESP || dst_op->mem.base == X86_REG_RSP) {
                 // This is a stack-based memory write, likely part of structure construction
-                if (!is_null_free((uint32_t)src_op->imm)) {
+                if (!is_bad_char_free((uint32_t)src_op->imm)) {
                     return 1;
                 }
             }
@@ -61,7 +61,7 @@ int can_handle_stack_structure_construction(cs_insn *insn) {
 
         // Also check for MOV reg, immediate where immediate contains nulls
         if (dst_op->type == X86_OP_REG && src_op->type == X86_OP_IMM) {
-            if (!is_null_free((uint32_t)src_op->imm)) {
+            if (!is_bad_char_free((uint32_t)src_op->imm)) {
                 // This might be part of a sequence to build structure data in registers
                 // before moving to stack
                 return 1;
@@ -77,7 +77,7 @@ int can_handle_stack_structure_construction(cs_insn *insn) {
         if ((dst_op->reg == X86_REG_ESP || dst_op->reg == X86_REG_RSP) && src_op->type == X86_OP_IMM) {
             // Stack pointer adjustment, often for structure allocation
             // Check if immediate contains nulls
-            if (!is_null_free((uint32_t)src_op->imm)) {
+            if (!is_bad_char_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -108,7 +108,7 @@ void generate_stack_structure_construction_null_free(struct buffer *b, cs_insn *
         if (op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)op->imm;
             
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Use null-safe approach: MOV EAX, imm; PUSH EAX
                 generate_mov_eax_imm(b, imm);
                 uint8_t push_eax[] = {0x50 + get_reg_index(X86_REG_EAX)}; // PUSH EAX
@@ -128,7 +128,7 @@ void generate_stack_structure_construction_null_free(struct buffer *b, cs_insn *
             if (dst_op->mem.base == X86_REG_ESP || dst_op->mem.base == X86_REG_RSP) {
                 uint32_t imm = (uint32_t)src_op->imm;
                 
-                if (!is_null_free(imm)) {
+                if (!is_bad_char_free(imm)) {
                     // Use null-safe approach: MOV EAX, imm; MOV [ESP+offset], EAX
                     generate_mov_eax_imm(b, imm);
                     
@@ -140,7 +140,7 @@ void generate_stack_structure_construction_null_free(struct buffer *b, cs_insn *
                     buffer_write_dword(b, dst_op->mem.disp);
                 } else {
                     // Generate normal MOV with displacement, but check if displacement itself has nulls
-                    if (!is_null_free(dst_op->mem.disp)) {
+                    if (!is_bad_char_free(dst_op->mem.disp)) {
                         // If displacement has nulls, use register-based approach
                         // MOV ECX, imm (source value)
                         generate_mov_eax_imm(b, imm); // MOV EAX, imm (value to store)
@@ -185,7 +185,7 @@ void generate_stack_structure_construction_null_free(struct buffer *b, cs_insn *
             // MOV reg, immediate for structure construction in registers
             uint32_t imm = (uint32_t)src_op->imm;
 
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Use null-safe MOV generation
                 uint8_t dst_reg = dst_op->reg;
 
@@ -219,7 +219,7 @@ void generate_stack_structure_construction_null_free(struct buffer *b, cs_insn *
         if ((dst_op->reg == X86_REG_ESP || dst_op->reg == X86_REG_RSP) && src_op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)src_op->imm;
             
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Use null-safe approach: MOV EAX, imm; ADD ESP, EAX (or SUB ESP, EAX)
                 generate_mov_eax_imm(b, imm);
                 
@@ -255,7 +255,7 @@ void generate_stack_structure_construction_null_free(struct buffer *b, cs_insn *
             // For PUSH that wasn't handled above
             {
                 cs_x86_op *op = &insn->detail->x86.operands[0];
-                if (op->type == X86_OP_IMM && !is_null_free((uint32_t)op->imm)) {
+                if (op->type == X86_OP_IMM && !is_bad_char_free((uint32_t)op->imm)) {
                     generate_mov_eax_imm(b, (uint32_t)op->imm);
                     uint8_t push_eax[] = {0x50 + get_reg_index(X86_REG_EAX)}; // PUSH EAX
                     buffer_append(b, push_eax, 1);

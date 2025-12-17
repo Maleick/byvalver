@@ -79,7 +79,7 @@ void generate_lea_arithmetic_add(struct buffer *b, cs_insn *insn) {
     uint32_t value_to_add = (uint32_t)src_op->imm;
 
     // Check if the value to add is null-free - if so, we can use LEA directly
-    if (is_null_free(value_to_add)) {
+    if (is_bad_char_free(value_to_add)) {
         // Use LEA target_reg, [target_reg + value_to_add]
         // This performs: target_reg = target_reg + value_to_add
         uint8_t lea_code[] = {0x8D, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -160,7 +160,7 @@ void generate_lea_multiplication_addition(struct buffer *b, cs_insn *insn) {
     uint32_t value = (uint32_t)src_op->imm;
 
     // Use LEA for addition if the displacement is null-free
-    if (is_null_free(value)) {
+    if (is_bad_char_free(value)) {
         // Use LEA target_reg, [target_reg + value] for ADD-like behavior
         uint8_t lea_code[] = {0x8D, 0x80, 0x00, 0x00, 0x00, 0x00};
         lea_code[1] = lea_code[1] | get_reg_index(target_reg); // ModR/M with disp32

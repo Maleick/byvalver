@@ -24,7 +24,7 @@ int can_handle_lea_complex_displacement(cs_insn *insn) {
                 uint32_t disp32 = (uint32_t)disp;
 
                 // Check if displacement itself contains null bytes
-                if (!is_null_free(disp32)) {
+                if (!is_bad_char_free(disp32)) {
                     // Additional check: does the overall instruction have null bytes?
                     if (has_null_bytes(insn)) {
                         return 1; // Has null bytes in displacement AND in instruction
@@ -177,7 +177,7 @@ int can_handle_lea_displacement_adjusted(cs_insn *insn) {
                 uint32_t disp32 = (uint32_t)disp;
 
                 // Check if displacement itself contains null bytes
-                if (!is_null_free(disp32)) {
+                if (!is_bad_char_free(disp32)) {
                     // Additional check: does the overall instruction have null bytes?
                     if (has_null_bytes(insn)) {
                         return 1; // Has null bytes in displacement AND in instruction

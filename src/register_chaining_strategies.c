@@ -16,7 +16,7 @@ int can_handle_register_chaining_immediate(cs_insn *insn) {
             uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
 
             // Check if the immediate value contains null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Additionally confirm the original instruction has null bytes
                 if (has_null_bytes(insn)) {
                     return 1;
@@ -49,7 +49,7 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
 
     // Method 1: Try NOT encoding (with null-free check)
     uint32_t not_val;
-    if (find_not_equivalent(target_val, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(target_val, &not_val) && is_bad_char_free(not_val)) {
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, not_val);
             uint8_t not_code[] = {0xF7, 0xD0}; // NOT EAX
@@ -80,7 +80,7 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
 
     // Method 2: Try NEG encoding (with null-free check)
     uint32_t negated_val;
-    if (find_neg_equivalent(target_val, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(target_val, &negated_val) && is_bad_char_free(negated_val)) {
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, negated_val);
             uint8_t neg_code[] = {0xF7, 0xD8}; // NEG EAX
@@ -112,7 +112,7 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
     // Method 3: Try ADD/SUB encoding (with null-free check)
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_bad_char_free(val1) && is_bad_char_free(val2)) {
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, val1);
             uint8_t op_code = is_add ? 0x05 : 0x2D; // ADD EAX, imm32 or SUB EAX, imm32
@@ -185,7 +185,7 @@ int can_handle_cross_register_operation(cs_insn *insn) {
 
             uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
             // Check if the immediate value contains null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_char_free(imm)) {
                 // Additionally confirm the original instruction has null bytes
                 if (has_null_bytes(insn)) {
                     return 1;
@@ -217,7 +217,7 @@ void generate_cross_register_operation(struct buffer *b, cs_insn *insn) {
 
     // Method 1: Try NOT encoding (with null-free check)
     uint32_t not_val;
-    if (find_not_equivalent(target_val, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(target_val, &not_val) && is_bad_char_free(not_val)) {
         // MOV target_reg, ~target_val then NOT target_reg
         // MOV using null-safe construction
         if (target_reg == X86_REG_EAX) {
@@ -247,7 +247,7 @@ void generate_cross_register_operation(struct buffer *b, cs_insn *insn) {
 
     // Method 2: Try NEG encoding (with null-free check)
     uint32_t negated_val;
-    if (find_neg_equivalent(target_val, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(target_val, &negated_val) && is_bad_char_free(negated_val)) {
         // MOV target_reg, -target_val then NEG target_reg
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, negated_val);
@@ -277,7 +277,7 @@ void generate_cross_register_operation(struct buffer *b, cs_insn *insn) {
     // Method 3: Try ADD/SUB encoding (with null-free check)
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_bad_char_free(val1) && is_bad_char_free(val2)) {
         if (target_reg == X86_REG_EAX) {
             // Direct approach: MOV EAX, val1 + operation with val2
             generate_mov_eax_imm(b, val1);

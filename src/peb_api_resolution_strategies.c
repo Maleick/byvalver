@@ -126,7 +126,7 @@ void generate_hash_based_resolution(struct buffer *b, cs_insn *insn) {
     cs_x86_op *imm_op = &insn->detail->x86.operands[1];
     uint32_t original_imm = (uint32_t)imm_op->imm;
 
-    if (is_null_free(original_imm)) {
+    if (is_bad_char_free(original_imm)) {
         // If immediate is already null-free, use directly
         buffer_append(b, insn->bytes, insn->size);
         return;

@@ -109,35 +109,42 @@ int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* featu
     
     // Initialize features
     memset(features, 0, sizeof(instruction_features_t));
-    
+
     // Extract instruction type
     features->instruction_type = insn->id;
-    
-    // Check for null bytes
-    features->has_nulls = 0;
-    for (int i = 0; i < insn->size; i++) {
-        if (insn->bytes[i] == 0x00) {
-            features->has_nulls = 1;
-            break;
+
+    // Check for bad characters (v3.0: generic bad character awareness)
+    features->has_bad_chars = !is_bad_char_free_buffer(insn->bytes, insn->size);
+    features->has_nulls = features->has_bad_chars;  // Backward compatibility
+    features->bad_char_count = 0;
+
+    // Extract which specific bad characters are present
+    for (size_t i = 0; i < insn->size; i++) {
+        if (!is_bad_char_free_byte(insn->bytes[i])) {
+            if (features->bad_char_types[insn->bytes[i]] == 0) {
+                features->bad_char_types[insn->bytes[i]] = 1;
+                features->bad_char_count++;
+            }
         }
     }
-    
+
     // Extract operand information
     features->feature_count = 0;
     for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
         features->operand_types[i] = insn->detail->x86.operands[i].type;
-        
+
         if (insn->detail->x86.operands[i].type == X86_OP_REG) {
             features->register_indices[i] = insn->detail->x86.operands[i].reg;
         } else if (insn->detail->x86.operands[i].type == X86_OP_IMM) {
             features->immediate_value = (int)insn->detail->x86.operands[i].imm;
         }
     }
-    
+
     // Add basic features to the feature vector
     features->features[features->feature_count++] = (double)insn->id;
     features->features[features->feature_count++] = (double)insn->size;
-    features->features[features->feature_count++] = (double)features->has_nulls;
+    features->features[features->feature_count++] = (double)features->has_bad_chars;
+    features->features[features->feature_count++] = (double)features->bad_char_count;
     features->features[features->feature_count++] = (double)insn->detail->x86.op_count;
     
     // Add operand type features

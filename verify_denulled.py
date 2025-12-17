@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-BYVALVER Verification Tool - Null Byte Elimination
+BYVALVER Verification Tool - Bad Character Elimination
 verify_denulled.py
 
-This tool verifies that the output file from byvalver has successfully eliminated all null bytes.
+This tool verifies that the output file from byvalver has successfully eliminated all specified bad characters.
+Updated in v3.0 to support generic bad character checking (not just null bytes).
 """
 
 import sys
@@ -12,57 +13,104 @@ import argparse
 from pathlib import Path
 import fnmatch
 
-def analyze_shellcode_for_nulls(shellcode_data):
+def parse_bad_chars(bad_chars_str):
     """
-    Analyze shellcode data to count null bytes and provide detailed information.
-    
+    Parse comma-separated hex string into a set of bad byte values.
+
+    Args:
+        bad_chars_str (str): Comma-separated hex bytes (e.g., "00,0a,0d")
+
+    Returns:
+        set: Set of bad byte values
+    """
+    bad_chars = set()
+    if not bad_chars_str:
+        return {0x00}  # Default: null byte only
+
+    for part in bad_chars_str.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            byte_val = int(part, 16)
+            if 0 <= byte_val <= 255:
+                bad_chars.add(byte_val)
+            else:
+                print(f"[WARNING] Byte value out of range (0-255): {part}")
+        except ValueError:
+            print(f"[WARNING] Invalid hex value: {part}")
+
+    return bad_chars if bad_chars else {0x00}
+
+def analyze_shellcode_for_bad_chars(shellcode_data, bad_chars=None):
+    """
+    Analyze shellcode data to count bad characters and provide detailed information.
+
     Args:
         shellcode_data (bytes): The shellcode data to analyze
-        
+        bad_chars (set): Set of bad byte values (default: {0x00})
+
     Returns:
-        dict: Information about null bytes in the data
+        dict: Information about bad characters in the data
     """
-    null_count = 0
-    null_positions = []
-    null_sequences = []  # Track sequences of consecutive nulls
-    
+    if bad_chars is None:
+        bad_chars = {0x00}
+
+    bad_char_count = 0
+    bad_char_positions = {}  # Map byte value to list of positions
+    bad_char_sequences = []  # Track sequences of consecutive bad chars
+
+    for bad_byte in bad_chars:
+        bad_char_positions[bad_byte] = []
+
     i = 0
     while i < len(shellcode_data):
-        if shellcode_data[i] == 0:
-            null_count += 1
-            null_positions.append(i)
-            
-            # Track consecutive null sequences
+        if shellcode_data[i] in bad_chars:
+            bad_char_count += 1
+            bad_char_positions[shellcode_data[i]].append(i)
+
+            # Track consecutive bad char sequences
             seq_start = i
-            while i < len(shellcode_data) and shellcode_data[i] == 0:
+            seq_bytes = []
+            while i < len(shellcode_data) and shellcode_data[i] in bad_chars:
+                seq_bytes.append(shellcode_data[i])
                 i += 1
             seq_length = i - seq_start
-            null_sequences.append((seq_start, seq_length))
+            bad_char_sequences.append((seq_start, seq_length, bytes(seq_bytes)))
         else:
             i += 1
-    
+
     return {
         'total_bytes': len(shellcode_data),
-        'null_count': null_count,
-        'null_percentage': (null_count / len(shellcode_data)) * 100 if len(shellcode_data) > 0 else 0,
-        'null_positions': null_positions,
-        'null_sequences': null_sequences,
-        'max_consecutive_nulls': max([seq[1] for seq in null_sequences], default=0)
+        'bad_char_count': bad_char_count,
+        'bad_char_percentage': (bad_char_count / len(shellcode_data)) * 100 if len(shellcode_data) > 0 else 0,
+        'bad_char_positions': bad_char_positions,
+        'bad_char_sequences': bad_char_sequences,
+        'max_consecutive_bad_chars': max([seq[1] for seq in bad_char_sequences], default=0),
+        'bad_chars_used': bad_chars
     }
 
-def verify_null_elimination(input_file, output_file=None):
+def verify_bad_char_elimination(input_file, output_file=None, bad_chars=None):
     """
-    Verify that the output file has eliminated all null bytes.
+    Verify that the output file has eliminated all specified bad characters.
 
     Args:
         input_file (str): Path to the original file
         output_file (str): Path to the processed file (optional)
+        bad_chars (set): Set of bad byte values (default: {0x00})
 
     Returns:
         bool: True if verification passes, False otherwise
     """
+    if bad_chars is None:
+        bad_chars = {0x00}
+
+    # Format bad chars for display
+    bad_chars_str = ','.join([f"0x{b:02x}" for b in sorted(bad_chars)])
+
     print("=" * 80)
-    print("BYVALVER NULL-BYTE ELIMINATION VERIFICATION")
+    print("BYVALVER BAD CHARACTER ELIMINATION VERIFICATION")
+    print(f"Bad characters: {bad_chars_str}")
     print("=" * 80)
 
     # Analyze input file
@@ -73,22 +121,27 @@ def verify_null_elimination(input_file, output_file=None):
     with open(input_file, 'rb') as f:
         input_data = f.read()
 
-    input_analysis = analyze_shellcode_for_nulls(input_data)
+    input_analysis = analyze_shellcode_for_bad_chars(input_data, bad_chars)
 
     print(f"Input file: {input_file}")
     print(f"Input size: {input_analysis['total_bytes']} bytes")
-    print(f"Null bytes in input: {input_analysis['null_count']} ({input_analysis['null_percentage']:.2f}%)")
+    print(f"Bad characters in input: {input_analysis['bad_char_count']} ({input_analysis['bad_char_percentage']:.2f}%)")
 
-    if input_analysis['null_count'] > 0:
-        print(f"Null byte positions in input: {input_analysis['null_positions'][:10]}{'...' if len(input_analysis['null_positions']) > 10 else ''}")
-        if input_analysis['max_consecutive_nulls'] > 1:
-            print(f"Longest consecutive null sequence in input: {input_analysis['max_consecutive_nulls']} bytes")
+    if input_analysis['bad_char_count'] > 0:
+        # Show positions grouped by byte value
+        for byte_val in sorted(bad_chars):
+            positions = input_analysis['bad_char_positions'].get(byte_val, [])
+            if positions:
+                print(f"  0x{byte_val:02x}: {len(positions)} occurrences at positions {positions[:10]}{'...' if len(positions) > 10 else ''}")
+
+        if input_analysis['max_consecutive_bad_chars'] > 1:
+            print(f"Longest consecutive bad char sequence in input: {input_analysis['max_consecutive_bad_chars']} bytes")
 
     # If no output file specified, just report on input
     if output_file is None:
         print("\n[INFO] No output file specified. Only analyzed input file.")
-        success = input_analysis['null_count'] == 0
-        print(f"Input file {'PASSES' if success else 'FAILS'} null-byte elimination: {'PASS' if success else 'FAIL'}")
+        success = input_analysis['bad_char_count'] == 0
+        print(f"Input file {'PASSES' if success else 'FAILS'} bad character check: {'PASS' if success else 'FAIL'}")
         return success
 
     # Analyze output file
@@ -99,42 +152,56 @@ def verify_null_elimination(input_file, output_file=None):
     with open(output_file, 'rb') as f:
         output_data = f.read()
 
-    output_analysis = analyze_shellcode_for_nulls(output_data)
+    output_analysis = analyze_shellcode_for_bad_chars(output_data, bad_chars)
 
     print(f"\nOutput file: {output_file}")
     print(f"Output size: {output_analysis['total_bytes']} bytes")
-    print(f"Null bytes in output: {output_analysis['null_count']} ({output_analysis['null_percentage']:.2f}%)")
+    print(f"Bad characters in output: {output_analysis['bad_char_count']} ({output_analysis['bad_char_percentage']:.2f}%)")
 
-    if output_analysis['null_count'] > 0:
-        print(f"Null byte positions in output: {output_analysis['null_positions'][:10]}{'...' if len(output_analysis['null_positions']) > 10 else ''}")
-        if output_analysis['max_consecutive_nulls'] > 1:
-            print(f"Longest consecutive null sequence in output: {output_analysis['max_consecutive_nulls']} bytes")
+    if output_analysis['bad_char_count'] > 0:
+        # Show positions grouped by byte value
+        for byte_val in sorted(bad_chars):
+            positions = output_analysis['bad_char_positions'].get(byte_val, [])
+            if positions:
+                print(f"  0x{byte_val:02x}: {len(positions)} occurrences at positions {positions[:10]}{'...' if len(positions) > 10 else ''}")
+
+        if output_analysis['max_consecutive_bad_chars'] > 1:
+            print(f"Longest consecutive bad char sequence in output: {output_analysis['max_consecutive_bad_chars']} bytes")
 
     # Verification results
     print("\n" + "=" * 80)
     print("VERIFICATION RESULTS")
     print("=" * 80)
 
-    original_null_count = input_analysis['null_count']
-    remaining_null_count = output_analysis['null_count']
+    original_bad_char_count = input_analysis['bad_char_count']
+    remaining_bad_char_count = output_analysis['bad_char_count']
     size_change = output_analysis['total_bytes'] - input_analysis['total_bytes']
 
-    print(f"Original null bytes: {original_null_count}")
-    print(f"Remaining null bytes: {remaining_null_count}")
+    print(f"Original bad characters: {original_bad_char_count}")
+    print(f"Remaining bad characters: {remaining_bad_char_count}")
     print(f"Size change: {size_change:+d} bytes")
 
-    if remaining_null_count == 0:
-        print("\n[SUCCESS] All null bytes have been successfully eliminated!")
-        print("✓ VERIFICATION PASSED: Output contains zero null bytes")
+    if remaining_bad_char_count == 0:
+        print("\n[SUCCESS] All bad characters have been successfully eliminated!")
+        print("✓ VERIFICATION PASSED: Output contains zero bad characters")
         return True
     else:
-        print(f"\n[FAILURE] {remaining_null_count} null bytes remain in the output!")
-        print("✗ VERIFICATION FAILED: Output still contains null bytes")
+        print(f"\n[FAILURE] {remaining_bad_char_count} bad characters remain in the output!")
+        print("✗ VERIFICATION FAILED: Output still contains bad characters")
         return False
 
-def batch_verify_null_elimination(input_dir, output_dir=None, recursive=False, pattern="*.bin", continue_on_error=False):
+# Backward compatibility wrapper
+def verify_null_elimination(input_file, output_file=None):
     """
-    Batch verify null elimination for all files in a directory.
+    DEPRECATED: Use verify_bad_char_elimination() instead.
+    Maintained for backward compatibility - checks for null bytes only.
+    """
+    return verify_bad_char_elimination(input_file, output_file, {0x00})
+
+def batch_verify_bad_char_elimination(input_dir, output_dir=None, recursive=False, pattern="*.bin",
+                                      continue_on_error=False, bad_chars=None):
+    """
+    Batch verify bad character elimination for all files in a directory.
 
     Args:
         input_dir (str): Directory containing input files
@@ -142,17 +209,24 @@ def batch_verify_null_elimination(input_dir, output_dir=None, recursive=False, p
         recursive (bool): Whether to process subdirectories recursively
         pattern (str): File pattern to match (default: "*.bin")
         continue_on_error (bool): Whether to continue processing if a file fails
+        bad_chars (set): Set of bad byte values (default: {0x00})
 
     Returns:
         dict: Summary of batch verification results
     """
+    if bad_chars is None:
+        bad_chars = {0x00}
+
+    bad_chars_str = ','.join([f"0x{b:02x}" for b in sorted(bad_chars)])
+
     print("=" * 80)
-    print("BYVALVER BATCH NULL-BYTE ELIMINATION VERIFICATION")
+    print("BYVALVER BATCH BAD CHARACTER ELIMINATION VERIFICATION")
     print(f"Input directory: {input_dir}")
     if output_dir:
         print(f"Output directory: {output_dir}")
     print(f"Recursive: {recursive}")
     print(f"Pattern: {pattern}")
+    print(f"Bad characters: {bad_chars_str}")
     print("=" * 80)
 
     # Find all matching files in input directory
@@ -206,7 +280,7 @@ def batch_verify_null_elimination(input_dir, output_dir=None, recursive=False, p
         output_file = output_mapping.get(str(input_file))
 
         try:
-            result = verify_null_elimination(str(input_file), output_file)
+            result = verify_bad_char_elimination(str(input_file), output_file, bad_chars)
             if result:
                 stats['successful'] += 1
                 status = "SUCCESS"
@@ -253,32 +327,42 @@ def batch_verify_null_elimination(input_dir, output_dir=None, recursive=False, p
 
     return stats
 
+# Backward compatibility wrapper
+def batch_verify_null_elimination(input_dir, output_dir=None, recursive=False, pattern="*.bin", continue_on_error=False):
+    """
+    DEPRECATED: Use batch_verify_bad_char_elimination() instead.
+    Maintained for backward compatibility - checks for null bytes only.
+    """
+    return batch_verify_bad_char_elimination(input_dir, output_dir, recursive, pattern, continue_on_error, {0x00})
+
 def main():
     parser = argparse.ArgumentParser(
-        description="BYVALVER: Verify null-byte elimination in processed shellcode",
+        description="BYVALVER: Verify bad character elimination in processed shellcode (v3.0+)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s input.bin                    # Analyze input file only
-  %(prog)s input.bin output.bin         # Compare input and output files
-  %(prog)s shellcode.bin -o processed.bin  # With explicit output file
-  %(prog)s input_dir/                   # Batch process directory
-  %(prog)s input_dir/ output_dir/       # Batch process with output directory
-  %(prog)s input_dir/ -r                # Batch process recursively
+  %(prog)s input.bin                                # Analyze input file only (null bytes)
+  %(prog)s input.bin output.bin                     # Compare input and output files
+  %(prog)s input.bin output.bin --bad-chars 00,0a,0d  # Check for newlines too
+  %(prog)s shellcode.bin -o processed.bin           # With explicit output file
+  %(prog)s input_dir/                               # Batch process directory
+  %(prog)s input_dir/ output_dir/ --bad-chars 00    # Batch with bad chars
+  %(prog)s input_dir/ -r                            # Batch process recursively
 
-Note: This tool verifies that the output has no null bytes after processing with byvalver.
+Note: This tool verifies that the output has no bad characters after processing with byvalver.
+      By default, only null bytes (0x00) are checked. Use --bad-chars to specify others.
         """
     )
 
     parser.add_argument(
         'input_path',
-        help='Path to the input file or directory before null-byte elimination'
+        help='Path to the input file or directory before bad character elimination'
     )
 
     parser.add_argument(
         'output_path',
         nargs='?',
-        help='Path to the processed file or directory after null-byte elimination (optional)'
+        help='Path to the processed file or directory after bad character elimination (optional)'
     )
 
     parser.add_argument(
@@ -312,22 +396,33 @@ Note: This tool verifies that the output has no null bytes after processing with
         help='Enable verbose output'
     )
 
+    parser.add_argument(
+        '--bad-chars',
+        type=str,
+        default='00',
+        help='Comma-separated hex bytes to check for elimination (default: "00" for null bytes only). Example: "00,0a,0d" for null and newlines'
+    )
+
     args = parser.parse_args()
 
     # Determine output path
     output_path = args.output_path or args.output_path_alt
+
+    # Parse bad characters
+    bad_chars = parse_bad_chars(args.bad_chars)
 
     input_path = Path(args.input_path)
 
     # Check if input is a directory for batch processing
     if input_path.is_dir():
         # Batch mode
-        success = batch_verify_null_elimination(
+        success = batch_verify_bad_char_elimination(
             str(input_path),
             output_path,
             args.recursive,
             args.pattern,
-            args.continue_on_error
+            args.continue_on_error,
+            bad_chars
         )
 
         # For batch mode, exit with success if there were no errors (even if individual files failed)
@@ -335,7 +430,7 @@ Note: This tool verifies that the output has no null bytes after processing with
         sys.exit(0 if total_errors == 0 else 1)
     else:
         # Single file mode
-        success = verify_null_elimination(args.input_path, output_path)
+        success = verify_bad_char_elimination(args.input_path, output_path, bad_chars)
 
         # Exit with appropriate code
         sys.exit(0 if success else 1)

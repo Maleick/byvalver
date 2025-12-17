@@ -1,0 +1,249 @@
+graph LR
+   subgraph "Entry Point"
+       MAIN[main.c]
+   end
+
+   subgraph "Public API"
+       BYVALVER_H[byvalver.h<br/>Public API]
+       LIB_API[lib_api.c<br/>Library Implementation]
+   end
+
+   subgraph "CLI Layer"
+       CLI[cli.c/cli.h<br/>Argument Parsing]
+       BADCHAR_PROFILES[badchar_profiles.h<br/>13 Profiles]
+   end
+
+   subgraph "Core Engine"
+       CORE[core.c/core.h<br/>Processing Engine<br/>40K+ lines total]
+       UTILS[utils.c/utils.h<br/>Utility Functions]
+       HASH_UTILS[hash_utils.c/hash_utils.h<br/>Hash Functions]
+   end
+
+   subgraph "Disassembly"
+       CAPSTONE[Capstone Library<br/>x86/x64 disassembly]
+   end
+
+   subgraph "Strategy System"
+       STRATEGY[strategy.h<br/>Strategy Interface]
+       REGISTRY[strategy_registry.c<br/>122+ Strategies]
+
+       subgraph "Denull Strategy Modules 100+"
+           MOV_STRAT[mov_strategies.c]
+           ARITH_STRAT[arithmetic_strategies.c]
+           MEM_STRAT[memory_strategies.c]
+           JUMP_STRAT[jump_strategies.c]
+           GENERAL_STRAT[general_strategies.c]
+           PEB_STRAT[peb_strategies.c]
+           PEB_API_HASH[peb_api_hashing_strategies.c]
+           PEB_API_RES[peb_api_resolution_strategies.c]
+           MULTI_PEB[multi_stage_peb_traversal.c]
+           ADV_HASH[advanced_hash_api_resolution.c]
+           CALL_POP[call_pop_immediate_strategies.c]
+           STACK_STRING[stack_string_construction_strategies.c]
+           STACK_STRUCT[stack_based_structure_construction.c]
+           LEA_STRAT[lea_strategies.c]
+           LEA_DISP[lea_displacement_strategies.c]
+           LEA_ARITH[lea_arithmetic_substitution_strategies.c]
+           LEA_COMPLEX[lea_complex_addressing_strategies.c]
+           LEA_CALC[lea_arithmetic_calculation_strategies.c]
+           LEA_OPT[lea_displacement_optimization_strategies.c]
+           PUSH_IMM[push_immediate_strategies.c]
+           PUSH_POP[push_pop_immediate_strategies.c]
+           PUSHW[pushw_word_immediate_strategies.c]
+           PUSH_BYTE[push_byte_immediate_stack_construction.c]
+           SALC[salc_strategies.c]
+           SALC_COND[salc_conditional_flag_strategies.c]
+           SALC_REP[salc_rep_stosb_strategies.c]
+           SALC_ZERO[salc_zero_flag_strategies.c]
+           SALC_ZERO_REG[salc_zero_register_strategies.c]
+           REP_STOSB[rep_stosb_strategies.c]
+           SHIFT_VAL[shift_value_construction_strategies.c]
+           SHIFT_STRAT[shift_strategy.c]
+           XCHG_STRAT[xchg_strategies.c]
+           XCHG_IMM[xchg_immediate_strategies.c]
+           XCHG_CONST[xchg_immediate_construction_strategies.c]
+           XCHG_PRES[xchg_preservation_strategies.c]
+           XCHG_SWAP[register_swapping_immediate_strategies.c]
+           XOR_ZERO[xor_zero_reg_strategies.c]
+           RET_STRAT[ret_strategies.c]
+           RETF_STRAT[retf_strategies.c]
+           MOVZX[movzx_strategies.c]
+           GETPC[getpc_strategies.c]
+           INDIRECT_CALL[indirect_call_strategies.c]
+           LOOP_STRAT[loop_strategies.c]
+           JCXZ[jcxz_null_safe_loop_termination.c]
+           CMP_STRAT[cmp_strategies.c]
+           CMP_MEM[cmp_memory_disp_strategies.c]
+           BT_STRAT[bt_strategies.c]
+           ADC_STRAT[adc_strategies.c]
+           SBB_STRAT[sbb_strategies.c]
+           SETCC[setcc_strategies.c]
+           IMUL[imul_strategies.c]
+           FPU[fpu_strategies.c]
+           SLDT[sldt_strategies.c]
+           SLDT_REPL[sldt_replacement_strategy.c]
+           ARPL[arpl_strategies.c]
+           BOUND[bound_strategies.c]
+           ROR_ROL[ror_rol_strategies.c]
+           BYTE_CONST[byte_construct_strategy.c]
+           COND_JUMP_OFF[conditional_jump_offset_strategies.c]
+           COND_JUMP_DISP[conditional_jump_displacement_strategies.c]
+           SHORT_COND[short_conditional_jump_strategies.c]
+           SIB_STRAT[sib_strategies.c]
+           SAFE_SIB[safe_sib_strategies.c]
+           RIP_REL[rip_relative_strategies.c]
+           MULTIBYTE_NOP[multi_byte_nop_strategies.c]
+           SMALL_IMM[small_immediate_strategies.c]
+           LARGE_IMM[large_immediate_strategies.c]
+           IMM_SPLIT[immediate_split_strategies.c]
+           REL_JUMP[relative_jump_strategies.c]
+           ROBUST_JUMP[robust_jump_strategies.c]
+           STACK_STRING2[stack_string_strategies.c]
+           STACK_CONST[stack_constant_generation_strategies.c]
+           STACK_STRING_CONST[stack_string_const_strategies.c]
+           SYSCALL_STRAT[syscall_strategies.c]
+           SYSCALL_NUM[syscall_number_strategies.c]
+           SYSCALL_SUB[syscall_instruction_substitution.c]
+           SOCKET[socket_address_strategies.c]
+           UNICODE[unicode_string_strategies.c]
+           MEM_DISP[memory_displacement_strategies.c]
+           STRING_INSN[string_instruction_strategies.c]
+           STRING_BYTE[string_instruction_byte_construction_strategies.c]
+           SCASB[scasb_cmpsb_strategies.c]
+           REG_ALLOC[register_allocation_strategies.c]
+           REG_CHAIN[register_chaining_strategies.c]
+           HASH_STRAT[hash_utils.c]
+           LINUX_SOCK[linux_socketcall_strategies.c]
+           LINUX_STR[linux_string_push_strategies.c]
+           ARITH_DECOMP[arithmetic_decomposition_strategies.c]
+           ARITH_CONST[arithmetic_constant_construction_sub.c]
+           ARITH_CONST_GEN[arithmetic_const_generation_strategies.c]
+           ARITH_FLAG[arithmetic_flag_preservation_strategies.c]
+           ARITH_SUB[arithmetic_substitution_strategies.c]
+           ENHANCED_ARITH[enhanced_arithmetic_strategies.c]
+           IMPROVED_ARITH[improved_arithmetic_strategies.c]
+           ENHANCED_IMM[enhanced_immediate_strategies.c]
+           ENHANCED_MOV_MEM[enhanced_mov_mem_strategies.c]
+           ENHANCED_REG_CHAIN[enhanced_register_chaining_strategies.c]
+           IMPROVED_MOV[improved_mov_strategies.c]
+           ADV_TRANS[advanced_transformations.c]
+           CONTEXT_PRES[context_preservation_strategies.c]
+           SEQ_PRES[sequence_preservation_strategies.c]
+           COND_FLAG[conditional_flag_strategies.c]
+           BITWISE_FLAG[bitwise_flag_manipulation_strategies.c]
+           CONSERVATIVE[conservative_strategies.c]
+           CONSERVATIVE_MOV[conservative_mov_original.c]
+           CONTEXT_AWARE[context_aware_strategies.c]
+           REMAINING[remaining_null_elimination_strategies.c]
+           NEW_STRAT[new_strategies.c]
+           TEST_STRAT[test_strategies.c]
+           BIT_MANIP[bit_manipulation_constant_strategies.c]
+           CLTD[cltd_zero_extension_strategies.c]
+           BYTE_REG[incremental_byte_register_syscall.c]
+           WORD_INC[word_inc_chain_nullfree.c]
+       end
+
+       subgraph "Obfuscation Strategy Modules 25+"
+           OBFUSC_REG[obfuscation_strategy_registry.c]
+           OBFUSC_STRAT[obfuscation_strategies.c]
+           CTRL_FLOW[control_flow_dispatcher_obfuscation.c]
+           REG_SHUFFLE[register_shuffle_obfuscation.c]
+           RUNTIME_SELF[runtime_selfmod_obfuscation.c]
+           OVERLAP[overlapping_instruction_obfuscation.c]
+           MUTATED[mutated_junk_insertion_obfuscation.c]
+           MIXED_ARITH[mixed_arithmetic_base_obfuscation.c]
+           UNICODE_NEG[unicode_negation_encoding_obfuscation.c]
+           PARTIAL_HASH[partial_16bit_hash_obfuscation.c]
+           PEB_NAME[peb_namelength_fingerprint_obfuscation.c]
+           CALL_POP_DELTA[call_pop_pic_delta_obfuscation.c]
+           LOOPNZ[loopnz_compact_search_obfuscation.c]
+           INCR_DEC[incremental_decoder_obfuscation.c]
+           FPU_STACK[fpu_stack_obfuscation.c]
+           ANTI_DEBUG[anti_debug_strategies.c]
+           SEMANTIC[semantic_equivalence_substitution.c]
+       end
+   end
+
+   subgraph "ML System"
+       ML_STRAT[ml_strategist.c/ml_strategist.h<br/>Neural Network]
+       ML_METRICS[ml_metrics.c/ml_metrics.h<br/>Metrics Tracking]
+       TRAIN_MODEL[train_model.c<br/>ML Training]
+       TRAIN_DATA[training_data.c/training_data.h<br/>Training Dataset]
+       TRAIN_PIPE[training_pipeline.c/training_pipeline.h<br/>Training Pipeline]
+       EVAL_FRAME[evaluation_framework.c/evaluation_framework.h<br/>Evaluation]
+       STRATEGY_DISC[strategy_discovery.c/strategy_discovery.h<br/>Strategy Discovery]
+   end
+
+   subgraph "Batch Processing"
+       BATCH[batch_processing.c/batch_processing.h<br/>Directory Processing]
+   end
+
+   subgraph "Output Generation"
+       PIC_GEN[pic_generation.c/pic_generation.h<br/>Position-Independent Code]
+   end
+
+   MAIN --> CLI
+   MAIN --> BYVALVER_H
+   MAIN --> CORE
+   MAIN --> BATCH
+
+   BYVALVER_H --> LIB_API
+   LIB_API --> CORE
+
+   CLI --> BADCHAR_PROFILES
+   CLI --> CORE
+
+   CORE --> CAPSTONE
+   CORE --> UTILS
+   CORE --> HASH_UTILS
+   CORE --> STRATEGY
+   CORE --> PIC_GEN
+
+   STRATEGY --> REGISTRY
+   REGISTRY --> MOV_STRAT
+   REGISTRY --> ARITH_STRAT
+   REGISTRY --> MEM_STRAT
+   REGISTRY --> JUMP_STRAT
+   REGISTRY --> GENERAL_STRAT
+   REGISTRY --> PEB_STRAT
+   REGISTRY --> CALL_POP
+   REGISTRY --> LEA_STRAT
+   REGISTRY --> PUSH_IMM
+   REGISTRY --> SALC
+   REGISTRY --> RET_STRAT
+   REGISTRY --> MOVZX
+   REGISTRY --> GETPC
+   REGISTRY --> INDIRECT_CALL
+   REGISTRY --> LOOP_STRAT
+   REGISTRY --> CMP_STRAT
+   REGISTRY --> SIB_STRAT
+   REGISTRY --> SYSCALL_STRAT
+   REGISTRY --> REG_ALLOC
+   REGISTRY --> ARITH_DECOMP
+   REGISTRY --> ADV_TRANS
+   REGISTRY --> CONSERVATIVE
+   REGISTRY --> REMAINING
+   REGISTRY --> PUSHW
+   REGISTRY --> CLTD
+
+   REGISTRY --> OBFUSC_REG
+   OBFUSC_REG --> OBFUSC_STRAT
+   OBFUSC_REG --> CTRL_FLOW
+   OBFUSC_REG --> REG_SHUFFLE
+   OBFUSC_REG --> RUNTIME_SELF
+   OBFUSC_REG --> ANTI_DEBUG
+
+   CORE --> ML_STRAT
+   ML_STRAT --> ML_METRICS
+   TRAIN_MODEL --> TRAIN_DATA
+   TRAIN_MODEL --> TRAIN_PIPE
+   TRAIN_PIPE --> EVAL_FRAME
+   ML_STRAT --> STRATEGY_DISC
+
+   BATCH --> CORE
+
+   style MAIN fill:#90ee90
+   style CORE fill:#ff6b6b
+   style REGISTRY fill:#4ecdc4
+   style ML_STRAT fill:#95e1d3
+   style OBFUSC_REG fill:#ffa07a

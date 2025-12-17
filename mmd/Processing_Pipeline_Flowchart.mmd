@@ -1,0 +1,164 @@
+flowchart TD
+   START([Start: byvalver input.bin output.bin])
+
+   subgraph "Initialization Phase"
+       PARSE[Parse CLI Arguments<br/>parse_arguments]
+       LOAD_CONFIG[Load Configuration<br/>byvalver_config_t]
+       INIT_BADCHAR[Initialize Bad-Char Context<br/>init_bad_char_context]
+       INIT_STRAT[Initialize Strategies<br/>init_strategies<br/>122+ denull + 25+ obfusc]
+       INIT_ML{ML Enabled?}
+       LOAD_ML[Load ML Model<br/>ml_strategist_init<br/>./ml_models/byvalver_ml_model.bin]
+   end
+
+   subgraph "Input Processing"
+       READ_INPUT[Read Input File<br/>mmap or fread]
+       CHECK_BATCH{Batch Mode?}
+       FIND_FILES[Find Files Recursively<br/>find_files with pattern matching]
+       SINGLE_FILE[Process Single File]
+   end
+
+   subgraph "Disassembly Phase"
+       INIT_CAPSTONE[Initialize Capstone<br/>CS_ARCH_X86, CS_MODE_32/64]
+       DISASM[Disassemble Shellcode<br/>cs_disasm_iter]
+       BUILD_LIST[Build Instruction List<br/>instruction_node linked list]
+   end
+
+   subgraph "Processing Mode Selection"
+       MODE{Processing Mode?}
+       BIPHASIC_MODE[Biphasic Mode<br/>biphasic_process]
+       DENULL_ONLY[Denullification Only<br/>remove_null_bytes]
+       ADAPTIVE_MODE[Adaptive Processing<br/>adaptive_processing]
+   end
+
+   subgraph "Pass 1: Obfuscation Optional"
+       OBFUSC_LOOP[Iterate Instructions]
+       FIND_OBFUSC[Find Obfuscation Strategy<br/>find_obfuscation_strategy]
+       APPLY_OBFUSC[Apply Obfuscation Transform<br/>generate function]
+       OBFUSC_BUFFER[Build Obfuscated Buffer]
+   end
+
+   subgraph "Pass 2: Denullification"
+       DENULL_LOOP[Iterate Instructions]
+       CHECK_BADCHAR{Has Bad Chars?<br/>O1 bitmap lookup}
+       GET_STRATEGIES[Get Applicable Strategies<br/>get_strategies_for_instruction]
+       ML_RANK{ML Enabled?}
+       ML_RERANK[ML Re-prioritization<br/>ml_reprioritize_strategies]
+       SORT_PRIORITY[Sort by Priority<br/>150 to 45]
+       TRY_STRAT[Try Strategy<br/>can_handle check]
+       STRAT_SUCCESS{Success?}
+       APPLY_STRAT[Apply Strategy<br/>generate new code]
+       ML_FEEDBACK[Provide ML Feedback<br/>ml_provide_feedback]
+       FALLBACK[Fallback Handlers<br/>fallback_general_instruction]
+       NEXT_INSN{More Instructions?}
+   end
+
+   subgraph "Jump Fixup Phase"
+       CALC_OFFSETS[Calculate New Offsets<br/>instruction_node.new_offset]
+       FIX_JUMPS[Fix Relative Jumps<br/>process_relative_jump]
+       FIX_CALLS[Fix CALL Instructions<br/>update rel32 offsets]
+   end
+
+   subgraph "Post-Processing"
+       VERIFY{Verify Output?}
+       CHECK_NULLS[Check for Bad Chars<br/>verify_null_elimination]
+       NULLS_FOUND{Bad Chars Found?}
+       ENCODE{XOR Encode?}
+       XOR_ENCODE[XOR Encode + Decoder Stub<br/>xor_key]
+       PIC_GEN{Generate PIC?}
+       PIC_TRANSFORM[PIC Transform<br/>pic_generation.c]
+   end
+
+   subgraph "Output Phase"
+       FORMAT_OUTPUT[Format Output<br/>raw/C/Python/hex]
+       WRITE_OUTPUT[Write Output File]
+       BATCH_NEXT{More Files?}
+       STATS[Generate Statistics<br/>batch_stats_print]
+   end
+
+   END([End: Success/Failure])
+   ERROR([Error Exit])
+
+   START --> PARSE
+   PARSE --> LOAD_CONFIG
+   LOAD_CONFIG --> INIT_BADCHAR
+   INIT_BADCHAR --> INIT_STRAT
+   INIT_STRAT --> INIT_ML
+   INIT_ML -->|Yes| LOAD_ML
+   INIT_ML -->|No| READ_INPUT
+   LOAD_ML --> READ_INPUT
+
+   READ_INPUT --> CHECK_BATCH
+   CHECK_BATCH -->|Yes| FIND_FILES
+   CHECK_BATCH -->|No| SINGLE_FILE
+   FIND_FILES --> SINGLE_FILE
+
+   SINGLE_FILE --> INIT_CAPSTONE
+   INIT_CAPSTONE --> DISASM
+   DISASM --> BUILD_LIST
+
+   BUILD_LIST --> MODE
+   MODE -->|Biphasic| BIPHASIC_MODE
+   MODE -->|Denull Only| DENULL_ONLY
+   MODE -->|Adaptive| ADAPTIVE_MODE
+
+   BIPHASIC_MODE --> OBFUSC_LOOP
+   OBFUSC_LOOP --> FIND_OBFUSC
+   FIND_OBFUSC --> APPLY_OBFUSC
+   APPLY_OBFUSC --> OBFUSC_BUFFER
+   OBFUSC_BUFFER --> DENULL_LOOP
+
+   DENULL_ONLY --> DENULL_LOOP
+   ADAPTIVE_MODE --> DENULL_LOOP
+
+   DENULL_LOOP --> CHECK_BADCHAR
+   CHECK_BADCHAR -->|Yes| GET_STRATEGIES
+   CHECK_BADCHAR -->|No| NEXT_INSN
+
+   GET_STRATEGIES --> ML_RANK
+   ML_RANK -->|Yes| ML_RERANK
+   ML_RANK -->|No| SORT_PRIORITY
+   ML_RERANK --> SORT_PRIORITY
+
+   SORT_PRIORITY --> TRY_STRAT
+   TRY_STRAT --> STRAT_SUCCESS
+   STRAT_SUCCESS -->|Yes| APPLY_STRAT
+   STRAT_SUCCESS -->|No| FALLBACK
+
+   APPLY_STRAT --> ML_FEEDBACK
+   ML_FEEDBACK --> NEXT_INSN
+   FALLBACK --> NEXT_INSN
+
+   NEXT_INSN -->|Yes| DENULL_LOOP
+   NEXT_INSN -->|No| CALC_OFFSETS
+
+   CALC_OFFSETS --> FIX_JUMPS
+   FIX_JUMPS --> FIX_CALLS
+
+   FIX_CALLS --> VERIFY
+   VERIFY -->|Yes| CHECK_NULLS
+   VERIFY -->|No| ENCODE
+
+   CHECK_NULLS --> NULLS_FOUND
+   NULLS_FOUND -->|Yes| ERROR
+   NULLS_FOUND -->|No| ENCODE
+
+   ENCODE -->|Yes| XOR_ENCODE
+   ENCODE -->|No| PIC_GEN
+   XOR_ENCODE --> PIC_GEN
+
+   PIC_GEN -->|Yes| PIC_TRANSFORM
+   PIC_GEN -->|No| FORMAT_OUTPUT
+   PIC_TRANSFORM --> FORMAT_OUTPUT
+
+   FORMAT_OUTPUT --> WRITE_OUTPUT
+   WRITE_OUTPUT --> BATCH_NEXT
+   BATCH_NEXT -->|Yes| SINGLE_FILE
+   BATCH_NEXT -->|No| STATS
+
+   STATS --> END
+
+   style START fill:#90ee90
+   style END fill:#90ee90
+   style ERROR fill:#ff6b6b
+   style DENULL_LOOP fill:#ffd700
+   style ML_RERANK fill:#87ceeb

@@ -1,0 +1,119 @@
+graph TB
+   subgraph "Bad-Character Configuration Layer"
+       CLI_INPUT[CLI Input]
+       DIRECT[Direct Specification<br/>--bad-chars XX,YY,ZZ]
+       PROFILE[Profile-Based<br/>--profile profile-name]
+
+       subgraph "Profile Database"
+           PROF_NULL[null-only<br/>Difficulty: 1/5<br/>Chars: 1]
+           PROF_HTTP_NL[http-newline<br/>Difficulty: 2/5<br/>Chars: 3]
+           PROF_HTTP_WS[http-whitespace<br/>Difficulty: 2/5<br/>Chars: 5]
+           PROF_URL[url-safe<br/>Difficulty: 3/5<br/>Chars: 23]
+           PROF_SQL[sql-injection<br/>Difficulty: 3/5<br/>Chars: 5]
+           PROF_XML[xml-html<br/>Difficulty: 3/5<br/>Chars: 6]
+           PROF_JSON[json-string<br/>Difficulty: 3/5<br/>Chars: 34]
+           PROF_FMT[format-string<br/>Difficulty: 3/5<br/>Chars: 3]
+           PROF_BUF[buffer-overflow<br/>Difficulty: 3/5<br/>Chars: 5]
+           PROF_CMD[command-injection<br/>Difficulty: 3/5<br/>Chars: 20]
+           PROF_LDAP[ldap-injection<br/>Difficulty: 3/5<br/>Chars: 5]
+           PROF_PRINT[printable-only<br/>Difficulty: 4/5<br/>Chars: 161]
+           PROF_ALPHA[alphanumeric-only<br/>Difficulty: 5/5<br/>Chars: 194]
+       end
+
+       PARSE[Parse Bad-Char String<br/>parse_bad_chars_string]
+       FIND_PROF[Find Profile<br/>find_badchar_profile]
+       PROF_TO_CONFIG[Profile to Config<br/>profile_to_config]
+   end
+
+   subgraph "Bad-Character Context v3.0"
+       BAD_CHAR_CONFIG[bad_char_config_t]
+
+       subgraph "O1 Bitmap Lookup"
+           BITMAP[bad_chars: uint8_t 256<br/>bad_chars[byte] = 1 if bad]
+           LIST[bad_char_list: uint8_t 256<br/>ordered list of bad bytes]
+           COUNT[bad_char_count: int<br/>number of distinct bad chars]
+       end
+
+       GLOBAL_CTX[g_bad_char_context<br/>Global Context Instance]
+       INIT_CTX[init_bad_char_context<br/>Initialize from config]
+       GET_CTX[get_bad_char_config<br/>Get current config]
+       RESET_CTX[reset_bad_char_context<br/>Reset to uninitialized]
+   end
+
+   subgraph "Bad-Character Detection"
+       CHECK_INSN[Check Instruction<br/>has_null_bytes]
+       ITERATE_BYTES[Iterate Instruction Bytes]
+       BITMAP_LOOKUP[O1 Bitmap Lookup<br/>bad_chars[byte]]
+       FOUND{Bad Char Found?}
+       MARK_BAD[Mark Instruction for Transform]
+   end
+
+   subgraph "Strategy Application"
+       GET_STRATEGIES[Get Applicable Strategies<br/>get_strategies_for_instruction]
+       FILTER[Filter by can_handle]
+       SORT[Sort by Priority]
+       APPLY[Apply Transformation]
+       VERIFY_OUTPUT[Verify Output<br/>No Bad Chars in Result]
+       OUTPUT_CHECK[Iterate Output Bytes]
+       BITMAP_CHECK[Bitmap Check Each Byte]
+   end
+
+   subgraph "Metrics Tracking v3.0"
+       METRICS[ML Metrics Tracker]
+       RECORD_CONFIG[Record Bad-Char Config<br/>ml_metrics_record_bad_char_config]
+       TRACK_ELIM[Track Elimination<br/>bad_char_elimination_count]
+       TRACK_REMAIN[Track Remaining<br/>bad_char_remaining_count]
+       BREAKDOWN[Bad-Char Breakdown<br/>per-byte statistics]
+   end
+
+   CLI_INPUT --> DIRECT
+   CLI_INPUT --> PROFILE
+
+   DIRECT --> PARSE
+   PROFILE --> FIND_PROF
+   FIND_PROF --> PROF_NULL
+   FIND_PROF --> PROF_HTTP_NL
+   FIND_PROF --> PROF_URL
+   FIND_PROF --> PROF_SQL
+   FIND_PROF --> PROF_ALPHA
+
+   PROF_NULL --> PROF_TO_CONFIG
+   PROF_HTTP_NL --> PROF_TO_CONFIG
+   PROF_URL --> PROF_TO_CONFIG
+   PROF_TO_CONFIG --> BAD_CHAR_CONFIG
+   PARSE --> BAD_CHAR_CONFIG
+
+   BAD_CHAR_CONFIG --> BITMAP
+   BAD_CHAR_CONFIG --> LIST
+   BAD_CHAR_CONFIG --> COUNT
+
+   BAD_CHAR_CONFIG --> INIT_CTX
+   INIT_CTX --> GLOBAL_CTX
+   GLOBAL_CTX --> GET_CTX
+   GLOBAL_CTX --> RESET_CTX
+
+   CHECK_INSN --> ITERATE_BYTES
+   ITERATE_BYTES --> BITMAP_LOOKUP
+   BITMAP_LOOKUP --> FOUND
+   FOUND -->|Yes| MARK_BAD
+   FOUND -->|No| CHECK_INSN
+
+   MARK_BAD --> GET_STRATEGIES
+   GET_STRATEGIES --> FILTER
+   FILTER --> SORT
+   SORT --> APPLY
+   APPLY --> VERIFY_OUTPUT
+
+   VERIFY_OUTPUT --> OUTPUT_CHECK
+   OUTPUT_CHECK --> BITMAP_CHECK
+
+   INIT_CTX --> RECORD_CONFIG
+   RECORD_CONFIG --> METRICS
+   MARK_BAD --> TRACK_REMAIN
+   VERIFY_OUTPUT --> TRACK_ELIM
+   METRICS --> BREAKDOWN
+
+   style BAD_CHAR_CONFIG fill:#ff6b6b
+   style BITMAP fill:#4ecdc4
+   style GLOBAL_CTX fill:#ffd700
+   style METRICS fill:#95e1d3

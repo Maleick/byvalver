@@ -1,0 +1,209 @@
+flowchart TD
+   START([Start Batch Processing])
+
+   subgraph "Input Validation"
+       PARSE_ARGS[Parse CLI Arguments<br/>-r, --pattern, etc]
+       CHECK_INPUT{Input is<br/>Directory?}
+       ERROR_NOT_DIR[Error: Not a directory]
+       SET_BATCH[Set Batch Mode Flag<br/>config->batch_mode = 1]
+   end
+
+   subgraph "Directory Traversal"
+       INIT_FILE_LIST[Initialize File List<br/>file_list_init]
+       FIND_FILES[Find Files<br/>find_files function]
+
+       subgraph "Recursive Search"
+           OPEN_DIR[Open Directory<br/>opendir]
+           READ_ENTRY{Read Entry<br/>readdir}
+           IS_DIR{Is Directory?}
+           RECURSIVE{Recursive<br/>Mode?}
+           RECURSE[Recurse into Subdirectory]
+           IS_FILE{Is Regular<br/>File?}
+           MATCH_PATTERN{Matches<br/>Pattern?}
+           ADD_FILE[Add to File List<br/>file_list_add]
+           NEXT_ENTRY[Next Entry]
+           CLOSE_DIR[Close Directory]
+       end
+
+       FILE_LIST[File List<br/>paths array<br/>count<br/>capacity]
+   end
+
+   subgraph "Statistics Initialization"
+       INIT_STATS[Initialize Statistics<br/>batch_stats_init]
+       STATS_STRUCT[batch_stats_t<br/>total_files<br/>processed_files<br/>failed_files<br/>skipped_files<br/>total_input_bytes<br/>total_output
+_bytes<br/>failed_file_list]
+   end
+
+   subgraph "File Processing Loop"
+       LOOP_START{More Files?}
+       GET_FILE[Get Next File Path]
+       CONSTRUCT_OUTPUT[Construct Output Path<br/>construct_output_path]
+
+       subgraph "Output Path Construction"
+           PRESERVE{Preserve<br/>Structure?}
+           CALC_REL[Calculate Relative Path<br/>from input_base]
+           BUILD_OUT[Build Output Path<br/>output_base + relative]
+           CREATE_DIRS[Create Output Directories<br/>mkdir -p equivalent]
+           FLAT_OUT[Flatten to Output Directory<br/>basename only]
+       end
+
+       CHECK_EXISTS{Output<br/>Exists?}
+       SKIP_FILE[Skip File<br/>Increment skipped_files]
+
+       PROCESS_FILE[Process Single File<br/>Call core processing]
+
+       subgraph "Core Processing"
+           READ_INPUT_FILE[Read Input File]
+           INIT_BAD_CHAR[Initialize Bad-Char Context]
+           DISASSEMBLE[Disassemble with Capstone]
+           APPLY_STRATEGIES[Apply Strategies]
+           FIX_JUMPS[Fix Jump Offsets]
+           VERIFY[Verify Output]
+           FORMAT_OUT[Format Output]
+           WRITE_OUTPUT_FILE[Write Output File]
+       end
+
+       SUCCESS{Processing<br/>Success?}
+
+       UPDATE_SUCCESS[Update Statistics<br/>processed_files++<br/>total_input_bytes += size<br/>total_output_bytes += out_size]
+
+       UPDATE_FAILED[Update Statistics<br/>failed_files++<br/>Add to failed_file_list]
+
+       CONTINUE_ON_ERROR{Continue<br/>on Error?}
+       STOP_BATCH[Stop Batch Processing]
+   end
+
+   subgraph "Statistics Generation"
+       CALC_STATS[Calculate Statistics<br/>Success rate<br/>Size change<br/>Speed metrics]
+
+       subgraph "Statistics Display"
+           PRINT_HEADER[Print Header<br/>Batch Processing Statistics]
+           PRINT_SUCCESS[Print Success Rate<br/>With progress bar]
+           PRINT_FILES[Print Files Processed<br/>processed/total]
+           PRINT_FAILED[Print Failed Files<br/>Count and list]
+           PRINT_SKIPPED[Print Skipped Files]
+           PRINT_BYTES[Print Byte Statistics<br/>Input/Output sizes]
+           PRINT_BADCHAR[Print Bad-Char Stats<br/>If v3.0 mode]
+       end
+
+       WRITE_FAILED_LIST{Write Failed<br/>File List?}
+       WRITE_FAILED_FILE[Write Failed Files to File<br/>batch_write_failed_files]
+       FAILED_LIST_FILE[failed_files.txt]
+   end
+
+   subgraph "ML Metrics"
+       ML_ENABLED{ML Metrics<br/>Enabled?}
+       AGGREGATE_ML[Aggregate ML Metrics<br/>Across all files]
+       PRINT_ML_SUMMARY[Print ML Summary<br/>Strategy performance<br/>Learning progress<br/>Confidence scores]
+       EXPORT_ML{Export ML<br/>Metrics?}
+       EXPORT_JSON[Export to JSON<br/>ml_metrics.json]
+       EXPORT_CSV[Export to CSV<br/>ml_metrics.csv]
+   end
+
+   subgraph "Cleanup"
+       FREE_FILE_LIST[Free File List<br/>file_list_free]
+       FREE_STATS[Free Statistics<br/>batch_stats_free]
+   end
+
+   END([End Batch Processing])
+   ERROR_EXIT([Error Exit])
+
+   START --> PARSE_ARGS
+   PARSE_ARGS --> CHECK_INPUT
+   CHECK_INPUT -->|No| ERROR_NOT_DIR
+   ERROR_NOT_DIR --> ERROR_EXIT
+   CHECK_INPUT -->|Yes| SET_BATCH
+
+   SET_BATCH --> INIT_FILE_LIST
+   INIT_FILE_LIST --> FIND_FILES
+   FIND_FILES --> OPEN_DIR
+   OPEN_DIR --> READ_ENTRY
+   READ_ENTRY -->|Entry Found| IS_DIR
+   READ_ENTRY -->|No More| CLOSE_DIR
+
+   IS_DIR -->|Yes| RECURSIVE
+   IS_DIR -->|No| IS_FILE
+   RECURSIVE -->|Yes| RECURSE
+   RECURSIVE -->|No| NEXT_ENTRY
+   RECURSE --> OPEN_DIR
+
+   IS_FILE -->|Yes| MATCH_PATTERN
+   IS_FILE -->|No| NEXT_ENTRY
+   MATCH_PATTERN -->|Yes| ADD_FILE
+   MATCH_PATTERN -->|No| NEXT_ENTRY
+   ADD_FILE --> NEXT_ENTRY
+   NEXT_ENTRY --> READ_ENTRY
+
+   CLOSE_DIR --> FILE_LIST
+   FILE_LIST --> INIT_STATS
+   INIT_STATS --> STATS_STRUCT
+
+   STATS_STRUCT --> LOOP_START
+   LOOP_START -->|Yes| GET_FILE
+   LOOP_START -->|No| CALC_STATS
+
+   GET_FILE --> CONSTRUCT_OUTPUT
+   CONSTRUCT_OUTPUT --> PRESERVE
+   PRESERVE -->|Yes| CALC_REL
+   PRESERVE -->|No| FLAT_OUT
+   CALC_REL --> BUILD_OUT
+   BUILD_OUT --> CREATE_DIRS
+   CREATE_DIRS --> CHECK_EXISTS
+   FLAT_OUT --> CHECK_EXISTS
+
+   CHECK_EXISTS -->|Yes| SKIP_FILE
+   CHECK_EXISTS -->|No| PROCESS_FILE
+   SKIP_FILE --> LOOP_START
+
+   PROCESS_FILE --> READ_INPUT_FILE
+   READ_INPUT_FILE --> INIT_BAD_CHAR
+   INIT_BAD_CHAR --> DISASSEMBLE
+   DISASSEMBLE --> APPLY_STRATEGIES
+   APPLY_STRATEGIES --> FIX_JUMPS
+   FIX_JUMPS --> VERIFY
+   VERIFY --> FORMAT_OUT
+   FORMAT_OUT --> WRITE_OUTPUT_FILE
+
+   WRITE_OUTPUT_FILE --> SUCCESS
+   SUCCESS -->|Yes| UPDATE_SUCCESS
+   SUCCESS -->|No| UPDATE_FAILED
+
+   UPDATE_SUCCESS --> LOOP_START
+   UPDATE_FAILED --> CONTINUE_ON_ERROR
+   CONTINUE_ON_ERROR -->|Yes| LOOP_START
+   CONTINUE_ON_ERROR -->|No| STOP_BATCH
+   STOP_BATCH --> CALC_STATS
+
+   CALC_STATS --> PRINT_HEADER
+   PRINT_HEADER --> PRINT_SUCCESS
+   PRINT_SUCCESS --> PRINT_FILES
+   PRINT_FILES --> PRINT_FAILED
+   PRINT_FAILED --> PRINT_SKIPPED
+   PRINT_SKIPPED --> PRINT_BYTES
+   PRINT_BYTES --> PRINT_BADCHAR
+
+   PRINT_BADCHAR --> WRITE_FAILED_LIST
+   WRITE_FAILED_LIST -->|Yes| WRITE_FAILED_FILE
+   WRITE_FAILED_LIST -->|No| ML_ENABLED
+   WRITE_FAILED_FILE --> FAILED_LIST_FILE
+   FAILED_LIST_FILE --> ML_ENABLED
+
+   ML_ENABLED -->|Yes| AGGREGATE_ML
+   ML_ENABLED -->|No| FREE_FILE_LIST
+   AGGREGATE_ML --> PRINT_ML_SUMMARY
+   PRINT_ML_SUMMARY --> EXPORT_ML
+   EXPORT_ML -->|JSON| EXPORT_JSON
+   EXPORT_ML -->|CSV| EXPORT_CSV
+   EXPORT_ML -->|None| FREE_FILE_LIST
+   EXPORT_JSON --> FREE_FILE_LIST
+   EXPORT_CSV --> FREE_FILE_LIST
+
+   FREE_FILE_LIST --> FREE_STATS
+   FREE_STATS --> END
+
+   style START fill:#90ee90
+   style END fill:#90ee90
+   style ERROR_EXIT fill:#ff6b6b
+   style PROCESS_FILE fill:#ffd700
+   style STATS_STRUCT fill:#4ecdc4
+   style ML_ENABLED fill:#95e1d3

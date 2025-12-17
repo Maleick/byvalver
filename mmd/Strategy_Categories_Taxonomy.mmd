@@ -1,0 +1,196 @@
+graph TB
+   ROOT[122+ Transformation Strategies]
+
+   subgraph "Instruction Type Categories"
+       MOV_CAT[MOV Strategies<br/>20+ strategies]
+       ARITH_CAT[Arithmetic Strategies<br/>25+ strategies]
+       MEMORY_CAT[Memory Strategies<br/>15+ strategies]
+       JUMP_CAT[Jump/Call Strategies<br/>12+ strategies]
+       STACK_CAT[Stack Strategies<br/>10+ strategies]
+       SPECIAL_CAT[Special Instructions<br/>15+ strategies]
+       WINDOWS_CAT[Windows-Specific<br/>15+ strategies]
+       LINUX_CAT[Linux-Specific<br/>5+ strategies]
+       GENERAL_CAT[General Strategies<br/>5+ strategies]
+   end
+
+   subgraph "MOV Category"
+       MOV_REG_IMM[MOV reg, imm<br/>Arithmetic decomposition]
+       MOV_REG_REG[MOV reg, reg<br/>XCHG/PUSH-POP]
+       MOV_MEM[MOV mem, *<br/>Enhanced addressing]
+       MOVZX_MOVSX[MOVZX/MOVSX<br/>Extension elimination]
+       XCHG_MOV[XCHG as MOV<br/>Register swapping]
+   end
+
+   subgraph "Arithmetic Category"
+       ADD_SUB[ADD/SUB<br/>NEG/XOR decomposition]
+       ADC_SBB[ADC/SBB<br/>Carry handling]
+       IMUL_MUL[IMUL/MUL<br/>Multiply strategies]
+       INC_DEC[INC/DEC<br/>Chain strategies]
+       NEG_NOT[NEG/NOT<br/>Bitwise ops]
+       XOR_REG[XOR reg, reg<br/>Register zeroing]
+       SHIFT_ROR[Shift/Rotate<br/>Value construction]
+       LEA_ARITH[LEA Arithmetic<br/>ADD/SUB replacement]
+   end
+
+   subgraph "Memory Category"
+       MEM_DISP[Memory Displacement<br/>Null offset handling]
+       SIB_ADDR[SIB Addressing<br/>Complex addressing]
+       RIP_REL_CAT[RIP-Relative<br/>x64 addressing]
+       MOD_RM[ModR/M Bypass<br/>Encoding tricks]
+       LEA_MEM[LEA Memory<br/>Address calculation]
+   end
+
+   subgraph "Jump/Call Category"
+       COND_JUMP[Conditional Jumps<br/>Offset/displacement handling]
+       UNCOND_JUMP[JMP/CALL<br/>Relative/absolute conversion]
+       INDIRECT_JUMP[Indirect Jumps<br/>Register-based]
+       LOOP_INSN[LOOP Family<br/>LOOP/LOOPE/LOOPNE]
+       JCXZ_INSN[JCXZ/JECXZ<br/>Counter-based jumps]
+       RET_INSN[RET/RETF<br/>Return immediate]
+   end
+
+   subgraph "Stack Category"
+       PUSH_IMM_CAT[PUSH Immediate<br/>Multi-strategy]
+       PUSH_POP_CAT[PUSH-POP Pairs<br/>Value transfer]
+       PUSHW_CAT[PUSHW 16-bit<br/>Word operations]
+       PUSH_BYTE_CAT[PUSH Byte<br/>Stack construction]
+       STACK_STRING_CAT[Stack Strings<br/>String building]
+       STACK_STRUCT_CAT[Stack Structures<br/>Complex data]
+   end
+
+   subgraph "Special Instructions"
+       SALC_CAT[SALC<br/>Undocumented zero]
+       REP_STOSB_CAT[REP STOSB<br/>Buffer initialization]
+       SCASB_CAT[SCASB/CMPSB<br/>String operations]
+       SETCC_CAT[SETcc<br/>Conditional set]
+       BT_CAT[BT/BTC/BTR/BTS<br/>Bit test]
+       FPU_CAT[FPU Instructions<br/>Floating point]
+       SLDT_CAT[SLDT<br/>Descriptor table]
+       ARPL_CAT[ARPL<br/>Privilege level]
+       BOUND_CAT[BOUND<br/>Array bounds]
+       CLTD_CAT[CLTD/CDQ<br/>Sign extension]
+       SYSCALL_CAT[SYSCALL/SYSENTER<br/>System calls]
+   end
+
+   subgraph "Windows-Specific"
+       PEB_TRAV[PEB Traversal<br/>Multi-stage]
+       PEB_API_HASH[PEB API Hashing<br/>ROR13/Custom]
+       PEB_API_RES[PEB API Resolution<br/>Export parsing]
+       HASH_API_CAT[Advanced Hashing<br/>Complex algorithms]
+       GETPC_CAT[GetPC Techniques<br/>CALL-POP patterns]
+       WIN_STRUCT[Windows Structures<br/>TEB/PEB/etc]
+   end
+
+   subgraph "Linux-Specific"
+       SOCKETCALL[socketcall Multiplexer<br/>Socket operations]
+       LINUX_PUSH_STR[Linux String Push<br/>String construction]
+       SYSCALL_NUM[Syscall Numbers<br/>Encoding strategies]
+       BYTE_REG_SYS[Byte Register Syscall<br/>Incremental construction]
+   end
+
+   subgraph "Priority Levels"
+       PRIO_150[Priority 150<br/>Conditional Jump Offset]
+       PRIO_100[Priority 100<br/>Indirect Call]
+       PRIO_95_90[Priority 95-90<br/>Windows Advanced]
+       PRIO_85_75[Priority 85-75<br/>Core Strategies]
+       PRIO_75_60[Priority 75-60<br/>Standard Strategies]
+       PRIO_60_45[Priority 60-45<br/>Conservative]
+   end
+
+   subgraph "Transformation Techniques"
+       DECOMP[Arithmetic Decomposition<br/>Break into parts]
+       EQUIV[Equivalent Instructions<br/>Semantic preservation]
+       ENCODING[Encoding Tricks<br/>ModR/M, SIB, etc]
+       REGISTER[Register Manipulation<br/>Swapping, chaining]
+       IMMEDIATE[Immediate Construction<br/>Build from parts]
+       OFFSET[Offset Adjustment<br/>Jump/call fixup]
+   end
+
+   ROOT --> MOV_CAT
+   ROOT --> ARITH_CAT
+   ROOT --> MEMORY_CAT
+   ROOT --> JUMP_CAT
+   ROOT --> STACK_CAT
+   ROOT --> SPECIAL_CAT
+   ROOT --> WINDOWS_CAT
+   ROOT --> LINUX_CAT
+   ROOT --> GENERAL_CAT
+
+   MOV_CAT --> MOV_REG_IMM
+   MOV_CAT --> MOV_REG_REG
+   MOV_CAT --> MOV_MEM
+   MOV_CAT --> MOVZX_MOVSX
+   MOV_CAT --> XCHG_MOV
+
+   ARITH_CAT --> ADD_SUB
+   ARITH_CAT --> ADC_SBB
+   ARITH_CAT --> IMUL_MUL
+   ARITH_CAT --> INC_DEC
+   ARITH_CAT --> NEG_NOT
+   ARITH_CAT --> XOR_REG
+   ARITH_CAT --> SHIFT_ROR
+   ARITH_CAT --> LEA_ARITH
+
+   MEMORY_CAT --> MEM_DISP
+   MEMORY_CAT --> SIB_ADDR
+   MEMORY_CAT --> RIP_REL_CAT
+   MEMORY_CAT --> MOD_RM
+   MEMORY_CAT --> LEA_MEM
+
+   JUMP_CAT --> COND_JUMP
+   JUMP_CAT --> UNCOND_JUMP
+   JUMP_CAT --> INDIRECT_JUMP
+   JUMP_CAT --> LOOP_INSN
+   JUMP_CAT --> JCXZ_INSN
+   JUMP_CAT --> RET_INSN
+
+   STACK_CAT --> PUSH_IMM_CAT
+   STACK_CAT --> PUSH_POP_CAT
+   STACK_CAT --> PUSHW_CAT
+   STACK_CAT --> PUSH_BYTE_CAT
+   STACK_CAT --> STACK_STRING_CAT
+   STACK_CAT --> STACK_STRUCT_CAT
+
+   SPECIAL_CAT --> SALC_CAT
+   SPECIAL_CAT --> REP_STOSB_CAT
+   SPECIAL_CAT --> SCASB_CAT
+   SPECIAL_CAT --> SETCC_CAT
+   SPECIAL_CAT --> BT_CAT
+   SPECIAL_CAT --> FPU_CAT
+   SPECIAL_CAT --> SLDT_CAT
+   SPECIAL_CAT --> ARPL_CAT
+   SPECIAL_CAT --> BOUND_CAT
+   SPECIAL_CAT --> CLTD_CAT
+   SPECIAL_CAT --> SYSCALL_CAT
+
+   WINDOWS_CAT --> PEB_TRAV
+   WINDOWS_CAT --> PEB_API_HASH
+   WINDOWS_CAT --> PEB_API_RES
+   WINDOWS_CAT --> HASH_API_CAT
+   WINDOWS_CAT --> GETPC_CAT
+   WINDOWS_CAT --> WIN_STRUCT
+
+   LINUX_CAT --> SOCKETCALL
+   LINUX_CAT --> LINUX_PUSH_STR
+   LINUX_CAT --> SYSCALL_NUM
+   LINUX_CAT --> BYTE_REG_SYS
+
+   COND_JUMP --> PRIO_150
+   INDIRECT_JUMP --> PRIO_100
+   PEB_TRAV --> PRIO_95_90
+   PUSH_IMM_CAT --> PRIO_85_75
+   SIB_ADDR --> PRIO_75_60
+   STRING_INSN --> PRIO_60_45
+
+   MOV_REG_IMM --> DECOMP
+   MOV_REG_REG --> EQUIV
+   MEM_DISP --> ENCODING
+   XCHG_MOV --> REGISTER
+   PUSH_IMM_CAT --> IMMEDIATE
+   COND_JUMP --> OFFSET
+
+   style ROOT fill:#ff6b6b
+   style MOV_CAT fill:#4ecdc4
+   style ARITH_CAT fill:#95e1d3
+   style WINDOWS_CAT fill:#ffd700
+   style PRIO_150 fill:#90ee90

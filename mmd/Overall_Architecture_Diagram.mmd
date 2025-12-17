@@ -1,0 +1,101 @@
+graph TB
+   subgraph "User Interface Layer"
+       CLI[CLI Interface<br/>cli.c/cli.h]
+       CONFIG[Configuration<br/>byvalver_config_t]
+       PROFILES[Bad-Char Profiles<br/>badchar_profiles.h]
+   end
+
+   subgraph "Core Processing Engine"
+       MAIN[Main Entry Point<br/>main.c]
+       CORE[Core Processing<br/>core.c/core.h]
+       BADCHAR[Bad-Char Context<br/>g_bad_char_context]
+       BUFFER[Buffer Management<br/>buffer operations]
+   end
+
+   subgraph "Disassembly Layer"
+       CAPSTONE[Capstone Engine<br/>x86/x64 disassembly]
+       INSN[Instruction Analysis<br/>cs_insn structures]
+   end
+
+   subgraph "Processing Modes"
+       BIPHASIC[Biphasic Mode<br/>biphasic_process]
+       OBFUSC[Obfuscation Pass<br/>apply_obfuscation]
+       DENULL[Denullification Pass<br/>remove_null_bytes]
+       ADAPTIVE[Adaptive Processing<br/>adaptive_processing]
+   end
+
+   subgraph "Strategy System"
+       REGISTRY[Strategy Registry<br/>strategy_registry.c<br/>200 slots]
+       STRAT[Strategy Interface<br/>strategy_t<br/>can_handle/get_size/generate]
+       DENULL_STRAT[Denull Strategies<br/>122+ strategies]
+       OBFUSC_STRAT[Obfuscation Strategies<br/>25+ strategies]
+   end
+
+   subgraph "ML Enhancement Layer"
+       ML[ML Strategist<br/>ml_strategist.c]
+       FEATURES[Feature Extraction<br/>128 features]
+       MODEL[Neural Network<br/>3-layer feedforward]
+       METRICS[Metrics Tracker<br/>ml_metrics.c]
+   end
+
+   subgraph "Batch Processing"
+       BATCH[Batch Processor<br/>batch_processing.c]
+       TRAVERSE[Directory Traversal<br/>recursive/pattern matching]
+       STATS[Statistics Tracking<br/>batch_stats_t]
+   end
+
+   subgraph "Output Generation"
+       ENCODER[XOR Encoder<br/>xor_encode]
+       PIC[PIC Generator<br/>pic_generation.c]
+       FORMAT[Format Output<br/>raw/C/Python/hex]
+       VERIFY[Verification<br/>verify_null_elimination]
+   end
+
+   subgraph "Utility Layer"
+       UTILS[Utilities<br/>utils.c/utils.h]
+       HASH[Hash Functions<br/>hash_utils.c]
+       API[Public API<br/>byvalver.h]
+   end
+
+   CLI --> CONFIG
+   CLI --> PROFILES
+   CONFIG --> MAIN
+   MAIN --> CORE
+   CORE --> BADCHAR
+   CORE --> CAPSTONE
+   CAPSTONE --> INSN
+
+   CORE --> BIPHASIC
+   CORE --> DENULL
+   BIPHASIC --> OBFUSC
+   BIPHASIC --> DENULL
+
+   DENULL --> REGISTRY
+   OBFUSC --> REGISTRY
+   REGISTRY --> STRAT
+   STRAT --> DENULL_STRAT
+   STRAT --> OBFUSC_STRAT
+
+   CORE --> ML
+   ML --> FEATURES
+   ML --> MODEL
+   ML --> METRICS
+   REGISTRY --> ML
+
+   MAIN --> BATCH
+   BATCH --> TRAVERSE
+   BATCH --> STATS
+
+   CORE --> ENCODER
+   CORE --> PIC
+   CORE --> FORMAT
+   CORE --> VERIFY
+
+   CORE --> UTILS
+   UTILS --> HASH
+   MAIN --> API
+
+   style CORE fill:#ff6b6b
+   style REGISTRY fill:#4ecdc4
+   style ML fill:#95e1d3
+   style CAPSTONE fill:#f38181

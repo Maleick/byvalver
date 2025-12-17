@@ -1,0 +1,212 @@
+flowchart LR
+   subgraph "Input Stage"
+       INPUT_FILE[Input Shellcode File<br/>Binary Format]
+       READ[Read File Data<br/>mmap/fread]
+       INPUT_BUFFER[Input Buffer<br/>uint8_t array + size]
+   end
+
+   subgraph "Configuration Stage"
+       CLI_ARGS[CLI Arguments]
+       CONFIG[Configuration<br/>byvalver_config_t]
+       BADCHAR_CONFIG[Bad-Char Config<br/>bad_char_config_t<br/>256-byte bitmap]
+       PROFILE_DATA[Profile Database<br/>13 profiles]
+   end
+
+   subgraph "Disassembly Stage"
+       CAPSTONE_INIT[Capstone Init<br/>Architecture: x86/x64<br/>Mode: 32-bit/64-bit]
+       DISASM_LOOP[Disassemble Loop<br/>cs_disasm_iter]
+       CS_INSN[cs_insn Structures<br/>mnemonic, operands,<br/>bytes, size, address]
+       INSN_LIST[Instruction Node List<br/>insn + offset +<br/>new_offset + new_size]
+   end
+
+   subgraph "Analysis Stage"
+       ITERATE_INSN[Iterate Instructions]
+       CHECK_BADCHAR[Check Bad Characters<br/>O1 bitmap lookup]
+       HAS_BADCHAR{Has Bad<br/>Characters?}
+       MARK_TRANSFORM[Mark for Transformation]
+       COPY_ORIGINAL[Copy Original Bytes]
+   end
+
+   subgraph "Strategy Selection Stage"
+       GET_APPLICABLE[Get Applicable Strategies<br/>Filter by can_handle]
+       APPLICABLE_LIST[Applicable Strategy List<br/>strategy_t array]
+       ML_ENABLED{ML Enabled?}
+       ML_EXTRACT[Extract 128 Features<br/>instruction_features_t]
+       ML_FORWARD[Neural Network<br/>Forward Pass]
+       ML_SCORES[ML Strategy Scores<br/>confidence values]
+       ML_REORDER[Reorder by ML Scores]
+       PRIORITY_SORT[Sort by Priority<br/>150 high - 45 low]
+       ORDERED_STRAT[Ordered Strategy List]
+   end
+
+   subgraph "Transformation Stage"
+       SELECT_STRAT[Select Strategy<br/>Highest Priority/Score]
+       CAN_HANDLE{can_handle<br/>Check?}
+       GET_SIZE[Calculate New Size<br/>get_size function]
+       NEW_SIZE[New Instruction Size]
+       GENERATE[Generate Code<br/>generate function]
+       NEW_BYTES[New Instruction Bytes<br/>uint8_t array]
+       VERIFY_TRANSFORM[Verify No Bad Chars<br/>in new bytes]
+       SUCCESS{Transform<br/>Success?}
+       NEXT_STRAT[Try Next Strategy]
+       FALLBACK[Fallback Handler<br/>Conservative approach]
+   end
+
+   subgraph "Buffer Construction Stage"
+       OUTPUT_BUFFER[Output Buffer<br/>struct buffer<br/>data + size + capacity]
+       APPEND[Buffer Append<br/>buffer_append<br/>Realloc if needed]
+       UPDATE_OFFSETS[Update Instruction Offsets<br/>new_offset tracking]
+   end
+
+   subgraph "Jump Fixup Stage"
+       CALC_NEW_OFFSETS[Calculate New Offsets<br/>Sum of new_size values]
+       IDENTIFY_JUMPS[Identify Jump/Call<br/>Instructions]
+       JUMP_DATA[Jump Target Data<br/>target_addr +<br/>relative offset]
+       FIND_TARGET[Find Target Node<br/>Linear search in list]
+       CALC_REL[Calculate New Relative<br/>target_new_offset -<br/>current_new_offset + size]
+       REL_OFFSET[New Relative Offset<br/>int32_t/int8_t]
+       CHECK_NULL_JUMP{Null in<br/>Offset?}
+       ABSOLUTE_JUMP[Convert to Absolute<br/>MOV + JMP register]
+       PATCH_JUMP[Patch Jump Bytes]
+   end
+
+   subgraph "ML Feedback Stage"
+       ML_FEEDBACK_CHECK{ML Enabled?}
+       COLLECT_METRICS[Collect Metrics<br/>success/failure<br/>new_size]
+       ML_FEEDBACK[Provide Feedback<br/>ml_provide_feedback]
+       UPDATE_WEIGHTS[Update NN Weights<br/>Backpropagation<br/>learning_rate: 0.001]
+       UPDATE_METRICS[Update Metrics Tracker<br/>ml_metrics_tracker_t]
+   end
+
+   subgraph "Post-Processing Stage"
+       FINAL_BUFFER[Final Buffer<br/>Transformed shellcode]
+       VERIFY_FINAL{Verify No<br/>Bad Chars?}
+       XOR_ENCODE{XOR Encode?}
+       XOR_PROCESS[XOR Encode<br/>with decoder stub]
+       PIC_GEN{Generate PIC?}
+       PIC_TRANSFORM[PIC Transform<br/>Remove absolute addresses]
+       FORMAT{Output Format?}
+       FORMAT_RAW[Format: Raw Binary]
+       FORMAT_C[Format: C Array<br/>unsigned char buf]
+       FORMAT_PY[Format: Python Bytes<br/>b"\x90\x90..."]
+       FORMAT_HEX[Format: Hex String<br/>90 90 ...]
+   end
+
+   subgraph "Output Stage"
+       FORMATTED_OUTPUT[Formatted Output<br/>String or Binary]
+       WRITE_FILE[Write Output File<br/>fwrite]
+       OUTPUT_FILE[Output File<br/>Cleaned shellcode]
+       STATS_DISPLAY[Display Statistics<br/>success rate, strategies,<br/>size change]
+   end
+
+   INPUT_FILE --> READ
+   READ --> INPUT_BUFFER
+
+   CLI_ARGS --> CONFIG
+   CONFIG --> BADCHAR_CONFIG
+   PROFILE_DATA --> BADCHAR_CONFIG
+
+   INPUT_BUFFER --> CAPSTONE_INIT
+   CONFIG --> CAPSTONE_INIT
+   CAPSTONE_INIT --> DISASM_LOOP
+   DISASM_LOOP --> CS_INSN
+   CS_INSN --> INSN_LIST
+
+   INSN_LIST --> ITERATE_INSN
+   ITERATE_INSN --> CHECK_BADCHAR
+   BADCHAR_CONFIG --> CHECK_BADCHAR
+   CHECK_BADCHAR --> HAS_BADCHAR
+   HAS_BADCHAR -->|Yes| MARK_TRANSFORM
+   HAS_BADCHAR -->|No| COPY_ORIGINAL
+
+   MARK_TRANSFORM --> GET_APPLICABLE
+   GET_APPLICABLE --> APPLICABLE_LIST
+   APPLICABLE_LIST --> ML_ENABLED
+   ML_ENABLED -->|Yes| ML_EXTRACT
+   CS_INSN --> ML_EXTRACT
+   ML_EXTRACT --> ML_FORWARD
+   ML_FORWARD --> ML_SCORES
+   ML_SCORES --> ML_REORDER
+   APPLICABLE_LIST --> ML_REORDER
+   ML_REORDER --> ORDERED_STRAT
+   ML_ENABLED -->|No| PRIORITY_SORT
+   APPLICABLE_LIST --> PRIORITY_SORT
+   PRIORITY_SORT --> ORDERED_STRAT
+
+   ORDERED_STRAT --> SELECT_STRAT
+   SELECT_STRAT --> CAN_HANDLE
+   CAN_HANDLE -->|Yes| GET_SIZE
+   CAN_HANDLE -->|No| NEXT_STRAT
+   GET_SIZE --> NEW_SIZE
+   NEW_SIZE --> GENERATE
+   CS_INSN --> GENERATE
+   GENERATE --> NEW_BYTES
+   NEW_BYTES --> VERIFY_TRANSFORM
+   BADCHAR_CONFIG --> VERIFY_TRANSFORM
+   VERIFY_TRANSFORM --> SUCCESS
+   SUCCESS -->|Yes| APPEND
+   SUCCESS -->|No| NEXT_STRAT
+   NEXT_STRAT --> SELECT_STRAT
+   NEXT_STRAT --> FALLBACK
+
+   COPY_ORIGINAL --> APPEND
+   FALLBACK --> APPEND
+   NEW_BYTES --> APPEND
+   APPEND --> OUTPUT_BUFFER
+   APPEND --> UPDATE_OFFSETS
+   UPDATE_OFFSETS --> INSN_LIST
+
+   OUTPUT_BUFFER --> CALC_NEW_OFFSETS
+   INSN_LIST --> CALC_NEW_OFFSETS
+   CALC_NEW_OFFSETS --> IDENTIFY_JUMPS
+   IDENTIFY_JUMPS --> JUMP_DATA
+   JUMP_DATA --> FIND_TARGET
+   INSN_LIST --> FIND_TARGET
+   FIND_TARGET --> CALC_REL
+   CALC_REL --> REL_OFFSET
+   REL_OFFSET --> CHECK_NULL_JUMP
+   BADCHAR_CONFIG --> CHECK_NULL_JUMP
+   CHECK_NULL_JUMP -->|Yes| ABSOLUTE_JUMP
+   CHECK_NULL_JUMP -->|No| PATCH_JUMP
+   ABSOLUTE_JUMP --> PATCH_JUMP
+   PATCH_JUMP --> OUTPUT_BUFFER
+
+   SUCCESS --> ML_FEEDBACK_CHECK
+   ML_FEEDBACK_CHECK -->|Yes| COLLECT_METRICS
+   COLLECT_METRICS --> ML_FEEDBACK
+   ML_FEEDBACK --> UPDATE_WEIGHTS
+   UPDATE_WEIGHTS --> UPDATE_METRICS
+
+   OUTPUT_BUFFER --> FINAL_BUFFER
+   FINAL_BUFFER --> VERIFY_FINAL
+   BADCHAR_CONFIG --> VERIFY_FINAL
+   VERIFY_FINAL --> XOR_ENCODE
+   XOR_ENCODE -->|Yes| XOR_PROCESS
+   CONFIG --> XOR_PROCESS
+   XOR_PROCESS --> PIC_GEN
+   XOR_ENCODE -->|No| PIC_GEN
+   PIC_GEN -->|Yes| PIC_TRANSFORM
+   PIC_TRANSFORM --> FORMAT
+   PIC_GEN -->|No| FORMAT
+
+   FORMAT --> FORMAT_RAW
+   FORMAT --> FORMAT_C
+   FORMAT --> FORMAT_PY
+   FORMAT --> FORMAT_HEX
+   CONFIG --> FORMAT
+
+   FORMAT_RAW --> FORMATTED_OUTPUT
+   FORMAT_C --> FORMATTED_OUTPUT
+   FORMAT_PY --> FORMATTED_OUTPUT
+   FORMAT_HEX --> FORMATTED_OUTPUT
+
+   FORMATTED_OUTPUT --> WRITE_FILE
+   WRITE_FILE --> OUTPUT_FILE
+   OUTPUT_FILE --> STATS_DISPLAY
+   UPDATE_METRICS --> STATS_DISPLAY
+
+   style INPUT_BUFFER fill:#90ee90
+   style OUTPUT_BUFFER fill:#90ee90
+   style BADCHAR_CONFIG fill:#ff6b6b
+   style ML_FORWARD fill:#95e1d3
+   style NEW_BYTES fill:#ffd700

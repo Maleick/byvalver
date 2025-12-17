@@ -1,0 +1,149 @@
+graph TB
+   subgraph "Strategy Registry System"
+       REGISTRY[Strategy Registry<br/>strategy_registry.c<br/>MAX_STRATEGIES: 200]
+
+       subgraph "Strategy Interface"
+           STRAT_STRUCT[strategy_t Structure]
+           NAME[name: char64]
+           CAN_HANDLE[can_handle: function ptr<br/>check if strategy applies]
+           GET_SIZE[get_size: function ptr<br/>calculate new size]
+           GENERATE[generate: function ptr<br/>emit transformed code]
+           PRIORITY[priority: int<br/>150 highest - 45 lowest]
+       end
+
+       REGISTER[register_strategy<br/>Add to global array]
+       INIT[init_strategies<br/>Initialize all 122+ strategies]
+       GET_STRAT[get_strategies_for_instruction<br/>Filter by can_handle]
+   end
+
+   subgraph "Denullification Strategies 122+"
+       subgraph "High Priority 150-100"
+           COND_JUMP[Conditional Jump Offset<br/>Priority: 150]
+           INDIRECT_CALL[Indirect CALL/JMP<br/>Priority: 100]
+           ADVANCED[Advanced Transformations<br/>Priority: 95+]
+       end
+
+       subgraph "Windows-Specific 97-85"
+           PEB_MULTI[Multi-Stage PEB Traversal<br/>Priority: 97]
+           PEB_API[PEB API Resolution<br/>Priority: 97]
+           HASH_API[Advanced Hash API Resolution<br/>Priority: 96]
+           SLDT_REPL[SLDT Replacement<br/>Priority: 95]
+           SYSCALL[Windows Syscall<br/>Priority: 95]
+           STRUCT_CONST[Stack Structure Construction<br/>Priority: 94]
+           REP_STOSB[REP STOSB Buffer Init<br/>Priority: 92]
+           SALC_COND[SALC Conditional Flag<br/>Priority: 91]
+           SALC_ZERO[SALC Zero Register<br/>Priority: 91]
+           MULTIBYTE_NOP[Multi-byte NOP<br/>Priority: 90]
+           COND_JUMP_DISP[Conditional Jump Displacement<br/>Priority: 88]
+           PUSHW[PUSHW Word Immediate<br/>Priority: 87]
+           JCXZ[JCXZ Loop Termination<br/>Priority: 86]
+           XCHG_PRES[XCHG Preservation<br/>Priority: 86]
+           CALL_POP[CALL/POP Immediate Loading<br/>Priority: 85]
+           STACK_STRING[Stack String Construction<br/>Priority: 85]
+           SHORT_COND[Short Conditional Jump<br/>Priority: 85]
+           RETF[RETF Immediate<br/>Priority: 85]
+           REL_JUMP[Relative Jump<br/>Priority: 85]
+           LARGE_IMM[Large Immediate<br/>Priority: 85]
+       end
+
+       subgraph "Core Strategies 84-70"
+           PUSH_BYTE[PUSH Byte Immediate Stack<br/>Priority: 82]
+           CLTD[CLTD Zero Extension<br/>Priority: 82]
+           LEA_DISP_OPT[LEA Displacement Optimization<br/>Priority: 82]
+           MEM_DISP[Memory Displacement<br/>Priority: 82-85]
+           CMP[CMP Strategies<br/>Priority: 85-88]
+           LEA_DISP[LEA Displacement<br/>Priority: 80]
+           LEA_ARITH_SUB[LEA Arithmetic Substitution<br/>Priority: 80]
+           LEA_COMPLEX[LEA Complex Addressing<br/>Priority: 80]
+           RIP_REL[RIP-Relative Addressing<br/>Priority: 80]
+           BT[BT Bit Test<br/>Priority: 80]
+           SOCKET[Socket Address<br/>Priority: 77-80]
+           ARITH_CONST[Arithmetic Constant Construction<br/>Priority: 79]
+           SHIFT_VAL[Shift Value Construction<br/>Priority: 78]
+           RET[RET Immediate<br/>Priority: 78]
+           REG_ALLOC[Register Allocation<br/>Priority: 78]
+           LEA_CALC[LEA Arithmetic Calculation<br/>Priority: 78]
+           BYTE_REG_SYS[Incremental Byte Register Syscall<br/>Priority: 78]
+           SYSCALL_NUM[Syscall Number Encoding<br/>Priority: 77-78]
+           WORD_INC[Word INC Chain<br/>Priority: 77]
+           PUSH_POP[PUSH-POP Immediate<br/>Priority: 77]
+           IMM_SPLIT[Immediate Split<br/>Priority: 77]
+           UNICODE[Unicode String<br/>Priority: 74-78]
+           ARPL[ARPL ModR/M<br/>Priority: 75]
+           MOVZX[MOVZX/MOVSX<br/>Priority: 75]
+           SCASB[SCASB/CMPSB<br/>Priority: 75]
+           INC_DEC[INC/DEC Chain<br/>Priority: 75]
+           LOOP[LOOP Family<br/>Priority: 75-80]
+           PUSH_IMM[PUSH Immediate<br/>Priority: 75]
+           SMALL_IMM[Small Immediate<br/>Priority: 75]
+           ARITH_CONST_GEN[Arithmetic Const Generation<br/>Priority: 75]
+           LINUX_SOCK[Linux socketcall<br/>Priority: 72-75]
+           IMUL[IMUL Signed Multiply<br/>Priority: 71-72]
+           SETCC[SETcc Conditional Set<br/>Priority: 70-75]
+           REG_SWAP[Register Swapping Immediate<br/>Priority: 70]
+           ROR_ROL[ROR/ROL Rotation<br/>Priority: 70]
+           BOUND[BOUND ModR/M<br/>Priority: 70]
+           ARITH_DECOMP[Arithmetic Decomposition<br/>Priority: 70]
+       end
+
+       subgraph "Standard Strategies 69-60"
+           ADC[ADC Add with Carry<br/>Priority: 69-70]
+           SBB[SBB Subtract with Borrow<br/>Priority: 69-70]
+           LINUX_STR[Linux String Push<br/>Priority: 68-70]
+           SIB[SIB Addressing<br/>Priority: 65]
+           SALC_REP[SALC + REP STOSB<br/>Priority: 65]
+           REG_CHAIN[Register Chaining<br/>Priority: 60-65]
+           FPU[x87 FPU<br/>Priority: 60]
+           SLDT[SLDT<br/>Priority: 60]
+           XCHG[XCHG<br/>Priority: 60]
+       end
+
+       subgraph "Conservative Strategies 55-45"
+           CMP_MEM_DISP[CMP Memory Displacement<br/>Priority: 55]
+           STRING_INSN[String Instruction<br/>Priority: 45]
+       end
+   end
+
+   subgraph "Obfuscation Strategies 25+"
+       CTRL_FLOW[Control Flow Dispatcher]
+       REG_SHUFFLE[Register Shuffle]
+       RUNTIME_SELF[Runtime Self-Modification]
+       OVERLAPPING[Overlapping Instructions]
+       MUTATED_JUNK[Mutated Junk Insertion]
+       MIXED_ARITH[Mixed Arithmetic Base]
+       UNICODE_NEG[Unicode Negation Encoding]
+       PARTIAL_HASH[Partial 16-bit Hash]
+       PEB_NAMELENGTH[PEB NameLength Fingerprint]
+       CALL_POP_DELTA[CALL/POP PIC Delta]
+       LOOPNZ[LOOPNZ Compact Search]
+       INCR_DEC[Incremental Decoder]
+       FPU_STACK[FPU Stack]
+       ANTI_DEBUG[Anti-Debug 5+ techniques]
+   end
+
+   REGISTRY --> STRAT_STRUCT
+   STRAT_STRUCT --> NAME
+   STRAT_STRUCT --> CAN_HANDLE
+   STRAT_STRUCT --> GET_SIZE
+   STRAT_STRUCT --> GENERATE
+   STRAT_STRUCT --> PRIORITY
+
+   REGISTER --> REGISTRY
+   INIT --> REGISTER
+   GET_STRAT --> REGISTRY
+
+   INIT -.-> COND_JUMP
+   INIT -.-> INDIRECT_CALL
+   INIT -.-> PEB_MULTI
+   INIT -.-> HASH_API
+   INIT -.-> SALC_COND
+   INIT -.-> LEA_DISP
+   INIT -.-> CMP
+   INIT -.-> SIB
+   INIT -.-> CTRL_FLOW
+
+   style REGISTRY fill:#ff6b6b
+   style STRAT_STRUCT fill:#4ecdc4
+   style COND_JUMP fill:#90ee90
+   style PEB_MULTI fill:#87ceeb
+   style CTRL_FLOW fill:#ffa07a

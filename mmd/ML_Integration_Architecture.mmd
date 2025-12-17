@@ -1,0 +1,197 @@
+graph TB
+   subgraph "ML Strategist System"
+       ML_INIT[ML Strategist Initialization<br/>ml_strategist_init]
+       MODEL_PATH[Model Path<br/>./ml_models/byvalver_ml_model.bin]
+       MODEL_LOAD[Load Model<br/>ml_strategist_load_model]
+
+       subgraph "Neural Network Architecture"
+           INPUT_LAYER[Input Layer<br/>128 features]
+           HIDDEN1[Hidden Layer 1<br/>64 neurons]
+           HIDDEN2[Hidden Layer 2<br/>32 neurons]
+           OUTPUT_LAYER[Output Layer<br/>Strategy scores]
+           ACTIVATION[Activation: ReLU/Sigmoid]
+       end
+
+       MODEL_STRUCT[ml_strategist_t<br/>model handle<br/>initialized flag<br/>update_model flag]
+   end
+
+   subgraph "Feature Extraction 128 Features"
+       INSN_INPUT[Instruction Input<br/>cs_insn]
+
+       subgraph "Instruction Features 20"
+           MNEMONIC[Mnemonic ID<br/>X86_INS_*]
+           SIZE[Instruction Size]
+           OPCODE[Opcode Bytes]
+           PREFIX[Prefix Bytes]
+           INSN_TYPE[Instruction Type<br/>MOV/ARITHMETIC/JUMP/etc]
+       end
+
+       subgraph "Bad Character Features 10 v3.0"
+           HAS_BAD[has_bad_chars flag]
+           BAD_COUNT[bad_char_count]
+           BAD_TYPES[bad_char_types bitmap 256]
+           BAD_POSITIONS[Positions of bad chars]
+       end
+
+       subgraph "Operand Features 40"
+           OP_COUNT[Operand Count]
+           OP_TYPES[Operand Types 4x<br/>REG/IMM/MEM]
+           REG_INDICES[Register Indices 4x]
+           IMM_VALUE[Immediate Value]
+           MEM_BASE[Memory Base Register]
+           MEM_INDEX[Memory Index Register]
+           MEM_SCALE[Memory Scale]
+           MEM_DISP[Memory Displacement]
+       end
+
+       subgraph "Context Features 30"
+           PREV_INSN[Previous Instruction]
+           NEXT_INSN[Next Instruction]
+           PATTERN[Instruction Pattern]
+           FREQ[Frequency in Corpus]
+       end
+
+       subgraph "Encoding Features 28"
+           MODRM[ModR/M Byte]
+           SIB[SIB Byte]
+           DISP[Displacement Bytes]
+           IMM_BYTES[Immediate Bytes]
+       end
+
+       EXTRACT[Extract Features<br/>ml_extract_instruction_features]
+       FEATURE_VEC[instruction_features_t<br/>features: double 128<br/>feature_count: int]
+   end
+
+   subgraph "Strategy Recommendation"
+       GET_RECOMMEND[Get Recommendation<br/>ml_get_strategy_recommendation]
+       FORWARD_PASS[Neural Network Forward Pass]
+       COMPUTE_SCORES[Compute Strategy Scores]
+       PREDICTION[ml_prediction_result_t<br/>recommended_strategy<br/>confidence: 0.0-1.0<br/>strategy_ranking 200<br/>strategy_scores 200]
+   end
+
+   subgraph "Strategy Re-prioritization"
+       REPRIO[Re-prioritize Strategies<br/>ml_reprioritize_strategies]
+       CURRENT_STRAT[Current Applicable Strategies]
+       ML_SCORES[ML-Generated Scores]
+       REORDER[Reorder by ML Confidence]
+       NEW_ORDER[New Priority Order]
+   end
+
+   subgraph "Feedback Loop"
+       APPLY_STRAT[Apply Strategy]
+       CHECK_SUCCESS{Success?}
+       PROVIDE_FEEDBACK[Provide Feedback<br/>ml_provide_feedback]
+
+       subgraph "Learning Update"
+           CALC_ERROR[Calculate Prediction Error]
+           BACKPROP[Backpropagation<br/>learning_rate: 0.001]
+           UPDATE_WEIGHTS[Update Network Weights<br/>weight_update_avg: 0.042650]
+           ADJUST_PRIORITY[Adjust Strategy Priority]
+       end
+
+       POSITIVE[Positive Feedback<br/>Success: 92.57%]
+       NEGATIVE[Negative Feedback<br/>Failure: 7.43%]
+   end
+
+   subgraph "Metrics Tracking"
+       METRICS_TRACKER[ml_metrics_tracker_t<br/>global instance]
+
+       subgraph "Session Metrics"
+           TOTAL_INSN[Total Instructions<br/>20,760]
+           PROCESSING_SPEED[Instructions/sec<br/>19.5 inst/sec]
+           SESSION_DURATION[Session Duration<br/>1,067 seconds]
+       end
+
+       subgraph "Elimination Metrics"
+           BAD_ELIM[Bad Chars Eliminated<br/>18,636/20,760 = 89.77%]
+           STRAT_APPLIED[Strategies Applied<br/>20,129]
+           SUCCESS_RATE[Success Rate<br/>92.57%]
+       end
+
+       subgraph "Learning Metrics"
+           POSITIVE_FB[Positive Feedback<br/>18,636 = 92.57%]
+           NEGATIVE_FB[Negative Feedback<br/>1,493 = 7.43%]
+           TOTAL_ITER[Total Iterations<br/>40,889]
+           AVG_CONF[Avg Confidence<br/>0.0015 = 0.15%]
+           LEARN_RATE[Learning Rate<br/>1.97 feedback/instruction]
+       end
+
+       subgraph "Strategy Performance"
+           TOP_STRAT[Top Performing Strategies<br/>117/122+ activated = 95.90%]
+           ZERO_ATTEMPT[Zero-Attempt<br/>5 = 4.10%]
+           STRAT_ATTEMPTS[Per-Strategy Attempts]
+           STRAT_SUCCESS[Per-Strategy Success %]
+           STRAT_CONFIDENCE[Per-Strategy Confidence]
+       end
+
+       RECORD_METRICS[Record Metrics]
+       EXPORT_JSON[Export JSON<br/>ml_strategist_export_metrics_json]
+       EXPORT_CSV[Export CSV<br/>ml_strategist_export_metrics_csv]
+       PRINT_LIVE[Print Live Metrics<br/>ml_strategist_print_live_metrics]
+       PRINT_SUMMARY[Print Summary<br/>ml_strategist_print_metrics_summary]
+   end
+
+   ML_INIT --> MODEL_PATH
+   MODEL_PATH --> MODEL_LOAD
+   MODEL_LOAD --> INPUT_LAYER
+   INPUT_LAYER --> HIDDEN1
+   HIDDEN1 --> HIDDEN2
+   HIDDEN2 --> OUTPUT_LAYER
+   OUTPUT_LAYER --> ACTIVATION
+   MODEL_LOAD --> MODEL_STRUCT
+
+   INSN_INPUT --> MNEMONIC
+   INSN_INPUT --> HAS_BAD
+   INSN_INPUT --> OP_COUNT
+   INSN_INPUT --> PREV_INSN
+   INSN_INPUT --> MODRM
+
+   MNEMONIC --> EXTRACT
+   HAS_BAD --> EXTRACT
+   BAD_COUNT --> EXTRACT
+   OP_COUNT --> EXTRACT
+   REG_INDICES --> EXTRACT
+   PREV_INSN --> EXTRACT
+   MODRM --> EXTRACT
+
+   EXTRACT --> FEATURE_VEC
+   FEATURE_VEC --> GET_RECOMMEND
+   GET_RECOMMEND --> FORWARD_PASS
+   FORWARD_PASS --> COMPUTE_SCORES
+   COMPUTE_SCORES --> PREDICTION
+
+   PREDICTION --> REPRIO
+   CURRENT_STRAT --> REPRIO
+   REPRIO --> ML_SCORES
+   ML_SCORES --> REORDER
+   REORDER --> NEW_ORDER
+
+   NEW_ORDER --> APPLY_STRAT
+   APPLY_STRAT --> CHECK_SUCCESS
+   CHECK_SUCCESS -->|Yes| POSITIVE
+   CHECK_SUCCESS -->|No| NEGATIVE
+   POSITIVE --> PROVIDE_FEEDBACK
+   NEGATIVE --> PROVIDE_FEEDBACK
+
+   PROVIDE_FEEDBACK --> CALC_ERROR
+   CALC_ERROR --> BACKPROP
+   BACKPROP --> UPDATE_WEIGHTS
+   UPDATE_WEIGHTS --> ADJUST_PRIORITY
+
+   PROVIDE_FEEDBACK --> RECORD_METRICS
+   RECORD_METRICS --> METRICS_TRACKER
+   METRICS_TRACKER --> TOTAL_INSN
+   METRICS_TRACKER --> BAD_ELIM
+   METRICS_TRACKER --> POSITIVE_FB
+   METRICS_TRACKER --> TOP_STRAT
+
+   METRICS_TRACKER --> EXPORT_JSON
+   METRICS_TRACKER --> EXPORT_CSV
+   METRICS_TRACKER --> PRINT_LIVE
+   METRICS_TRACKER --> PRINT_SUMMARY
+
+   style MODEL_STRUCT fill:#95e1d3
+   style FEATURE_VEC fill:#4ecdc4
+   style PREDICTION fill:#87ceeb
+   style METRICS_TRACKER fill:#ffd700
+

@@ -9,6 +9,7 @@
 #include "improved_arithmetic_strategies.h"
 #include "remaining_null_elimination_strategies.h"
 #include "ml_strategist.h"
+#include "ml_strategy_registry.h"
 #include "call_pop_immediate_strategies.h"
 #include "peb_api_hashing_strategies.h"
 #include "shift_value_construction_strategies.h"
@@ -335,6 +336,15 @@ void init_strategies(int use_ml) {
     fprintf(stderr, "[DEBUG] Registered %d strategies\n", strategy_count);
     #endif
     // printf("init_strategies: Registered %d strategies.\n", strategy_count); // Removed debug print
+
+    // Initialize ML strategy registry if ML is enabled
+    if (use_ml && g_ml_initialized) {
+        if (ml_strategy_registry_init(strategies, strategy_count) == 0) {
+            printf("[ML] Strategy registry initialized with %d strategies\n", strategy_count);
+        } else {
+            fprintf(stderr, "[ML] WARNING: Failed to initialize strategy registry\n");
+        }
+    }
 }
 
 strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count) {

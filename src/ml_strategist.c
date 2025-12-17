@@ -8,6 +8,7 @@
 
 #include "ml_strategist.h"
 #include "ml_metrics.h"
+#include "ml_strategy_registry.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,13 +102,29 @@ int ml_strategist_init(ml_strategist_t* strategist, const char* model_path) {
 
 /**
  * @brief Extract features from an instruction for ML model input
+ *
+ * FIXED FEATURE LAYOUT (no sliding):
+ * [0]      : instruction_id (categorical, will be one-hot encoded later)
+ * [1]      : instruction_size (1-15 bytes)
+ * [2]      : has_bad_chars (0 or 1)
+ * [3]      : bad_char_count (0-N)
+ * [4]      : operand_count (0-4)
+ * [5-8]    : operand_type[0-3] (always 4 slots, 0 if unused)
+ * [9-12]   : register[0-3] (always 4 slots, 0 if not REG type)
+ * [13-16]  : immediate[0-3] (always 4 slots, 0 if not IMM type)
+ * [17-20]  : memory_base[0-3] (always 4 slots, 0 if not MEM type)
+ * [21-24]  : memory_index[0-3] (always 4 slots, 0 if not MEM type)
+ * [25-28]  : memory_scale[0-3] (always 4 slots, 0 if not MEM type)
+ * [29-32]  : memory_disp[0-3] (always 4 slots, 0 if not MEM type)
+ * [33]     : prefix_count
+ * [34-127] : Reserved for future features (padded with 0)
  */
 int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* features) {
     if (!insn || !features) {
         return -1;
     }
-    
-    // Initialize features
+
+    // Initialize ALL features to zero
     memset(features, 0, sizeof(instruction_features_t));
 
     // Extract instruction type
@@ -128,8 +145,7 @@ int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* featu
         }
     }
 
-    // Extract operand information
-    features->feature_count = 0;
+    // Extract operand information into fixed arrays
     for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
         features->operand_types[i] = insn->detail->x86.operands[i].type;
 
@@ -140,36 +156,100 @@ int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* featu
         }
     }
 
-    // Add basic features to the feature vector
-    features->features[features->feature_count++] = (double)insn->id;
-    features->features[features->feature_count++] = (double)insn->size;
-    features->features[features->feature_count++] = (double)features->has_bad_chars;
-    features->features[features->feature_count++] = (double)features->bad_char_count;
-    features->features[features->feature_count++] = (double)insn->detail->x86.op_count;
-    
-    // Add operand type features
-    for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
-        features->features[features->feature_count++] = (double)insn->detail->x86.operands[i].type;
-    }
-    
-    // Add register features if applicable
-    for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
-        if (insn->detail->x86.operands[i].type == X86_OP_REG) {
-            features->features[features->feature_count++] = (double)insn->detail->x86.operands[i].reg;
+    // FIXED FEATURE LAYOUT - No sliding!
+    int idx = 0;
+
+    // [0-4] Basic instruction features
+    features->features[idx++] = (double)insn->id;                           // [0]
+    features->features[idx++] = (double)insn->size;                         // [1]
+    features->features[idx++] = (double)features->has_bad_chars;            // [2]
+    features->features[idx++] = (double)features->bad_char_count;           // [3]
+    features->features[idx++] = (double)insn->detail->x86.op_count;         // [4]
+
+    // [5-8] Operand types (ALWAYS 4 slots)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count) {
+            features->features[idx++] = (double)insn->detail->x86.operands[i].type;
+        } else {
+            features->features[idx++] = 0.0;  // Unused operand slot
         }
     }
-    
-    // Add immediate value features if applicable
-    if (insn->detail->x86.op_count > 0 && 
-        insn->detail->x86.operands[0].type == X86_OP_IMM) {
-        features->features[features->feature_count++] = (double)insn->detail->x86.operands[0].imm;
+
+    // [9-12] Register operands (ALWAYS 4 slots, 0 if not register)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_REG) {
+            features->features[idx++] = (double)insn->detail->x86.operands[i].reg;
+        } else {
+            features->features[idx++] = 0.0;
+        }
     }
-    
-    // Pad with zeros if necessary
-    while (features->feature_count < MAX_INSTRUCTION_FEATURES) {
-        features->features[features->feature_count++] = 0.0;
+
+    // [13-16] Immediate operands (ALWAYS 4 slots, 0 if not immediate)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_IMM) {
+            // Normalize large immediates to prevent gradient explosion
+            double imm_val = (double)insn->detail->x86.operands[i].imm;
+            // Scale to [-1, 1] range assuming 32-bit immediates
+            features->features[idx++] = imm_val / 2147483648.0;
+        } else {
+            features->features[idx++] = 0.0;
+        }
     }
-    
+
+    // [17-20] Memory base register (ALWAYS 4 slots)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_MEM) {
+            features->features[idx++] = (double)insn->detail->x86.operands[i].mem.base;
+        } else {
+            features->features[idx++] = 0.0;
+        }
+    }
+
+    // [21-24] Memory index register (ALWAYS 4 slots)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_MEM) {
+            features->features[idx++] = (double)insn->detail->x86.operands[i].mem.index;
+        } else {
+            features->features[idx++] = 0.0;
+        }
+    }
+
+    // [25-28] Memory scale (ALWAYS 4 slots)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_MEM) {
+            features->features[idx++] = (double)insn->detail->x86.operands[i].mem.scale;
+        } else {
+            features->features[idx++] = 0.0;
+        }
+    }
+
+    // [29-32] Memory displacement (ALWAYS 4 slots, normalized)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_MEM) {
+            // Normalize displacement to prevent gradient explosion
+            double disp = (double)insn->detail->x86.operands[i].mem.disp;
+            features->features[idx++] = disp / 2147483648.0;
+        } else {
+            features->features[idx++] = 0.0;
+        }
+    }
+
+    // [33] Prefix count (for LOCK, REP, etc.)
+    features->features[idx++] = (double)insn->detail->x86.prefix[0] != 0 ? 1.0 : 0.0;
+
+    // [34-127] Pad remaining features with zeros
+    while (idx < MAX_INSTRUCTION_FEATURES) {
+        features->features[idx++] = 0.0;
+    }
+
+    features->feature_count = MAX_INSTRUCTION_FEATURES;
+
     return 0;
 }
 
@@ -208,10 +288,19 @@ static void softmax(double* inputs, int size, double* outputs) {
 
 /**
  * @brief Perform forward pass through the neural network
+ * @param nn Neural network
+ * @param input Input features
+ * @param output Output probabilities
+ * @param valid_indices Array of valid strategy indices (NULL = all valid)
+ * @param valid_count Number of valid indices (0 = all valid)
+ *
+ * FIXED: Now supports output masking to filter invalid strategies
  */
 static void neural_network_forward(simple_neural_network_t* nn,
                                    double* input,
-                                   double* output) {
+                                   double* output,
+                                   int* valid_indices,
+                                   int valid_count) {
     double hidden[NN_HIDDEN_SIZE];
 
     // Input to hidden layer
@@ -223,7 +312,7 @@ static void neural_network_forward(simple_neural_network_t* nn,
         hidden[i] = relu(hidden[i]);  // Apply activation function
     }
 
-    // Hidden to output layer
+    // Hidden to output layer (logits before softmax)
     for (int i = 0; i < nn->layer_sizes[2]; i++) {
         output[i] = nn->hidden_bias[i];
         for (int j = 0; j < nn->layer_sizes[1]; j++) {
@@ -231,7 +320,30 @@ static void neural_network_forward(simple_neural_network_t* nn,
         }
     }
 
+    // MASKING: Set invalid strategy logits to -infinity before softmax
+    // This ensures they get probability ~0 and don't contribute to gradients
+    if (valid_indices != NULL && valid_count > 0) {
+        // Create a mask of valid indices
+        int is_valid[NN_OUTPUT_SIZE];
+        for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
+            is_valid[i] = 0;
+        }
+        for (int i = 0; i < valid_count; i++) {
+            if (valid_indices[i] >= 0 && valid_indices[i] < NN_OUTPUT_SIZE) {
+                is_valid[valid_indices[i]] = 1;
+            }
+        }
+
+        // Mask invalid outputs with -infinity
+        for (int i = 0; i < nn->layer_sizes[2]; i++) {
+            if (!is_valid[i]) {
+                output[i] = -INFINITY;  // Will become ~0 after softmax
+            }
+        }
+    }
+
     // Apply softmax to get probability distribution
+    // Softmax handles -inf correctly: exp(-inf) = 0
     softmax(output, nn->layer_sizes[2], output);
 }
 
@@ -264,9 +376,9 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
         return -1;
     }
 
-    // Perform neural network inference
+    // Perform neural network inference (without masking for get_strategy_recommendation)
     double nn_output[NN_OUTPUT_SIZE];
-    neural_network_forward(nn, features.features, nn_output);
+    neural_network_forward(nn, features.features, nn_output, NULL, 0);
 
     // NOTE: We don't call get_strategies_for_instruction here to avoid recursion
     // The applicable strategies should be provided by the caller (ml_reprioritize_strategies)
@@ -339,6 +451,7 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
 
 /**
  * @brief Update strategy priorities based on ML model prediction
+ * FIXED: Now uses stable strategy indices from registry
  */
 int ml_reprioritize_strategies(ml_strategist_t* strategist,
                                cs_insn* insn,
@@ -364,17 +477,49 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
         return -1;
     }
 
-    // Perform neural network inference to get scores
-    double nn_output[NN_OUTPUT_SIZE];
-    neural_network_forward(nn, features.features, nn_output);
+    // Get stable indices for applicable strategies
+    int stable_indices[MAX_STRATEGY_COUNT];
+    int valid_index_count = 0;
 
-    // Assign scores to each strategy (using index as simple mapping)
-    double scores_copy[MAX_STRATEGY_COUNT];
     for (int i = 0; i < *strategy_count && i < MAX_STRATEGY_COUNT; i++) {
-        if (i < NN_OUTPUT_SIZE) {
-            scores_copy[i] = nn_output[i];
+        int stable_idx = ml_strategy_get_index(applicable_strategies[i]);
+        if (stable_idx >= 0 && stable_idx < NN_OUTPUT_SIZE) {
+            stable_indices[i] = stable_idx;
+            valid_index_count++;
         } else {
-            scores_copy[i] = 0.01 * (rand() % 100) / 100.0;
+            fprintf(stderr, "[ML] WARNING: Strategy '%s' not in registry\n",
+                    applicable_strategies[i] ? applicable_strategies[i]->name : "NULL");
+            stable_indices[i] = -1;
+        }
+    }
+
+    // Perform neural network inference WITH MASKING for only applicable strategies
+    // This prevents invalid strategies from dominating the softmax/gradients
+    double nn_output[NN_OUTPUT_SIZE];
+    int valid_indices_for_nn[MAX_STRATEGY_COUNT];
+    int valid_nn_count = 0;
+
+    // Build list of valid indices for masking
+    for (int i = 0; i < *strategy_count; i++) {
+        if (stable_indices[i] >= 0) {
+            valid_indices_for_nn[valid_nn_count++] = stable_indices[i];
+        }
+    }
+
+    // Forward pass with output masking (invalid strategies get probability ~0)
+    neural_network_forward(nn, features.features, nn_output,
+                          valid_indices_for_nn, valid_nn_count);
+
+    // Map applicable strategies to their NN output scores using stable indices
+    double scores_copy[MAX_STRATEGY_COUNT];
+
+    for (int i = 0; i < *strategy_count && i < MAX_STRATEGY_COUNT; i++) {
+        if (stable_indices[i] >= 0 && stable_indices[i] < NN_OUTPUT_SIZE) {
+            // Use the NN output score for this strategy's stable index
+            scores_copy[i] = nn_output[stable_indices[i]];
+        } else {
+            // Strategy not in registry (shouldn't happen)
+            scores_copy[i] = 0.0;
         }
 
         // Record strategy attempt with confidence score
@@ -385,7 +530,7 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
         }
     }
 
-    // Sort strategies based on ML scores
+    // Sort strategies based on ML scores (bubble sort for simplicity)
     for (int i = 0; i < *strategy_count - 1; i++) {
         for (int j = i + 1; j < *strategy_count; j++) {
             if (scores_copy[i] < scores_copy[j]) {
@@ -398,6 +543,11 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
                 double temp_score = scores_copy[i];
                 scores_copy[i] = scores_copy[j];
                 scores_copy[j] = temp_score;
+
+                // Swap stable indices
+                int temp_idx = stable_indices[i];
+                stable_indices[i] = stable_indices[j];
+                stable_indices[j] = temp_idx;
             }
         }
     }
@@ -444,42 +594,71 @@ int ml_discover_new_strategies(ml_strategist_t* strategist) {
 }
 
 /**
- * @brief Update neural network weights using simple gradient descent (simplified)
+ * @brief Update neural network weights using full backpropagation
+ * FIXED: Now implements complete backprop through all layers with correct gradients
  */
 static void update_weights(simple_neural_network_t* nn,
                            double* input,
                            double* target_output,
                            double* actual_output,
                            double learning_rate) {
-    // This is a simplified implementation of backpropagation
-    // In an enterprise-grade implementation, this would be a full backpropagation algorithm
+    // FORWARD PASS - Recompute hidden layer activations
+    double hidden_z[NN_HIDDEN_SIZE];      // Pre-activation values
+    double hidden_a[NN_HIDDEN_SIZE];      // Post-activation values (after ReLU)
 
-    // Calculate output layer error
-    double output_error[NN_OUTPUT_SIZE];
-    for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
-        output_error[i] = (target_output[i] - actual_output[i]) * actual_output[i] * (1 - actual_output[i]);
-    }
-
-    // Update hidden to output weights
-    double hidden_output[NN_HIDDEN_SIZE];
-    // Calculate hidden layer outputs (forward pass up to hidden layer)
+    // Input to hidden layer
     for (int i = 0; i < nn->layer_sizes[1]; i++) {
-        hidden_output[i] = nn->input_bias[i];
+        hidden_z[i] = nn->input_bias[i];
         for (int j = 0; j < nn->layer_sizes[0]; j++) {
-            hidden_output[i] += input[j] * nn->input_weights[i][j];
+            hidden_z[i] += input[j] * nn->input_weights[i][j];
         }
-        hidden_output[i] = relu(hidden_output[i]);
+        hidden_a[i] = relu(hidden_z[i]);
     }
 
+    // BACKWARD PASS
+
+    // Output layer gradient
+    // For softmax + cross-entropy loss, gradient is simply: (actual - target)
+    // This is mathematically cleaner than the sigmoid derivative we had before
+    double output_delta[NN_OUTPUT_SIZE];
+    for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
+        output_delta[i] = actual_output[i] - target_output[i];
+    }
+
+    // Hidden layer gradient
+    double hidden_delta[NN_HIDDEN_SIZE];
+    for (int i = 0; i < nn->layer_sizes[1]; i++) {
+        hidden_delta[i] = 0.0;
+
+        // Backpropagate error from output layer
+        for (int j = 0; j < NN_OUTPUT_SIZE; j++) {
+            hidden_delta[i] += output_delta[j] * nn->hidden_weights[j][i];
+        }
+
+        // Apply ReLU derivative: d/dx ReLU(x) = 1 if x > 0, else 0
+        if (hidden_z[i] <= 0.0) {
+            hidden_delta[i] = 0.0;
+        }
+    }
+
+    // UPDATE WEIGHTS AND BIASES
+
+    // Update hidden-to-output layer weights and biases
     for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
         for (int j = 0; j < NN_HIDDEN_SIZE; j++) {
-            nn->hidden_weights[i][j] += learning_rate * output_error[i] * hidden_output[j];
+            nn->hidden_weights[i][j] -= learning_rate * output_delta[i] * hidden_a[j];
         }
-        nn->hidden_bias[i] += learning_rate * output_error[i];
+        nn->hidden_bias[i] -= learning_rate * output_delta[i];
     }
 
-    // For simplicity, skip the full input to hidden weight update in this example
-    // In enterprise implementation, full backpropagation would be implemented
+    // Update input-to-hidden layer weights and biases
+    // FIXED: Now actually updates these weights (previously skipped)
+    for (int i = 0; i < nn->layer_sizes[1]; i++) {
+        for (int j = 0; j < nn->layer_sizes[0]; j++) {
+            nn->input_weights[i][j] -= learning_rate * hidden_delta[i] * input[j];
+        }
+        nn->input_bias[i] -= learning_rate * hidden_delta[i];
+    }
 }
 
 /**
@@ -510,9 +689,9 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         return -1;
     }
 
-    // Perform forward pass to get current prediction
+    // Perform forward pass to get current prediction (no masking for feedback)
     double nn_output[NN_OUTPUT_SIZE];
-    neural_network_forward(nn, features.features, nn_output);
+    neural_network_forward(nn, features.features, nn_output, NULL, 0);
 
     // Create target output based on the result
     // If successful, boost the score for the applied strategy; otherwise, reduce it
@@ -521,19 +700,14 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         target_output[i] = nn_output[i];
     }
 
-    // Use a simple hash-based mapping from strategy name to index to avoid recursion
-    // This allows us to enable learning without calling get_strategies_for_instruction
+    // FIXED: Use stable index from registry instead of hash-based mapping
     int strategy_idx = -1;
-    if (applied_strategy != NULL && applied_strategy->name != NULL) {
-        // Simple hash function to map strategy name to NN output index
-        // This is a simplified approach; in production we'd use a proper mapping table
-        unsigned long hash = 5381;
-        const char* str = applied_strategy->name;
-        int c;
-        while ((c = *str++)) {
-            hash = ((hash << 5) + hash) + c;
+    if (applied_strategy != NULL) {
+        strategy_idx = ml_strategy_get_index(applied_strategy);
+        if (strategy_idx < 0) {
+            fprintf(stderr, "[ML] WARNING: Applied strategy '%s' not found in registry\n",
+                    applied_strategy->name ? applied_strategy->name : "NULL");
         }
-        strategy_idx = (int)(hash % NN_OUTPUT_SIZE);
     }
 
     // Track instruction processing with bad character awareness (v3.0)

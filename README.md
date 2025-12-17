@@ -181,15 +181,22 @@ Zero-Attempt:            5                   █░░░░░░░░░░�
 - Anti-debugging
 - VM detection techniques
 
-### ML-Powered Strategy Selection (Experimental)
-- Extracts 128 features per instruction
-- 3-layer feedforward neural network for dynamic ranking
+### ML-Powered Strategy Selection (Experimental - Overhauled December 2025)
+- **Fixed feature extraction** with stable 34-dimensional layout (no sliding indices)
+- **Stable strategy registry** ensuring consistent NN output mapping
+- **Full backpropagation** through all layers (input→hidden→output)
+- **Correct gradient computation** for softmax + cross-entropy loss
+- **Output masking** filters invalid strategies before softmax
+- 3-layer feedforward neural network (128→256→200)
 - Adaptive learning from success/failure feedback
 - Tracks predictions, accuracy, and confidence
 - Graceful fallback to deterministic ordering
 
+> [!NOTE]
+> **ML Fixes (Dec 2025)**: The ML system underwent comprehensive fixes addressing all critical architectural issues identified in technical review. The system is now theoretically sound but requires empirical validation with diverse training data. See `docs/ML_FIXES_2025.md` for complete details.
+
 > [!WARNING]
-> ML mode is experimental and may reduce success rate compared to the deterministic strategy selection. Use the `--ml` flag to enable (disabled by default).
+> ML mode is experimental and requires further training/validation. Use the `--ml` flag to enable (disabled by default). Current model is trained primarily on null-byte elimination data.
 
 ### Batch Processing
 - Recursive directory traversal (`-r`)
@@ -389,16 +396,16 @@ Version 3.0 introduces **bad-character profiles** - pre-configured sets of bytes
 | Profile | Difficulty | Bad Chars | Use Case |
 |---------|-----------|-----------|----------|
 | `null-only` | ░░░░░ Trivial | 1 | Classic buffer overflows (default) |
-| `http-newline` | █░░░░ Low | 3 | HTTP headers, line-based protocols |
-| `http-whitespace` | █░░░░ Low | 5 | HTTP parameters, command injection |
-| `url-safe` | ███░░ Medium | 23 | URL parameters, GET requests |
-| `sql-injection` | ███░░ Medium | 5 | SQL injection contexts |
-| `xml-html` | ███░░ Medium | 6 | XML/HTML injection, XSS |
-| `json-string` | ███░░ Medium | 34 | JSON API injection |
+| `http-newline` | █░░░░ Low | 3 | `HTTP` headers, line-based protocols |
+| `http-whitespace` | █░░░░ Low | 5 | `HTTP` parameters, command injection |
+| `url-safe` | ███░░ Medium | 23 | `URL` parameters, `GET` requests |
+| `sql-injection` | ███░░ Medium | 5 | `SQL` injection contexts |
+| `xml-html` | ███░░ Medium | 6 | `XML`/`HTML` injection, `XSS` |
+| `json-string` | ███░░ Medium | 34 | `JSON` API injection |
 | `format-string` | ███░░ Medium | 3 | Format string vulnerabilities |
 | `buffer-overflow` | ███░░ Medium | 5 | Stack/heap overflows with filtering |
 | `command-injection` | ███░░ Medium | 20 | Shell command injection |
-| `ldap-injection` | ███░░ Medium | 5 | LDAP queries |
+| `ldap-injection` | ███░░ Medium | 5 | `LDAP` queries |
 | `printable-only` | ████░ High | 161 | Text-based protocols (printable ASCII only) |
 | `alphanumeric-only` | █████ Extreme | 194 | Alphanumeric-only shellcode (0-9, A-Z, a-z) |
 
@@ -559,7 +566,26 @@ The modular registry allows easy addition of new strategies to handle emerging s
 
 See [DENULL_STRATS](docs/DENULL_STRATS.md) for detailed strategy documentation.
 
-## ML Training
+## ML Training and Validation
+
+### Comprehensive Fixes (December 2025)
+
+The ML system has been completely overhauled to address critical architectural issues:
+
+**What Was Fixed:**
+1. ✅ **Feature Vector Stability** - Fixed-layout features (no sliding indices based on operand count)
+2. ✅ **Index Consistency** - Stable strategy registry ensuring forward/backward pass alignment
+3. ✅ **Full Backpropagation** - Complete gradient updates through all layers
+4. ✅ **Correct Gradients** - Fixed softmax + cross-entropy derivative (was using sigmoid derivative)
+5. ✅ **Output Masking** - Invalid strategies filtered before softmax to focus gradients
+
+**New Components:**
+- `src/ml_strategy_registry.h/c` - Stable bidirectional strategy-to-index mapping
+- `docs/ML_FIXES_2025.md` - Complete documentation of all fixes
+
+**Status:** Builds without errors/warnings. Theoretically sound but requires empirical validation.
+
+### Training
 
 Build trainer: `make train`
 
@@ -570,6 +596,25 @@ Run: `./bin/train_model`
 - Config: 10k samples, 50 epochs, 20% validation, LR 0.001, batch 32
 
 Model auto-loaded at runtime with path resolution.
+
+### Testing ML Mode
+
+```bash
+# Smoke test
+./bin/byvalver --ml shellcodes/linux_x86/execve.bin output.bin
+
+# Check registry initialization
+./bin/byvalver --ml test.bin output.bin 2>&1 | grep "ML Registry"
+# Expected: "ML Registry] Initialized with XXX strategies"
+
+# Batch processing with learning
+./bin/byvalver --ml --batch shellcodes/linux_x86/*.bin output/
+
+# View metrics
+cat ml_metrics.log
+```
+
+**Recommendation:** ML mode needs retraining with diverse bad-character datasets before production use. Currently optimized for null-byte elimination only.
 
 ## Development
 

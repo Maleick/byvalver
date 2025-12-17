@@ -18,6 +18,14 @@ void init_bad_char_context(bad_char_config_t *config) {
         // Copy user configuration
         memcpy(&g_bad_char_context.config, config, sizeof(bad_char_config_t));
         g_bad_char_context.initialized = 1;
+
+        // Record bad character configuration for metrics tracking (v3.0)
+        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
+        if (metrics) {
+            ml_metrics_record_bad_char_config(metrics,
+                                            g_bad_char_context.config.bad_chars,
+                                            g_bad_char_context.config.bad_char_count);
+        }
     } else {
         // Default configuration: null byte only (for backward compatibility)
         memset(&g_bad_char_context, 0, sizeof(bad_char_context_t));
@@ -25,6 +33,14 @@ void init_bad_char_context(bad_char_config_t *config) {
         g_bad_char_context.config.bad_char_list[0] = 0x00;
         g_bad_char_context.config.bad_char_count = 1;
         g_bad_char_context.initialized = 1;
+
+        // Record default bad character configuration
+        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
+        if (metrics) {
+            ml_metrics_record_bad_char_config(metrics,
+                                            g_bad_char_context.config.bad_chars,
+                                            g_bad_char_context.config.bad_char_count);
+        }
     }
 }
 

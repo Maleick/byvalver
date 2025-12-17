@@ -577,6 +577,7 @@ int main(int argc, char *argv[]) {
             if (ml_initialized) {
                 ml_strategist_print_metrics_summary();
                 ml_strategist_print_strategy_breakdown();
+                ml_strategist_print_bad_char_breakdown();  // Added bad character breakdown (v3.0)
                 ml_strategist_print_learning_progress();
             } else {
                 // Provide basic statistics for batch processing even without ML
@@ -658,6 +659,7 @@ int main(int argc, char *argv[]) {
         if (ml_initialized) {
             ml_strategist_print_metrics_summary();
             ml_strategist_print_strategy_breakdown();
+            ml_strategist_print_bad_char_breakdown();  // Added bad character breakdown (v3.0)
             ml_strategist_print_learning_progress();
         } else {
             // Provide basic statistics even without ML

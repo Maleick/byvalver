@@ -176,6 +176,11 @@ void ml_strategist_print_strategy_breakdown(void);
  */
 void ml_strategist_print_learning_progress(void);
 
+/**
+ * @brief Print bad character elimination breakdown
+ */
+void ml_strategist_print_bad_char_breakdown(void);
+
 // Function to get reference to metrics tracker for other modules
 ml_metrics_tracker_t* get_ml_metrics_tracker(void);
 

@@ -487,12 +487,11 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
     double nn_output[NN_OUTPUT_SIZE];
     neural_network_forward(nn, features.features, nn_output, NULL, 0);
 
-    // NOTE: We don't call get_strategies_for_instruction here to avoid recursion
-    // The applicable strategies should be provided by the caller (ml_reprioritize_strategies)
-    // For now, we return just the NN output without strategy mapping
-    prediction->strategy_count = 0;
+    // Get applicable strategies for this instruction
     int applicable_count = 0;
-    strategy_t** applicable_strategies = NULL;
+    strategy_t** applicable_strategies = get_strategies_for_instruction(insn, &applicable_count);
+
+    prediction->strategy_count = applicable_count;
 
     // Map neural network outputs to applicable strategies and rank them
     if (applicable_count > 0) {
@@ -552,6 +551,9 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
         prediction->recommended_strategy = NULL;
         prediction->confidence = 0.0;
     }
+
+    // NOTE: Do not free applicable_strategies here - it's returned by get_strategies_for_instruction
+    // and may be a statically allocated array or managed elsewhere
 
     return 0;
 }
@@ -938,11 +940,15 @@ int ml_provide_feedback(ml_strategist_t* strategist,
  */
 void ml_strategist_cleanup(ml_strategist_t* strategist) {
     if (strategist) {
-        // Print final metrics summary before cleanup
+        // Print final metrics summary before cleanup (only for runtime, not training)
         if (g_ml_metrics) {
-            ml_metrics_print_summary(g_ml_metrics);
-            ml_metrics_print_strategy_breakdown(g_ml_metrics);
-            ml_metrics_print_learning_progress(g_ml_metrics);
+            // Only print detailed metrics if we actually made predictions during runtime
+            // During training, predictions_made will be 0 and the evaluation section shows real metrics
+            if (g_ml_metrics->model.predictions_made > 0 || g_ml_metrics->session.total_strategies_applied > 0) {
+                ml_metrics_print_summary(g_ml_metrics);
+                ml_metrics_print_strategy_breakdown(g_ml_metrics);
+                ml_metrics_print_learning_progress(g_ml_metrics);
+            }
             ml_metrics_cleanup(g_ml_metrics);
             g_ml_metrics = NULL;
         }

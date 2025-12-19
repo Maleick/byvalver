@@ -151,16 +151,122 @@ Initialization → Feature Extraction → Strategy Ranking → Strategy Applicat
 
 ## Training Pipeline
 
+### The `train_model` Utility
+
+BYVALVER includes a dedicated training utility (`bin/train_model`) that trains the ML model from scratch using a corpus of shellcode samples. This utility is separate from the main `byvalver` binary and is specifically designed for model training and evaluation.
+
+#### Building the Training Utility
+
+```bash
+# Build the training utility
+make train
+
+# This creates: bin/train_model
+```
+
+#### Command-Line Interface
+
+```bash
+Usage: ./bin/train_model [OPTIONS] TRAINING_DATA_DIR
+
+Train the BYVALVER ML model using shellcode samples.
+
+Arguments:
+  TRAINING_DATA_DIR    Directory containing .bin training files (required)
+
+Options:
+  -h, --help           Show this help message
+
+Examples:
+  ./bin/train_model /path/to/shellcodes     # Train with shellcodes directory
+  ./bin/train_model ~/my_training_data      # Train with home directory path
+  ./bin/train_model ./training_bins         # Train with relative path
+```
+
+**Important**: The training directory argument is **required**. The utility expects a directory containing `.bin` or `.raw` files with raw shellcode samples.
+
+#### Training Process Overview
+
+When you run `train_model`, it executes the following pipeline:
+
+1. **Strategy Registry Initialization**
+   - Initializes all 200+ null-byte elimination strategies
+   - Builds the strategy lookup table for instruction matching
+   - Prepares the ML strategist with v2.0 architecture (336 input, 512 hidden, 200 output)
+
+2. **Training Data Generation**
+   - Scans the specified directory for `.bin` and `.raw` files
+   - Disassembles each shellcode file using Capstone disassembler (x86-32 mode)
+   - Identifies instructions containing null bytes
+   - For each instruction with null bytes:
+     - Finds applicable transformation strategies using `get_strategies_for_instruction()`
+     - Creates training samples with feature vectors (336-dimensional, v2.0 architecture)
+     - Stores instruction-strategy pairs as training data
+   - Auto-saves progress every 100 samples to `training_data.bin`
+
+3. **Model Training**
+   - Splits data into training (80%) and validation (20%) sets
+   - Performs 50 epochs of training by default
+   - For each epoch:
+     - Processes training samples in batches
+     - Computes forward pass through neural network
+     - Calculates loss using cross-entropy
+     - Backpropagates gradients through all layers (v2.0 fix)
+     - Updates weights using gradient descent (learning rate: 0.001)
+   - Tracks loss per epoch to monitor convergence
+
+4. **Model Evaluation**
+   - Evaluates model on validation set
+   - Computes prediction accuracy
+   - Calculates null-byte elimination rate
+   - Measures average confidence scores
+
+5. **Model Persistence**
+   - Saves trained model to `ml_models/byvalver_ml_model.bin`
+   - Model file size: ~1.66 MB (v2.0), ~660 KB (v1.0)
+   - Includes architecture metadata for validation on load
+
+6. **Performance Summary**
+   - Displays strategy performance breakdown
+   - Shows learning progress statistics
+   - Exports metrics to `./ml_metrics.log`
+   - Saves training statistics to `training_stats.txt`
+
+#### Training Data Requirements
+
+**Input Format**:
+- **File Types**: `.bin` or `.raw` files containing raw x86/x86-64 shellcode
+- **Architecture**: Currently assumes x86-32 (can be extended to x86-64)
+- **Content**: Any executable shellcode with null bytes that need elimination
+- **Quantity**: Recommended 500+ diverse shellcode samples for robust training
+
+**Directory Structure**:
+```
+training_data/
+├── sample1.bin
+├── sample2.bin
+├── sample3.bin
+├── ...
+└── sampleN.bin
+```
+
+**Sample Sources**:
+- Exploit-DB shellcode database
+- Metasploit Framework payloads
+- Custom shellcode samples
+- CTF challenge shellcodes
+- Publicly available shellcode repositories
+
 ### Data Collection
 - **Training Samples**: Generated from shellcode files with null-byte containing instructions
-- **Feature-Label Pairs**: Instructions paired with successful transformation strategies
-- **Data Augmentation**: Synthetic sample generation based on known patterns
+- **Feature-Label Pairs**: Instructions paired with successful transformation strategies (336-dimensional features, v2.0)
+- **Data Augmentation**: Currently uses mock transformations; real strategy application planned for future versions
 
 ### Model Training Process
-1. **Data Preparation**: Extract training samples from shellcode binaries
-2. **Batch Training**: Process samples in batches to update neural network weights
-3. **Validation**: Evaluate model performance on held-out validation set
-4. **Model Saving**: Store updated model weights to disk for future use
+1. **Data Preparation**: Extract training samples from shellcode binaries in the specified directory
+2. **Batch Training**: Process samples to update neural network weights (online learning, per-sample updates)
+3. **Validation**: Evaluate model performance on held-out validation set (20% split)
+4. **Model Saving**: Store updated model weights to `ml_models/byvalver_ml_model.bin`
 
 ### Evaluation Metrics
 - **Prediction Accuracy**: Percentage of correct strategy recommendations
@@ -169,6 +275,84 @@ Initialization → Feature Extraction → Strategy Ranking → Strategy Applicat
 - **Confidence Calibration**: Correlation between confidence scores and actual success
 
 **Note (v3.0):** Metrics track generic bad character elimination, but model accuracy is based on null-byte training data.
+
+### Training Configuration
+
+The training pipeline uses the following default configuration (defined in `training_pipeline.c`):
+
+```c
+config.max_training_samples = 10000;   // Maximum samples to collect
+config.validation_split = 0.2;         // 20% validation, 80% training
+config.enable_augmentation = 1;         // Data augmentation enabled
+config.epochs = 50;                     // Training iterations
+config.learning_rate = 0.001;          // Gradient descent step size
+config.batch_size = 32;                // Samples per batch (currently unused)
+config.verbose = 1;                    // Enable progress logging
+```
+
+These parameters can be modified in `src/training_pipeline.c` before compilation.
+
+### Example Training Session
+
+```bash
+# Build training utility
+make train
+
+# Train on shellcode corpus
+./bin/train_model ~/shellcode_corpus
+
+# Output:
+# BYVALVER ML Model Training Utility
+# ==================================
+#
+# Training data directory: /home/user/shellcode_corpus
+# Model output path: ml_models/byvalver_ml_model.bin
+# Max training samples: 10000
+# Training epochs: 50
+#
+# [PIPELINE] Starting complete training pipeline
+# [PIPELINE] Initializing strategy registry
+# [TRAINING DATA] Initialized with capacity for 10000 samples
+# [TRAINING] Starting data generation from: /home/user/shellcode_corpus
+# [TRAINING] Processing file: /home/user/shellcode_corpus/sample1.bin
+# [TRAINING DATA] Auto-saving at 100 samples
+# ...
+# [TRAINING] Data generation completed: 558 files processed, 10000 samples collected
+# [TRAINING] Starting model training with 10000 samples
+# [TRAINING] Using 8000 samples for training, 2000 for validation
+# [TRAINING] Epoch 1/50 - Loss: 3.8572
+# [TRAINING] Epoch 2/50 - Loss: 2.9431
+# ...
+# [TRAINING] Epoch 50/50 - Loss: 0.4215
+# [ML] Enterprise model saved to: ml_models/byvalver_ml_model.bin
+# [EVALUATION] Model evaluation completed:
+#   Total samples: 10000
+#   Successful transformations: 8234
+#   Null elimination rate: 82.34%
+#   Average confidence: 0.789
+#
+# [SUCCESS] ML model training completed successfully!
+# Model saved to: ml_models/byvalver_ml_model.bin
+```
+
+### Troubleshooting Training Issues
+
+**Issue**: "Could not open directory"
+- **Cause**: Invalid or non-existent training directory path
+- **Solution**: Verify the directory exists and contains `.bin` files
+
+**Issue**: "0 files processed, 0 samples collected"
+- **Cause**: Directory contains no `.bin` or `.raw` files
+- **Solution**: Ensure training files have correct extensions
+
+**Issue**: Segmentation fault during evaluation
+- **Cause**: Known issue in current version during validation phase
+- **Status**: Model is successfully trained and saved before crash occurs
+- **Workaround**: Model file is usable despite the crash
+
+**Issue**: "Model architecture mismatch" on load
+- **Cause**: Attempting to load v1.0 model with v2.0 code
+- **Solution**: Retrain model from scratch with v2.0 architecture
 
 ## Metrics and Monitoring
 
@@ -483,7 +667,7 @@ rm -f ml_models/*.bin  # Remove v1.0 models
 
 # Retrain from scratch with v2.0
 make train
-./bin/train_model
+./bin/train_model /path/to/training/shellcodes
 
 # New v2.0 model created
 ls -lh ml_models/byvalver_ml_model.bin
@@ -527,7 +711,8 @@ ls -lh ml_models/byvalver_ml_model.bin
 **Training New v2.0 Model**:
 ```bash
 # Training utility uses v2.0 architecture
-./bin/train_model
+# Requires directory containing .bin training files
+./bin/train_model /path/to/training/shellcodes
 
 # Creates model with:
 # - 336 input dimensions

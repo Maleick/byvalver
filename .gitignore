@@ -5,6 +5,7 @@
 /bin/
 decoder.bin
 decoder.h
+training_data.bin
 
 # Executables
 byvalver

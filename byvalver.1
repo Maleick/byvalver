@@ -1,6 +1,6 @@
-.TH BYVALVER 1 "December 2025" "byvalver v2.1.0" "User Commands"
+.TH BYVALVER 1 "December 2025" "byvalver v3.0.0" "User Commands"
 .SH NAME
-byvalver \- Advanced Null-Byte Elimination Framework
+byvalver \- SHELLCODE BAD-CHARACTER BANISHER
 
 .SH SYNOPSIS
 .B byvalver
@@ -10,7 +10,7 @@ byvalver \- Advanced Null-Byte Elimination Framework
 
 .SH DESCRIPTION
 .B byvalver
-is an advanced C-based command-line tool designed for automated removal of null bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace null-containing instructions with functionally equivalent alternatives.
+is an advanced C-based command-line tool designed for automated elimination of bad characters from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace bad-character-containing instructions with functionally equivalent alternatives. By default, byvalver eliminates null bytes (0x00). Version 3.0 introduces generic bad character elimination via the --bad-chars option, allowing you to specify any set of bytes to eliminate (e.g., newlines, spaces, CRLF sequences).
 
 .SH OPTIONS
 
@@ -37,10 +37,13 @@ Disable colored output
 .SS "Processing Options"
 .TP
 .BR \-\-biphasic
-Enable biphasic processing (obfuscation + null-elimination)
+Enable biphasic processing (obfuscation + bad-character-elimination)
 .TP
 .BR \-\-pic
 Generate position-independent code
+.TP
+.BR \-\-ml
+Use ML strategy selection (Architecture v2.0 with one-hot encoding and context window)
 .TP
 .BI \-\-xor-encode\  KEY
 XOR encode output with 4-byte key (hex)
@@ -50,6 +53,51 @@ Output format: raw, c, python, powershell, hexstring (default: raw)
 .TP
 .BI \-\-arch\  ARCH
 Target architecture: x86, x64 (default: x64)
+
+.SS "Bad Character Elimination (v3.0)"
+.TP
+.BI \-\-bad-chars\  BYTES
+Comma-separated hex bytes to eliminate (e.g., "00,0a,0d"). Default: "00" (null bytes only)
+.TP
+.BI \-\-profile\  NAME
+Use predefined bad-character profile. Examples: http-newline, url-safe, sql-injection, alphanumeric-only, printable-only
+.TP
+.BR \-\-list-profiles
+List all available bad-character profiles
+
+.SS "ML Metrics Options (requires --ml)"
+.TP
+.BR \-\-metrics
+Enable ML metrics tracking and learning
+.TP
+.BI \-\-metrics-file\  FILE
+Metrics output file (default: ./ml_metrics.log)
+.TP
+.BR \-\-metrics-json
+Export metrics in JSON format
+.TP
+.BR \-\-metrics-csv
+Export metrics in CSV format
+.TP
+.BR \-\-metrics-live
+Show live metrics during processing
+
+.SS "Batch Processing Options"
+.TP
+.BR \-r ", " \-\-recursive
+Process directories recursively
+.TP
+.BI \-\-pattern\  PATTERN
+File pattern to match (default: *.bin)
+.TP
+.BR \-\-no-preserve-structure
+Don't preserve directory structure in output
+.TP
+.BR \-\-no-continue-on-error
+Stop processing on first error (default is to continue)
+.TP
+.BI \-\-failed-files\  FILE
+Output list of failed files to specified file
 
 .SS "Advanced Options"
 .TP
@@ -74,10 +122,10 @@ Show detailed statistics after processing
 Output file (alternative to positional argument)
 .TP
 .BR \-\-validate
-Validate output is null-byte free
+Validate output is bad-character free
 
 .SH EXAMPLES
-.B Basic usage:
+.B Basic usage (eliminate null bytes):
 .br
        byvalver shellcode.bin output.bin
 .br
@@ -95,6 +143,35 @@ Validate output is null-byte free
 .B Generate position-independent code:
 .br
        byvalver --pic shellcode.bin output.bin
+.br
+.PP
+.B Eliminate specific bad characters (v3.0+):
+.br
+       # Eliminate null, newline, and carriage return (for network protocols)
+.br
+       byvalver --bad-chars "00,0a,0d" shellcode.bin output.bin
+.br
+.PP
+.B Use predefined profiles (v3.0+):
+.br
+       # Use HTTP newline profile (eliminates 0x00, 0x0A, 0x0D)
+.br
+       byvalver --profile http-newline shellcode.bin output.bin
+.br
+.PP
+.B Use ML-powered strategy selection:
+.br
+       byvalver --ml shellcode.bin output.bin
+.br
+.PP
+.B Batch process directory:
+.br
+       byvalver input_dir/ output_dir/
+.br
+.PP
+.B Batch process recursively with pattern:
+.br
+       byvalver -r --pattern "*.bin" --biphasic input_dir/ output_dir/
 .br
 
 .SH EXIT CODES
@@ -119,6 +196,9 @@ Output file error
 .TP
 .B 6
 Timeout exceeded
+.TP
+.B 7
+Configuration error
 
 .SH AUTHOR
 Orchestrated by `umpolungfish`

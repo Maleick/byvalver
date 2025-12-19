@@ -9,6 +9,7 @@
 #define _GNU_SOURCE  // Need this to get PATH_MAX on some systems
 #include "training_pipeline.h"
 #include "utils.h"
+#include "strategy.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,8 @@ int training_pipeline_init_config(training_config_t* config) {
     memset(config, 0, sizeof(training_config_t));
 
     // Set default configuration values
-    strncpy(config->training_data_dir, "./shellcodes", sizeof(config->training_data_dir) - 1);
+    // No default training directory - must be specified by user
+    config->training_data_dir[0] = '\0';
     // Determine the absolute path for the ML model file
     char exe_path[PATH_MAX];
     ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
@@ -296,45 +298,62 @@ int training_pipeline_evaluate_model(ml_strategist_t* strategist,
     // Validate the model on validation samples
     size_t validation_start = (size_t)(data_context->sample_count * 0.8);  // Use 20% for validation
     int validation_samples = 0;
+    int correct_predictions = 0;
     double total_confidence = 0.0;
-    int null_eliminated = 0;
-    
+
+    // Initialize Capstone for instruction disassembly
+    csh handle;
+    if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) != CS_ERR_OK) {
+        printf("[ERROR] Failed to initialize Capstone for evaluation\n");
+        return -1;
+    }
+    cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+
     for (size_t i = validation_start; i < data_context->sample_count; i++) {
         training_sample_t* sample = &data_context->samples[i];
-        
-        // Mock instruction reconstruction (in real implementation, reconstruct from bytes)
-        cs_insn mock_insn;
-        memcpy(mock_insn.bytes, sample->original_bytes, sample->original_size);
-        mock_insn.size = sample->original_size;
-        
-        // Get model prediction
-        ml_prediction_result_t prediction;
-        int pred_result = ml_get_strategy_recommendation(strategist, &mock_insn, &prediction);
-        
-        if (pred_result == 0) {
-            validation_samples++;
-            total_confidence += prediction.confidence;
-            
-            // Count successful null elimination
-            if (sample->null_eliminated) {
-                null_eliminated++;
+
+        // Properly disassemble instruction bytes to get valid cs_insn structure
+        cs_insn* insn_array = NULL;
+        size_t count = cs_disasm(handle, sample->original_bytes, sample->original_size, 0, 1, &insn_array);
+
+        if (count > 0) {
+            // Get model prediction using properly disassembled instruction
+            ml_prediction_result_t prediction;
+            int pred_result = ml_get_strategy_recommendation(strategist, &insn_array[0], &prediction);
+
+            if (pred_result == 0 && prediction.strategy_count > 0) {
+                validation_samples++;
+                total_confidence += prediction.confidence;
+
+                // Check if predicted strategy matches the one that was actually used
+                if (prediction.recommended_strategy != NULL) {
+                    if (strcmp(prediction.recommended_strategy->name, sample->applied_strategy) == 0) {
+                        correct_predictions++;
+                    }
+                }
             }
+
+            // Free disassembled instruction
+            cs_free(insn_array, count);
         }
     }
-    
+
+    // Cleanup Capstone
+    cs_close(&handle);
+
     // Calculate statistics
-    stats->total_samples = data_context->sample_count;
-    stats->successful_transformations = null_eliminated;
-    stats->failed_transformations = stats->total_samples - null_eliminated;
-    stats->average_strategy_confidence = validation_samples > 0 ? 
+    stats->total_samples = validation_samples;
+    stats->successful_transformations = correct_predictions;
+    stats->failed_transformations = validation_samples - correct_predictions;
+    stats->average_strategy_confidence = validation_samples > 0 ?
                                          total_confidence / validation_samples : 0.0;
-    stats->null_elimination_rate = stats->total_samples > 0 ? 
-                                  (double)null_eliminated / stats->total_samples : 0.0;
-    
+    stats->null_elimination_rate = validation_samples > 0 ?
+                                  (double)correct_predictions / validation_samples : 0.0;
+
     printf("[EVALUATION] Model evaluation completed:\n");
-    printf("  Total samples: %d\n", stats->total_samples);
-    printf("  Successful transformations: %d\n", stats->successful_transformations);
-    printf("  Null elimination rate: %.2f%%\n", stats->null_elimination_rate * 100);
+    printf("  Validation samples: %d (20%% of total)\n", validation_samples);
+    printf("  Correct predictions: %d\n", stats->successful_transformations);
+    printf("  Prediction accuracy: %.2f%%\n", stats->null_elimination_rate * 100);
     printf("  Average confidence: %.3f\n", stats->average_strategy_confidence);
     
     return 0;
@@ -349,17 +368,21 @@ int training_pipeline_execute(training_config_t* config) {
     }
     
     printf("[PIPELINE] Starting complete training pipeline\n");
-    
+
     // Initialize timer
     time_t start_time = time(NULL);
-    
+
+    // Initialize strategy registry (required for get_strategies_for_instruction)
+    printf("[PIPELINE] Initializing strategy registry\n");
+    init_strategies(0);  // Initialize without ML to avoid circular dependencies
+
     // Initialize training data context
     training_data_context_t data_context;
     if (training_data_init(&data_context, config->max_training_samples) != 0) {
         printf("[ERROR] Failed to initialize training data context\n");
         return -1;
     }
-    
+
     // Initialize ML strategist
     ml_strategist_t strategist;
     if (ml_strategist_init(&strategist, "") != 0) {

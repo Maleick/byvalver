@@ -485,6 +485,423 @@ python3 verify_denulled.py output3.bin --bad-chars "00,0a,0d"
 4. Test with diverse shellcode samples
 5. Submit pull requests with comprehensive documentation
 
+## Strategy Coverage Analysis
+
+### Current Strategy Count
+
+**Total Strategies:** 138+ (after implementing Tier 1, additional high-priority strategies, and 5 new strategies)
+
+**Strategy Categories:**
+- MOV instruction strategies: 20+ variants
+- Arithmetic strategies: 30+ variants (ADD, SUB, XOR, AND, OR, etc.)
+- Stack operations: 15+ variants (PUSH, POP)
+- LEA addressing: 18+ variants
+- Jumps: 12+ variants (conditional, unconditional)
+- Windows API hashing: 8+ variants
+- String operations: 5+ variants (including Advanced String Operation Transformation)
+- Atomic operations: 3+ variants (Atomic Operation Encoding Chains)
+- FPU operations: 2+ variants (FPU Stack-Based Immediate Encoding)
+- XLAT operations: 1+ variant (XLAT Table-Based Byte Translation)
+- Flag preservation: 2+ variants (LAHF/SAHF Flag Preservation Chains)
+- Segment register access: 1+ variant (Segment Register TEB/PEB Access)
+- Conditional moves: 1+ variant (CMOV Conditional Move Elimination)
+- Partial register optimization: 1+ variant (Partial Register Optimization)
+- Bit shifts/rotates: 6+ variants
+- String instructions: 4+ variants
+- **NEW: Conditional logic strategies: 3+ variants (CMOV, SETcc)**
+- **NEW: Register optimization strategies: 3+ variants (Partial registers)**
+- **NEW: Advanced String Operation Transformation: 1+ variant**
+- **NEW: Atomic Operation Encoding Chains: 1+ variant**
+- **NEW: FPU Stack-Based Immediate Encoding: 1+ variant**
+- **NEW: XLAT Table-Based Byte Translation: 1+ variant**
+- **NEW: LAHF/SAHF Flag Preservation Chains: 1+ variant**
+
+### Detailed Strategy Documentation
+
+#### Strategy 12: Advanced String Operation Transformation (Priority 85)
+
+**File:** `src/advanced_string_operation_strategies.c`
+**File:** `src/advanced_string_operation_strategies.h`
+
+**Problem Statement:**
+String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) with REP prefix often encode with bad characters in:
+- REP prefix combinations (F3h for REP/REPE, F2h for REPNE)
+- Operand size overrides (66h prefix)
+- Register-based addressing displacement bytes
+
+**Target Patterns:**
+```asm
+; Pattern 1: REP MOVSB memory copy with bad displacement
+mov ecx, 100          ; Count
+lea esi, [source]     ; Source (displacement may have nulls)
+lea edi, [dest]       ; Destination
+rep movsb             ; Copy ECX bytes from ESI to EDI
+
+; Pattern 2: LODSD for data loading with bad displacement
+lea esi, [data+0x100] ; Source pointer (offset contains bad chars)
+lodsd                 ; Load DWORD from [ESI] into EAX
+
+; Pattern 3: Direction flag manipulation with bad prefixes
+cld                   ; Clear direction flag (FC) - may have bad chars in encoding
+std                   ; Set direction flag (FD) - may have bad chars in encoding
+```
+
+**Transformation Strategy:**
+
+**Technique 1: REP MOVSB to Manual Loop**
+```c
+// Original: mov ecx, 100; lea esi, [source]; lea edi, [dest]; rep movsb
+// Transform to:
+mov ecx, 100          ; Count (use null-free immediate strategy)
+lea esi, [source]     ; Source (use displacement strategies)
+lea edi, [dest]       ; Destination
+copy_loop:
+  mov al, [esi]       ; Load byte
+  mov [edi], al       ; Store byte
+  inc esi             ; Advance source
+  inc edi             ; Advance dest
+  dec ecx             ; Decrement counter
+  jnz copy_loop       ; Loop if not zero (use offset strategies)
+```
+
+**Technique 2: LODSD to MOV + ADD**
+```c
+// Original: lodsd  (AC - may have issues in certain contexts)
+// Transform to:
+mov eax, [esi]        ; Load DWORD from [ESI]
+add esi, 4            ; Advance ESI by 4 (use null-free immediate)
+```
+
+**Implementation Considerations:**
+- Size overhead: 10-20 bytes vs 2-4 bytes (original)
+- Performance: Significantly slower (10-100x for large copies)
+- Register usage: Preserves ESI/EDI/ECX semantics
+- Flag impact: Manual loops may affect flags differently
+- Applicability: Medium (string operations in 30-40% of shellcode)
+
+**Expected Benefits:**
+- Null elimination: Avoids REP prefix and instruction encoding nulls
+- Flexibility: Can use null-free addressing modes
+
+#### Strategy 13: Atomic Operation Encoding Chains (Priority 78)
+
+**File:** `src/atomic_operation_encoding_strategies.c`
+**File:** `src/atomic_operation_encoding_strategies.h`
+
+**Problem Statement:**
+Atomic operations (XADD, CMPXCHG, LOCK prefix) are used in multi-threaded shellcode and rootkits for synchronization. These instructions:
+- Use LOCK prefix (F0h) which may combine with opcodes to form bad characters
+- Encode with complex ModR/M bytes
+- Often operate on memory with displacements containing nulls
+
+**Target Patterns:**
+```asm
+; Pattern 1: LOCK XADD for atomic increment
+lock xadd [counter], eax    ; Atomic add EAX to [counter], return old value
+
+; Pattern 2: CMPXCHG for compare-and-swap
+mov eax, expected           ; Expected value
+mov ebx, new_value          ; New value
+lock cmpxchg [ptr], ebx     ; If [ptr]==EAX, set [ptr]=EBX
+
+; Pattern 3: LOCK INC/DEC
+lock inc dword [counter]    ; Atomic increment
+```
+
+**Transformation Strategy:**
+
+**Technique 1: XADD Decomposition (Non-Atomic)**
+```c
+// Original: lock xadd [mem], reg
+// Transform to (single-threaded context):
+mov temp, [mem]       ; Load old value
+add [mem], reg        ; Add reg to memory
+mov reg, temp         ; Return old value
+// Note: Loses atomicity, only valid for single-threaded shellcode
+```
+
+**Technique 2: CMPXCHG Simulation**
+```c
+// Original: lock cmpxchg [mem], reg
+// Transform to:
+push ebx              ; Save EBX
+mov ebx, [mem]        ; Load current value
+cmp eax, ebx          ; Compare with expected
+jnz cmpxchg_fail      ; If not equal, fail
+mov [mem], reg        ; Store new value
+mov eax, ebx          ; Return old value
+pop ebx
+jmp cmpxchg_done
+cmpxchg_fail:
+  mov eax, ebx        ; Return actual value
+  pop ebx
+cmpxchg_done:
+```
+
+**Implementation Considerations:**
+- Atomicity: Transformations break atomicity (only valid for single-threaded contexts)
+- Detection: Heuristics to detect multi-threaded vs single-threaded shellcode
+- Safety: Must warn user if atomicity is lost
+- Size: 8-15 bytes vs 3-6 bytes (original)
+- Applicability: Low (atomic ops rare in shellcode, ~5%)
+
+**Expected Benefits:**
+- Null elimination: Removes LOCK prefix and complex encodings
+- Compatibility: Works for single-threaded payloads
+
+#### Strategy 15: FPU Stack-Based Immediate Encoding (Priority 76)
+
+**File:** `src/fpu_stack_immediate_encoding_strategies.c`
+**File:** `src/fpu_stack_immediate_encoding_strategies.h`
+
+**Problem Statement:**
+The x87 Floating-Point Unit (FPU) stack provides an alternative data storage mechanism that can be exploited for encoding integer values and avoiding bad characters in GPR operations.
+
+FPU operations:
+- Use ST(0)-ST(7) register stack
+- Can store 80-bit extended precision values
+- Conversion between FPU and GPR via memory
+
+**Target Patterns:**
+```asm
+; Pattern 1: Large immediate with nulls
+mov eax, 0x12345678       ; May have null bytes in encoding
+
+; Pattern 2: Multi-value loading
+mov eax, value1           ; Value 1 (nulls)
+mov ebx, value2           ; Value 2 (nulls)
+mov ecx, value3           ; Value 3 (nulls)
+```
+
+**Transformation Strategy:**
+
+**Technique 1: FILD (Float Integer Load) from Memory**
+```c
+// Original: mov eax, 0x12345678
+// Transform to:
+//   1. Store value in memory (use stack or data section)
+//   2. Load into FPU stack: fild dword [mem]
+//   3. Store back to GPR: fistp dword [temp]; mov eax, [temp]
+
+// Example:
+push 0x12345678           ; Push value to stack (use null-free PUSH strategy)
+fild dword [esp]          ; Load from stack into ST(0)
+fistp dword [esp]         ; Store from ST(0) back to stack
+pop eax                   ; Pop into EAX
+```
+
+**Implementation Considerations:**
+- Complexity: High - requires FPU state management
+- Size: 15-25 bytes vs 5 bytes (MOV immediate)
+- Performance: Slow (FPU ops are 10-100x slower than GPR)
+- Compatibility: x87 FPU present on all x86 CPUs since 486
+- FPU State: Must not corrupt existing FPU stack
+- Applicability: Very low (5-10%, niche cases)
+
+**Expected Benefits:**
+- Alternative encoding: Completely different encoding path
+- Obfuscation: FPU operations are uncommon in shellcode, evades signatures
+- Null-free: Can construct values without null bytes via stack operations
+
+#### Strategy 16: XLAT Table-Based Byte Translation (Priority 72)
+
+**File:** `src/xlat_table_lookup_strategies.c`
+**File:** `src/xlat_table_lookup_strategies.h`
+
+**Problem Statement:**
+The XLAT (translate byte) instruction provides table-based byte translation:
+- `xlat` or `xlatb`: `AL = [EBX + AL]`
+- Can be used for byte remapping, encoding, and obfuscation
+
+**Use Cases:**
+1. **Byte Remapping:** Remap bad characters to safe characters, translate back at runtime
+2. **Encoding:** Use XLAT as a substitution cipher
+3. **Compact Lookups:** Replace switch statements with table lookups
+
+**Target Patterns:**
+```asm
+; Pattern: Byte needs translation
+mov al, 0x00              ; Load byte (has null)
+; Need: Remap 0x00 to non-null value
+```
+
+**Transformation Strategy:**
+
+**Technique 1: Byte Substitution via XLAT**
+```c
+// Build translation table at runtime
+//   table[bad_char] = safe_char
+//   table[safe_char] = bad_char (inverse)
+
+// Example: Remap 0x00 to 0x42
+// 1. Build table:
+lea ebx, [translation_table]
+mov byte [ebx + 0x00], 0x42   ; Map 0x00 -> 0x42
+mov byte [ebx + 0x42], 0x00   ; Map 0x42 -> 0x00
+
+// 2. Encode value:
+mov al, 0x42              ; Use safe value 0x42 instead of 0x00
+xlat                      ; Translate: AL = table[AL] = 0x00
+// Now AL contains the actual value 0x00
+```
+
+**Implementation Considerations:**
+- Table Size: 256 bytes for full translation table
+- Table Location: Must store table in shellcode or build dynamically
+- Overhead: Table construction + XLAT instructions
+- Complexity: High - requires inverse mapping generation
+- Applicability: Low (10%, niche encoding scenarios)
+
+**Expected Benefits:**
+- Flexible encoding: Can remap any byte to any other byte
+- Compact: XLAT is 1 byte (D7)
+- Obfuscation: Table-based encoding is uncommon
+
+#### Strategy 20: LAHF/SAHF Flag Preservation Chains (Priority 83)
+
+**File:** `src/lahf_sahf_flag_preservation_strategies.c`
+**File:** `src/lahf_sahf_flag_preservation_strategies.h`
+
+**Problem Statement:**
+Flag preservation is critical when transforming instructions. Current strategies use PUSHF/POPF, but LAHF/SAHF provide alternative lightweight flag save/restore:
+- **LAHF** (Load AH from Flags) - 9Fh: Loads SF, ZF, AF, PF, CF into AH
+- **SAHF** (Store AH into Flags) - 9Eh: Restores SF, ZF, AF, PF, CF from AH
+
+Benefits:
+1. Single-byte instructions (PUSHF/POPF are 1-2 bytes, but stack-based)
+2. Don't modify stack (useful when ESP is constrained)
+3. Only preserve arithmetic flags (SF, ZF, AF, PF, CF), not OF/DF/IF
+
+**Target Patterns:**
+```asm
+; Pattern 1: Flag preservation across transformation
+cmp eax, ebx              ; Set flags
+; Transform some instruction that may modify flags
+; Need flags preserved for subsequent conditional
+
+; Pattern 2: Lightweight flag save
+test eax, eax             ; Set ZF
+; Need to preserve ZF across complex transformation
+```
+
+**Transformation Strategy:**
+
+**Technique 1: LAHF/SAHF instead of PUSHF/POPF**
+```c
+// Original: pushf; ...; popf  (3+ bytes, modifies stack)
+// Transform to:
+lahf                      ; Save flags to AH (1 byte)
+// ... transformation code ...
+sahf                      ; Restore flags from AH (1 byte)
+// Savings: 1 byte, no stack modification
+```
+
+**Implementation Considerations:**
+- Flag Coverage: LAHF/SAHF only handle SF, ZF, AF, PF, CF (not OF, DF, IF)
+- x64 Compatibility: LAHF/SAHF valid in x64 (unlike some legacy instructions)
+- Size: 1 byte each (LAHF: 9Fh, SAHF: 9Eh)
+- Stack Impact: None (unlike PUSHF/POPF)
+- Applicability: High (flag preservation needed in 40%+ of transformations)
+
+**Expected Benefits:**
+- Compact: 2 bytes total vs 2-4 bytes (PUSHF/POPF)
+- No Stack: Useful when stack is constrained
+- Fast: Single-cycle instructions on modern CPUs
+- Generic Bad-Char: LAHF/SAHF opcodes (9E, 9F) unlikely to be bad chars
+- **NEW: Segment register strategies: 1+ variants (FS/GS access)**
+
+### Recently Added High-Priority Strategies (v3.1+)
+
+#### Strategy 11: CMOV Conditional Move Elimination (Priority 92)
+
+**Purpose:** Eliminate CMOV instructions that may contain bad characters in ModR/M encoding bytes or displacement.
+
+**Implementation Files:**
+- `src/cmov_conditional_elimination_strategies.c`
+- `src/cmov_conditional_elimination_strategies.h`
+
+**Transformation Techniques:**
+1. **SETcc + Conditional Multiplication:** Replace CMOV with SETcc + arithmetic operations
+2. **XOR-Based Selection:** Use XOR masking to achieve conditional move semantics
+3. **Arithmetic Blending:** Combine values using AND/OR operations with condition masks
+
+**Example:**
+```asm
+; Original: CMOVZ ECX, EDX (may contain bad chars in ModR/M)
+cmp eax, ebx
+cmovz ecx, edx
+
+; Transformed: SETcc + arithmetic
+cmp eax, ebx          ; Set flags
+setz al               ; AL = 1 if zero, 0 otherwise
+movzx eax, al         ; EAX = 0 or 1
+dec eax               ; EAX = -1 or 0 (0xFFFFFFFF or 0x00000000)
+mov esi, ecx          ; Save original ECX
+mov edi, edx          ; Save EDX
+and esi, eax          ; If zero: ESI = 0, else: ESI = ECX
+not eax               ; EAX = 0 or -1 (inverted)
+and edi, eax          ; If zero: EDI = EDX, else: EDI = 0
+or ecx, edi           ; ECX = EDX (if zero) or ECX (if not zero)
+```
+
+**Applicability:** Common in modern shellcode for branchless conditional logic, anti-debugging, and Spectre/Meltdown mitigation patterns.
+
+#### Strategy 14: Segment Register TEB/PEB Access (Priority 94)
+
+**Purpose:** Exploit FS/GS segment registers to access Thread Environment Block (TEB) and Process Environment Block (PEB) without using immediate values that contain bad characters.
+
+**Implementation Files:**
+- `src/segment_register_teb_peb_strategies.c`
+- `src/segment_register_teb_peb_strategies.h`
+
+**Transformation Techniques:**
+1. **Register Indirect Addressing:** Use register instead of immediate offset
+2. **Offset Calculation:** Load offset into register and use indirect addressing
+3. **Alternative Access Patterns:** Replace direct segment access with multi-step approaches
+
+**Example:**
+```asm
+; Original: mov eax, fs:[0x30] (contains nulls in encoding)
+mov eax, fs:[0x30]    ; 64 A1 30 00 00 00 - contains 3 null bytes
+
+; Transformed: Register indirect
+xor ebx, ebx          ; Clear temporary register
+mov bl, 0x30          ; Load offset 0x30 into BL (no nulls)
+mov eax, fs:[ebx]     ; Access FS:[EBX] - no immediate offset with bad chars
+```
+
+**Applicability:** Critical for Windows shellcode that accesses TEB/PEB for API resolution, process information, or anti-debugging techniques.
+
+#### Strategy 19: Partial Register Optimization (Priority 89)
+
+**Purpose:** Optimize immediate value loading by using 8-bit and 16-bit register portions instead of full 32/64-bit registers to avoid null bytes.
+
+**Implementation Files:**
+- `src/partial_register_optimization_strategies.c`
+- `src/partial_register_optimization_strategies.h`
+
+**Transformation Techniques:**
+1. **8-bit Low Register (AL/BL/CL/DL):** Load values 0x00-0xFF
+2. **8-bit High Register (AH/BH/CH/DH):** Load values into bits 8-15
+3. **16-bit Register (AX/BX/CX/DX):** Load values 0x0000-0xFFFF
+
+**Examples:**
+```asm
+; Strategy 1: 8-bit low register
+; Original: mov eax, 0x00000042 (B8 42 00 00 00) - 3 null bytes
+; Transformed: xor eax, eax; mov al, 0x42 (31 C0 B0 42) - 0 null bytes
+
+; Strategy 2: 8-bit high register
+; Original: mov eax, 0x00004200 (B8 00 42 00 00) - 3 null bytes
+; Transformed: xor eax, eax; mov ah, 0x42 (31 C0 B4 42) - 0 null bytes
+
+; Strategy 3: 16-bit register
+; Original: mov eax, 0x00001234 (B8 34 12 00 00) - 2 null bytes
+; Transformed: xor eax, eax; mov ax, 0x1234 (31 C0 66 B8 34 12) - 0 null bytes
+```
+
+**Applicability:** Very high (80%+ of shellcode loads small immediate values), foundational optimization.
+
 ## Future Enhancements
 
 ### Planned Improvements
@@ -498,6 +915,12 @@ python3 verify_denulled.py output3.bin --bad-chars "00,0a,0d"
    - Collect training data with varied bad character sets
    - Retrain neural network with diverse patterns
    - Improve strategy selection for generic cases
+
+3. **Advanced Strategy Families:**
+   - **Conditional Logic Enhancement:** Expand CMOV family support to include more conditional instructions
+   - **Segment Register Expansion:** Add support for additional segment register patterns
+   - **Register Optimization:** Extend partial register techniques to more complex scenarios
+   - **Multi-Instruction Analysis:** Implement window-based analysis for better optimization decisions
 
 3. **Expanded Testing:**
    - Comprehensive test suite for non-null characters

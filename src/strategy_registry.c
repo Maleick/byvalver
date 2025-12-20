@@ -39,6 +39,9 @@
 #include "setcc_jump_elimination_strategies.h"
 #include "register_dependency_chain_optimization_strategies.h"
 #include "syscall_number_obfuscation_strategies.h"
+#include "partial_register_optimization_strategies.h"
+#include "segment_register_teb_peb_strategies.h"
+#include "cmov_conditional_elimination_strategies.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
@@ -162,6 +165,16 @@ void register_syscall_number_strategies(); // Forward declaration - Linux syscal
 void register_pushw_word_immediate_strategies(); // Forward declaration - PUSHW 16-bit immediate for port numbers - Priority 87
 void register_cltd_zero_extension_strategies(); // Forward declaration - CLTD zero extension optimization - Priority 82
 
+// NEW: High-Priority Additional Strategies (2025-12-19)
+void register_partial_register_optimization_strategies();  // Register partial register optimization strategies (priority 89)
+void register_segment_register_teb_peb_strategies();  // Register segment register TEB/PEB access strategies (priority 94)
+void register_cmov_conditional_elimination_strategies();  // Register CMOV conditional move elimination strategies (priority 92)
+void register_advanced_string_operation_strategies();  // Register advanced string operation strategies (priority 85)
+void register_atomic_operation_encoding_strategies();  // Register atomic operation encoding strategies (priority 78)
+void register_fpu_stack_immediate_encoding_strategies();  // Register FPU stack immediate encoding strategies (priority 76)
+void register_xlat_table_lookup_strategies();  // Register XLAT table lookup strategies (priority 72)
+void register_lahf_sahf_flag_preservation_strategies();  // Register LAHF/SAHF flag preservation strategies (priority 83)
+
 // NEW: 5 Additional Denulling Strategies (v3.0)
 void register_jcxz_null_safe_loop_termination_strategy(); // Priority 86 - JCXZ null-safe loop termination
 void register_push_byte_immediate_stack_construction_strategy(); // Priority 82 - PUSH byte immediate stack construction
@@ -219,6 +232,16 @@ void init_strategies(int use_ml) {
     register_polymorphic_immediate_construction_strategies();  // Priority 88-90 - Universal immediate encoding
     register_syscall_number_obfuscation_strategies();  // Priority 85-88 - Linux syscall optimization
     register_setcc_jump_elimination_strategies();  // Priority 84-86 - Jump offset elimination
+
+    // NEW: High-Priority Additional Strategies (2025-12-19)
+    register_partial_register_optimization_strategies();  // Register partial register optimization strategies (priority 89)
+    register_segment_register_teb_peb_strategies();  // Register segment register TEB/PEB access strategies (priority 94)
+    register_cmov_conditional_elimination_strategies();  // Register CMOV conditional move elimination strategies (priority 92)
+    register_advanced_string_operation_strategies();  // Register advanced string operation strategies (priority 85)
+    register_atomic_operation_encoding_strategies();  // Register atomic operation encoding strategies (priority 78)
+    register_fpu_stack_immediate_encoding_strategies();  // Register FPU stack immediate encoding strategies (priority 76)
+    register_xlat_table_lookup_strategies();  // Register XLAT table lookup strategies (priority 72)
+    register_lahf_sahf_flag_preservation_strategies();  // Register LAHF/SAHF flag preservation strategies (priority 83)
 
     // NEW: Discovered Strategies (2025-12-16)
     register_pushw_word_immediate_strategies();  // Register PUSHW 16-bit immediate strategies (priority 87)
@@ -577,12 +600,23 @@ void register_register_swapping_immediate_strategies() {
     register_strategy(&register_swapping_immediate_strategy);
 }
 
+// Register the partial register optimization strategy
+void register_partial_register_optimization_strategies() {
+    extern strategy_t partial_register_optimization_strategy;
+    register_strategy(&partial_register_optimization_strategy);
+}
 
+// Register the segment register TEB/PEB access strategy
+void register_segment_register_teb_peb_strategies() {
+    extern strategy_t segment_register_teb_peb_strategy;
+    register_strategy(&segment_register_teb_peb_strategy);
+}
 
-
-
-
-
+// Register the CMOV conditional move elimination strategy
+void register_cmov_conditional_elimination_strategies() {
+    extern strategy_t cmov_conditional_elimination_strategy;
+    register_strategy(&cmov_conditional_elimination_strategy);
+}
 
 
 

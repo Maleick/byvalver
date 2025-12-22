@@ -7,6 +7,7 @@
 #include <capstone/capstone.h>
 #include "strategy.h"
 #include "cli.h"  // For bad_char_config_t
+#include "batch_processing.h"  // For batch_stats_t
 
 #ifdef DEBUG
   // C99 compliant debug macro
@@ -42,10 +43,21 @@ typedef struct {
 // Global bad character context instance
 extern bad_char_context_t g_bad_char_context;
 
+// Global batch statistics context (for tracking strategy usage during processing)
+// This is used to track strategy usage and file complexity during processing
+extern batch_stats_t* g_batch_stats_context;
+
 // Bad character context management functions
 void init_bad_char_context(bad_char_config_t *config);
 void reset_bad_char_context(void);
 bad_char_config_t* get_bad_char_config(void);
+
+// Batch statistics context management functions
+void set_batch_stats_context(batch_stats_t *stats);
+void track_strategy_usage(const char *strategy_name, int success, size_t output_size);
+
+// Function to count instructions and bad characters in shellcode
+void count_shellcode_stats(const uint8_t *shellcode, size_t size, int *instruction_count, int *bad_char_count);
 
 // Core functions
 struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size);

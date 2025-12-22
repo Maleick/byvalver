@@ -55,7 +55,7 @@ Supports Windows, Linux, and macOS
 - Pure `C` implementation for efficiency and low-level control
 - `Capstone` for precise disassembly
 - `NASM` for generating decoder stubs
-- Modular strategy pattern for extensible transformations
+- Modular strategy pattern for extensible transformations (161+ strategy implementations)
 - Neural network integration for intelligent strategy selection
 - Biphasic processing: Obfuscation followed by denullification
 
@@ -264,7 +264,7 @@ The generic bad-character feature provides a foundation for:
 > This success rate applies specifically to null-byte (`\x00`) elimination, which has been extensively tested and optimized.
 
 ### Advanced Transformation Engine
-122+ strategies covering virtually all common null-byte sources (2 new strategies added in v2.2):
+161+ strategy implementations covering virtually all common null-byte sources (multiple new strategy families added in v3.0):
 - `CALL/POP` and stack-based immediate loading
 - `PEB` traversal with hashed API resolution
 - Advanced hash-based API resolution with complex algorithms
@@ -279,6 +279,11 @@ The generic bad-character feature provides a foundation for:
 - Conditional jump displacement handling
 - Register remapping and chaining
 - Enhanced `SALC`+`REP STOSB` for buffer initialization
+- Advanced string operation transformations
+- Atomic operation encoding chains
+- FPU stack-based immediate encoding
+- XLAT table-based byte translation
+- LAHF/SAHF flag preservation chains
 - Comprehensive support for `MOV`, `ADD/SUB`, `XOR`, `LEA`, `CMP`, `PUSH`, and more
 
 The engine employs multi-pass processing (obfuscation → denulling) with robust fallback mechanisms for edge cases
@@ -444,6 +449,71 @@ FAILED FILES (7):
 - `XOR` encoding with decoder stub (`--xor-encode 0xDEADBEEF`)
 - Position-independent code (`--pic`)
 - Automatic output directory creation
+
+### Enhanced Statistics (v3.0.2+)
+When using `--stats` flag, `byvalver` now provides detailed analytics:
+
+**Strategy Usage Statistics:**
+- Shows which transformation strategies were applied
+- Success/failure rates for each strategy
+- Applications count and average output size per strategy
+
+**File Complexity Analysis:**
+- Most complex files (by instruction count)
+- Largest/smallest files by input size
+- Files with largest expansion ratios
+- Bad character elimination statistics per file
+
+**Batch Processing Summary:**
+- Success/failure percentages
+- Detailed bad character configuration
+- Failed files list with options to save full list
+
+**Example Enhanced Output:**
+```
+===== BATCH PROCESSING SUMMARY =====
+Total files:       162
+Successfully processed: 131 (80.9%)
+Failed:            31 (19.1%)
+Skipped:           0
+
+Total input size:  35772920 bytes
+Total output size: 81609 bytes
+Average size ratio: 0.00x
+
+Bad characters:    3 configured
+Configured set:    0x00, 0x0a, 0x0d
+====================================
+
+FAILED FILES (31):
+  - ./winwin.bin
+  - ./stairslide_secure.bin
+  ...
+
+📊 DETAILED STATISTICS
+=====================
+STRATEGY USAGE STATISTICS:
+┌─────────────────────────────────────────┬─────────┬─────────┬──────────────┬────────────────┐
+│ Strategy Name                           │ Success │ Failure │ Applications │ Avg Output Size│
+├─────────────────────────────────────────┼─────────┼─────────┼──────────────┼────────────────┤
+│ push_immediate_strategy                 │      45 │       3 │           48 │          12.34 │
+│ mov_reg_mem_self                        │      32 │       1 │           33 │           8.21 │
+│ ...                                     │     ... │     ... │          ... │           ... │
+└─────────────────────────────────────────┴─────────┴─────────┴──────────────┴────────────────┘
+
+FILE COMPLEXITY ANALYSIS:
+Most Complex Files (by instruction count):
+  - ./complex_payload.bin: 1245 instructions, 4096 -> 5201 bytes (1.27x)
+
+Largest Files (by input size):
+  - ./large_payload.bin: 8192 bytes input, 10485 bytes output (1.28x)
+
+Smallest Files (by input size):
+  - ./tiny_shellcode.bin: 64 bytes input, 89 bytes output (1.39x)
+
+Largest Expansion (by size ratio):
+  - ./expanded.bin: 512 -> 1024 bytes (2.00x expansion)
+```
 
 ### Verification Suite
 Python tools for validation:

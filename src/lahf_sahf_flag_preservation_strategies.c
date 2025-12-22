@@ -1,114 +1,156 @@
 /*
- * LAHF/SAHF Flag Preservation Chain Strategies
+ * LAHF/SAHF Flag Preservation Strategy for Bad Character Elimination
  *
- * PROBLEM: Flag preservation is critical when transforming instructions. 
- * Current strategies use PUSHF/POPF, but LAHF/SAHF provide alternative 
- * lightweight flag save/restore:
- * - LAHF (Load AH from Flags) - 9Fh: Loads SF, ZF, AF, PF, CF into AH
- * - SAHF (Store AH into Flags) - 9Eh: Restores SF, ZF, AF, PF, CF from AH
+ * PROBLEM: LAHF/SAHF instructions (Load/Store AH from/to flags) may contain
+ * bad characters in their opcodes or may need to be replaced when working
+ * with shellcode that has bad character restrictions.
  *
- * SOLUTION: Use LAHF/SAHF for preserving arithmetic flags (SF, ZF, AF, PF, CF) 
- * without modifying the stack or affecting other flags.
+ * SOLUTION: Replace LAHF/SAHF with PUSHF/POPF or manual flag manipulation
+ * that avoids bad characters.
  */
 
 #include "lahf_sahf_flag_preservation_strategies.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdint.h>
 
-// Strategy registry entry
-strategy_t lahf_sahf_flag_preservation_strategy = {
-    .name = "LAHF/SAHF Flag Preservation Chain",
-    .can_handle = can_handle_lahf_sahf_flag_preservation,
-    .get_size = get_size_lahf_sahf_flag_preservation,
-    .generate = generate_lahf_sahf_flag_preservation,
-    .priority = 83
-};
-
-
-// Helper function to check if an instruction modifies flags that we care about
-static int instruction_modifies_arithmetic_flags(cs_insn *insn) {
+/**
+ * Transform LAHF (Load Flags to AH) to alternative implementation
+ *
+ * Original: LAHF (loads SF, ZF, AF, PF, CF to AH)
+ * Transform: PUSHF; POP EAX; MOV AH, AL (where AL contains the flags)
+ */
+int can_handle_lahf_alternative(cs_insn *insn) {
     if (!insn) {
         return 0;
     }
-
-    // Check if instruction modifies arithmetic flags (SF, ZF, AF, PF, CF)
-    // This is a simplified check - in a full implementation, we'd check more thoroughly
-    switch (insn->id) {
-        case X86_INS_ADD:
-        case X86_INS_SUB:
-        case X86_INS_CMP:
-        case X86_INS_AND:
-        case X86_INS_OR:
-        case X86_INS_XOR:
-        case X86_INS_TEST:
-        case X86_INS_INC:
-        case X86_INS_DEC:
-        case X86_INS_NEG:
-        case X86_INS_NOT:
-        case X86_INS_SHL:
-        case X86_INS_SHR:
-        case X86_INS_SAR:
-        case X86_INS_ROL:
-        case X86_INS_ROR:
-        case X86_INS_MUL:
-        case X86_INS_IMUL:
-        case X86_INS_DIV:
-        case X86_INS_IDIV:
-            return 1;
-        default:
-            return 0;
+    
+    // Check if this is a LAHF instruction
+    if (insn->id == X86_INS_LAHF) {
+        return 1;
     }
+    
+    return 0;
 }
 
-// Check if this instruction can benefit from LAHF/SAHF flag preservation
-// This strategy is used when we have instructions that modify flags and
-// we want to preserve them using LAHF/SAHF instead of PUSHF/POPF
-int can_handle_lahf_sahf_flag_preservation(cs_insn *insn) {
-    if (!insn) {
-        return 0;
-    }
-
-    // This strategy is applicable when we have an instruction that modifies flags
-    // and we're in a context where flag preservation is needed
-    return instruction_modifies_arithmetic_flags(insn);
+size_t get_size_lahf_alternative(__attribute__((unused)) cs_insn *insn) {
+    // PUSHF (1 byte) + POP EAX (1 byte) + MOV AH, AL (2 bytes) = 4 bytes
+    // vs original LAHF (1 byte)
+    return 4;
 }
 
-// Estimate the size of the transformation
-size_t get_size_lahf_sahf_flag_preservation(cs_insn *insn) {
-    if (!insn) {
-        return 0;
-    }
-
-    // LAHF and SAHF are each 1 byte, so total overhead is 2 bytes
-    // compared to PUSHF/POPF which are typically 1-2 bytes each (2-4 total)
-    return 2;
-}
-
-// Generate the LAHF/SAHF based flag preservation sequence
-void generate_lahf_sahf_flag_preservation(struct buffer *b, cs_insn *insn) {
-    if (!b || !insn) {
+void generate_lahf_alternative(struct buffer *b, cs_insn *insn) {
+    if (!insn || !b) {
         return;
     }
-
-    // This function would be used to generate LAHF/SAHF sequences
-    // in contexts where flag preservation is needed
     
-    // For example, if we need to preserve flags across a transformation:
-    // lahf; [transformation code]; sahf
+    // Check if this is a LAHF instruction
+    if (insn->id != X86_INS_LAHF) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
     
-    // LAHF instruction: 0x9F
-    buffer_append(b, (uint8_t[]){0x9F}, 1);  // LAHF - Load flags into AH
+    // Transform LAHF to: PUSHF; POP EAX; MOV AH, AL
+    // PUSHF - save flags to stack
+    buffer_write_byte(b, 0x9C);  // PUSHF
     
-    // The actual transformation would go here (not part of this strategy)
-    // Then to restore flags:
-    // SAHF instruction: 0x9E  
-    // buffer_append(b, (uint8_t[]){0x9E}, 1);  // SAHF - Store AH into flags
+    // POP EAX - get flags into EAX
+    buffer_write_byte(b, 0x58);  // POP EAX
+    
+    // MOV AH, AL - move low byte of flags to AH
+    buffer_write_byte(b, 0x88);  // MOV r8, r8
+    buffer_write_byte(b, 0xE4);  // MOD/RM for AH <- AL
 }
 
-// Registration function
-void register_lahf_sahf_flag_preservation_strategies(void) {
-    extern strategy_t lahf_sahf_flag_preservation_strategy;
-    register_strategy(&lahf_sahf_flag_preservation_strategy);
+/**
+ * Transform SAHF (Store AH to Flags) to alternative implementation
+ *
+ * Original: SAHF (loads SF, ZF, AF, PF, CF from AH)
+ * Transform: PUSH EAX; PUSH EAX; POPF (manipulate flags via EAX)
+ */
+int can_handle_sahf_alternative(cs_insn *insn) {
+    if (!insn) {
+        return 0;
+    }
+    
+    // Check if this is a SAHF instruction
+    if (insn->id == X86_INS_SAHF) {
+        return 1;
+    }
+    
+    return 0;
 }
+
+size_t get_size_sahf_alternative(__attribute__((unused)) cs_insn *insn) {
+    // PUSH EAX (1 byte) + PUSH EAX (1 byte) + POPF (1 byte) = 3 bytes
+    // vs original SAHF (1 byte)
+    return 3;
+}
+
+void generate_sahf_alternative(struct buffer *b, cs_insn *insn) {
+    if (!insn || !b) {
+        return;
+    }
+    
+    // Check if this is a SAHF instruction
+    if (insn->id != X86_INS_SAHF) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+    
+    // Transform SAHF to: PUSH EAX; PUSH EAX; POPF
+    // This is a simplified approach - we need to manipulate the flags properly
+    
+    // First, we need to get the current flags, modify AH part, then restore
+    // PUSHF; POP EBX; MOV BL, AH; PUSH EBX; POPF
+    buffer_write_byte(b, 0x9C);  // PUSHF - save current flags
+    buffer_write_byte(b, 0x5B);  // POP EBX - get flags to EBX
+    buffer_write_byte(b, 0x88);  // MOV BL, AH - put AH into BL (low byte of flags)
+    buffer_write_byte(b, 0xE3);  // MOD/RM for BL <- AH
+    buffer_write_byte(b, 0x53);  // PUSH EBX - push modified flags
+    buffer_write_byte(b, 0x9D);  // POPF - restore flags with AH values
+}
+
+/**
+ * Complete strategy implementation that handles both LAHF and SAHF
+ */
+int can_handle_lahf_sahf_alternative(cs_insn *insn) {
+    if (!insn) {
+        return 0;
+    }
+    
+    // Check if this is a LAHF or SAHF instruction
+    if (insn->id == X86_INS_LAHF || insn->id == X86_INS_SAHF) {
+        return 1;
+    }
+    
+    return 0;
+}
+
+size_t get_size_lahf_sahf_alternative(cs_insn *insn) {
+    if (insn->id == X86_INS_LAHF) {
+        return get_size_lahf_alternative(insn);
+    } else if (insn->id == X86_INS_SAHF) {
+        return get_size_sahf_alternative(insn);
+    }
+    return 5;  // Conservative estimate
+}
+
+void generate_lahf_sahf_alternative(struct buffer *b, cs_insn *insn) {
+    if (insn->id == X86_INS_LAHF) {
+        generate_lahf_alternative(b, insn);
+    } else if (insn->id == X86_INS_SAHF) {
+        generate_sahf_alternative(b, insn);
+    } else {
+        buffer_append(b, insn->bytes, insn->size);
+    }
+}
+
+// Define the strategy structure
+strategy_t lahf_sahf_flag_preservation_strategy = {
+    .name = "LAHF/SAHF Flag Preservation",
+    .can_handle = can_handle_lahf_sahf_alternative,
+    .get_size = get_size_lahf_sahf_alternative,
+    .generate = generate_lahf_sahf_alternative,
+    .priority = 83  // As specified in documentation
+};

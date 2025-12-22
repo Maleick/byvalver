@@ -530,6 +530,9 @@ int main(int argc, char *argv[]) {
                 printf("[%zu/%zu] %s\n", i + 1, file_list.count, input_path);
             }
 
+            // Set the batch stats context for strategy tracking
+            set_batch_stats_context(&stats);
+
             // Process the file
             size_t input_size = 0, output_size = 0;
             int result = process_single_file(input_path, output_path, config, &input_size, &output_size);
@@ -538,6 +541,27 @@ int main(int argc, char *argv[]) {
                 stats.processed_files++;
                 stats.total_input_bytes += input_size;
                 stats.total_output_bytes += output_size;
+
+                // Count file complexity statistics if we have both input and output
+                if (input_size > 0) {
+                    // Read the input file to count original stats
+                    FILE *input_file = fopen(input_path, "rb");
+                    if (input_file) {
+                        uint8_t *input_data = malloc(input_size);
+                        if (input_data) {
+                            if (fread(input_data, 1, input_size, input_file) == input_size) {
+                                int instr_count, bad_char_count;
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_char_count);
+
+                                // Add file complexity stats to batch stats
+                                batch_stats_add_file_stats(&stats, input_path, input_size,
+                                                         output_size, instr_count, bad_char_count, 1);
+                            }
+                            free(input_data);
+                        }
+                        fclose(input_file);
+                    }
+                }
 
                 if (!config->quiet && config->verbose) {
                     printf("  ✓ Processed: %zu → %zu bytes (%.2fx)\n",
@@ -554,6 +578,31 @@ int main(int argc, char *argv[]) {
 
                 // Add the failed file to the list if we're tracking them
                 batch_stats_add_failed_file(&stats, input_path);
+
+                // Also add file complexity stats for failed files (with success = 0)
+                // Read the input file to count original stats
+                FILE *input_file = fopen(input_path, "rb");
+                if (input_file) {
+                    fseek(input_file, 0, SEEK_END);
+                    size_t input_size = ftell(input_file);
+                    fseek(input_file, 0, SEEK_SET);
+
+                    if (input_size > 0) {
+                        uint8_t *input_data = malloc(input_size);
+                        if (input_data) {
+                            if (fread(input_data, 1, input_size, input_file) == input_size) {
+                                int instr_count, bad_char_count;
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_char_count);
+
+                                // Add file complexity stats to batch stats (success = 0)
+                                batch_stats_add_file_stats(&stats, input_path, input_size,
+                                                         0, instr_count, bad_char_count, 0);
+                            }
+                            free(input_data);
+                        }
+                    }
+                    fclose(input_file);
+                }
 
                 if (!config->continue_on_error) {
                     free(output_path);

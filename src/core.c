@@ -9,6 +9,21 @@
 // Global bad character context instance (v3.0)
 bad_char_context_t g_bad_char_context = {0};
 
+// Global batch statistics context (for tracking strategy usage during processing)
+batch_stats_t* g_batch_stats_context = NULL;
+
+// Set the batch statistics context
+void set_batch_stats_context(batch_stats_t *stats) {
+    g_batch_stats_context = stats;
+}
+
+// Track strategy usage in the batch statistics
+void track_strategy_usage(const char *strategy_name, int success, size_t output_size) {
+    if (g_batch_stats_context && strategy_name) {
+        batch_stats_add_strategy_usage(g_batch_stats_context, strategy_name, success, output_size);
+    }
+}
+
 /**
  * Initialize global bad character context
  * @param config: Configuration to copy (NULL = default to null-byte only)
@@ -635,6 +650,16 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                     if (!is_bad_char_free_buffer(new_shellcode.data + before_gen,
                                                   new_shellcode.size - before_gen)) {
                         fprintf(stderr, "CRITICAL: Fallback also introduced bad characters!\n");
+                    }
+
+                    // Track the failed strategy usage
+                    if (g_batch_stats_context) {
+                        track_strategy_usage(strategies[0]->name, 0, new_shellcode.size - before_gen);
+                    }
+                } else {
+                    // Track the successful strategy usage
+                    if (g_batch_stats_context) {
+                        track_strategy_usage(strategies[0]->name, 1, new_shellcode.size - before_gen);
                     }
                 }
 
@@ -1353,4 +1378,49 @@ struct buffer biphasic_process(const uint8_t *shellcode, size_t size) {
             pass2_output.size, ((float)pass2_output.size / size - 1.0) * 100.0);
 
     return pass2_output;
+}
+
+// Function to count instructions and bad characters in shellcode
+void count_shellcode_stats(const uint8_t *shellcode, size_t size, int *instruction_count, int *bad_char_count) {
+    if (!shellcode || size == 0 || !instruction_count || !bad_char_count) {
+        if (instruction_count) *instruction_count = 0;
+        if (bad_char_count) *bad_char_count = 0;
+        return;
+    }
+
+    csh handle;
+    cs_insn *insn;
+    size_t count;
+    int instr_count = 0;
+    int bad_char_total = 0;
+
+    // Initialize Capstone disassembler
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK) {
+        *instruction_count = 0;
+        *bad_char_count = 0;
+        return;
+    }
+
+    // Set detailed disassembly
+    cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+
+    // Disassemble the shellcode
+    count = cs_disasm(handle, shellcode, size, 0, 0, &insn);
+    if (count > 0) {
+        instr_count = (int)count;
+
+        // Count bad characters in the original shellcode
+        for (size_t i = 0; i < size; i++) {
+            if (!is_bad_char_free_byte(shellcode[i])) {
+                bad_char_total++;
+            }
+        }
+
+        cs_free(insn, count);
+    }
+
+    cs_close(&handle);
+
+    *instruction_count = instr_count;
+    *bad_char_count = bad_char_total;
 }

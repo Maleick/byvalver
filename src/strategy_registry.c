@@ -618,5 +618,23 @@ void register_cmov_conditional_elimination_strategies() {
     register_strategy(&cmov_conditional_elimination_strategy);
 }
 
+// Register the FPU stack immediate encoding strategy
+void register_fpu_stack_immediate_encoding_strategies() {
+    extern strategy_t fpu_stack_immediate_encoding_strategy;
+    register_strategy(&fpu_stack_immediate_encoding_strategy);
+}
+
+// Register the XLAT table lookup strategy
+void register_xlat_table_lookup_strategies() {
+    extern strategy_t xlat_table_lookup_strategy;
+    register_strategy(&xlat_table_lookup_strategy);
+}
+
+// Register the LAHF/SAHF flag preservation strategy
+void register_lahf_sahf_flag_preservation_strategies() {
+    extern strategy_t lahf_sahf_flag_preservation_strategy;
+    register_strategy(&lahf_sahf_flag_preservation_strategy);
+}
+
 
 

@@ -3,28 +3,26 @@
 
 #include "strategy.h"
 #include "utils.h"
-#include <capstone/capstone.h>
 
 /*
- * LAHF/SAHF Flag Preservation Chain Strategies
+ * LAHF/SAHF Flag Preservation Strategy for Bad Character Elimination
  *
- * PURPOSE: Use LAHF (Load AH from Flags) and SAHF (Store AH into Flags) 
- * instructions as lightweight alternatives to PUSHF/POPF for preserving
- * arithmetic flags (SF, ZF, AF, PF, CF) without modifying the stack.
- *
- * PRIORITY: 83 (High)
- *
- * EXAMPLES:
- *   Original: pushf; ...; popf (3+ bytes, modifies stack)
- *   Optimized: lahf; ...; sahf (2 bytes total, no stack impact)
+ * PURPOSE: Replace LAHF/SAHF instructions that may contain bad characters
+ * with equivalent flag manipulation using PUSHF/POPF or manual flag handling.
  */
 
 // Strategy interface functions
-int can_handle_lahf_sahf_flag_preservation(cs_insn *insn);
-size_t get_size_lahf_sahf_flag_preservation(cs_insn *insn);
-void generate_lahf_sahf_flag_preservation(struct buffer *b, cs_insn *insn);
+int can_handle_lahf_alternative(cs_insn *insn);
+size_t get_size_lahf_alternative(cs_insn *insn);
+void generate_lahf_alternative(struct buffer *b, cs_insn *insn);
+int can_handle_sahf_alternative(cs_insn *insn);
+size_t get_size_sahf_alternative(cs_insn *insn);
+void generate_sahf_alternative(struct buffer *b, cs_insn *insn);
+int can_handle_lahf_sahf_alternative(cs_insn *insn);
+size_t get_size_lahf_sahf_alternative(cs_insn *insn);
+void generate_lahf_sahf_alternative(struct buffer *b, cs_insn *insn);
 
 // Registration function
-void register_lahf_sahf_flag_preservation_strategies(void);
+void register_lahf_sahf_flag_preservation_strategies();
 
 #endif /* LAHF_SAHF_FLAG_PRESERVATION_STRATEGIES_H */

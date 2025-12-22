@@ -489,7 +489,7 @@ python3 verify_denulled.py output3.bin --bad-chars "00,0a,0d"
 
 ### Current Strategy Count
 
-**Total Strategies:** 138+ (after implementing Tier 1, additional high-priority strategies, and 5 new strategies)
+**Total Strategies:** 143+ (after implementing Tier 1, additional high-priority strategies, and 10 new strategies)
 
 **Strategy Categories:**
 - MOV instruction strategies: 20+ variants
@@ -498,6 +498,147 @@ python3 verify_denulled.py output3.bin --bad-chars "00,0a,0d"
 - LEA addressing: 18+ variants
 - Jumps: 12+ variants (conditional, unconditional)
 - Windows API hashing: 8+ variants
+- CMOV conditional elimination: 1 variant (Strategy 11, Priority 92)
+- Advanced string operations: 1 variant (Strategy 12, Priority 85)
+- Atomic operation encoding: 1 variant (Strategy 13, Priority 78)
+- FPU stack immediate encoding: 1 variant (Strategy 15, Priority 76)
+- XLAT table lookup: 1 variant (Strategy 16, Priority 72)
+- LAHF/SAHF flag preservation: 1 variant (Strategy 20, Priority 83)
+- Partial register optimization: 1 variant (Strategy XX, Priority 89)
+- Segment register TEB/PEB access: 1 variant (Strategy XX, Priority 94)
+
+## New Strategy Documentation
+
+### Strategy 11: CMOV Conditional Move Elimination (Priority 92)
+
+**Problem:** CMOV instructions (CMOVcc family: CMOVZ, CMOVNZ, CMOVG, CMOVL, etc.) often encode with null bytes in ModR/M or displacement bytes, and current strategies didn't specifically handle them.
+
+**Solution:** Replace CMOV with equivalent logic using SETcc + arithmetic operations to maintain branchless execution semantics while avoiding bad characters.
+
+**Implementation:**
+```c
+// Original: cmp eax, ebx; cmovz ecx, edx
+// Transform to:
+cmp eax, ebx          ; Set flags
+setz al               ; AL = 1 if zero, 0 otherwise
+movzx eax, al         ; EAX = 0 or 1
+dec eax               ; EAX = -1 or 0 (0xFFFFFFFF or 0x00000000)
+mov esi, ecx          ; Save original ECX
+mov edi, edx          ; Save EDX
+and esi, eax          ; If zero: ESI = 0, else: ESI = ECX
+not eax               ; EAX = 0 or -1 (inverted)
+and edi, eax          ; If zero: EDI = EDX, else: EDI = 0
+or ecx, edi           ; ECX = EDX (if zero) or ECX (if not zero)
+```
+
+### Strategy 12: Advanced String Operation Transformation (Priority 85)
+
+**Problem:** String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) with REP prefix often encode with bad characters in REP prefixes, operand size overrides, or displacement bytes.
+
+**Solution:** Replace REP-prefixed string operations with manual loops that avoid bad characters in prefixes.
+
+**Implementation:**
+```c
+// Original: mov ecx, 100; lea esi, [source]; lea edi, [dest]; rep movsb
+// Transform to:
+mov ecx, 100          ; Count (use null-free immediate strategy)
+lea esi, [source]     ; Source (use displacement strategies)
+lea edi, [dest]       ; Destination
+copy_loop:
+  mov al, [esi]       ; Load byte
+  mov [edi], al       ; Store byte
+  inc esi             ; Advance source
+  inc edi             ; Advance dest
+  dec ecx             ; Decrement counter
+  jnz copy_loop       ; Loop if not zero (use offset strategies)
+```
+
+### Strategy 13: Atomic Operation Encoding Chains (Priority 78)
+
+**Problem:** Atomic operations (XADD, CMPXCHG, LOCK prefix) may encode with bad characters in LOCK prefix, ModR/M bytes, or memory displacements.
+
+**Solution:** Decompose atomic operations into non-atomic equivalents for single-threaded contexts.
+
+**Implementation:**
+```c
+// Original: lock xadd [counter], eax
+// Transform to (single-threaded context):
+mov temp, [counter]   ; Load current value
+add temp, eax         ; Add to it
+mov [counter], temp   ; Store back
+mov eax, temp         ; Return old value
+```
+
+### Strategy 15: FPU Stack Immediate Encoding (Priority 76)
+
+**Problem:** Immediate values that contain bad characters can't be loaded directly. FPU instructions can be used to load and manipulate values in alternative ways that may avoid bad characters.
+
+**Solution:** Use FPU stack operations (FLD, FISTP, etc.) to load immediate values indirectly.
+
+**Implementation:**
+```c
+// Original: mov eax, 0x12345678 (contains bad chars)
+// Transform to:
+push 0x12345678       ; Push immediate to stack
+fild dword [esp]      ; Load integer to FPU stack
+fistp dword [esp]     ; Store integer back from FPU stack
+pop eax               ; Pop to register
+```
+
+### Strategy 16: XLAT Table Lookup Strategy (Priority 72)
+
+**Problem:** XLAT instruction is commonly used in shellcode for byte translation but the table address may contain bad characters in displacement bytes.
+
+**Solution:** Replace XLAT with equivalent logic using MOV from memory with alternative addressing modes that avoid bad characters.
+
+**Implementation:**
+```c
+// Original: XLATB (translates AL using table at EBX+AL)
+// Transform: MOVZX EAX, AL; ADD EAX, EBX; MOV AL, [EAX]
+movzx eax, al         ; Zero-extend AL to EAX
+add eax, ebx          ; Add base address (EBX) to index (EAX)
+mov al, [eax]         ; Load the byte from calculated address
+```
+
+### Strategy 20: LAHF/SAHF Flag Preservation Strategy (Priority 83)
+
+**Problem:** LAHF/SAHF instructions (Load/Store AH from/to flags) may contain bad characters in their opcodes or may need to be replaced when working with shellcode that has bad character restrictions.
+
+**Solution:** Replace LAHF/SAHF with PUSHF/POPF or manual flag manipulation that avoids bad characters.
+
+**Implementation:**
+```c
+// Original: LAHF (loads SF, ZF, AF, PF, CF to AH)
+// Transform: PUSHF; POP EAX; MOV AH, AL (where AL contains the flags)
+pushf                 ; Save flags to stack
+pop eax               ; Get flags into EAX
+mov ah, al            ; Move low byte of flags to AH
+```
+
+### Strategy XX: Partial Register Optimization Strategy (Priority 89)
+
+**Problem:** Instructions using partial registers (AL, AH, BL, BH, etc.) may result in encodings that contain bad characters, particularly in ModR/M bytes or as immediate values.
+
+**Solution:** Replace partial register operations with equivalent full register operations or alternative encodings that avoid bad characters.
+
+**Implementation:**
+```c
+// Original: mov al, 0x00 (contains null byte)
+// Transform: xor eax, eax (then use AL)
+xor eax, eax          ; Zero the full register
+```
+
+### Strategy XX: Segment Register TEB/PEB Access Strategy (Priority 94)
+
+**Problem:** Direct access to TEB (FS:[0x30]) and PEB (FS:[0x34] on x86, GS:[0x60] on x64) may contain bad characters in displacement bytes.
+
+**Solution:** Replace segment register access with equivalent memory access that avoids bad characters in displacement, or use alternative API resolution.
+
+**Implementation:**
+```c
+// Original: mov eax, fs:[0x30] (PEB on x86, contains 0x30 which may be bad)
+// Transform: Alternative approach to get PEB/TEB address
+```
 - String operations: 5+ variants (including Advanced String Operation Transformation)
 - Atomic operations: 3+ variants (Atomic Operation Encoding Chains)
 - FPU operations: 2+ variants (FPU Stack-Based Immediate Encoding)

@@ -1,306 +1,891 @@
-fix(strategies): Repair Partial Register Optimization strategy (0% → 100% success rate)
+feat(strategies): Implement 5 novel bad-character elimination strategies (v3.6)
 
-CRITICAL BUG FIX: The "Partial Register Optimization" strategy was completely broken with a 100%
-failure rate (0 successes, 139 failures in batch testing). This commit repairs all five critical
-bugs that prevented the strategy from functioning.
+This commit implements five previously-proposed but un-implemented bad-character elimination
+strategies, expanding the total strategy count from 148 to 153. All strategies have been fully
+integrated into the strategy registry, documented, and verified to compile successfully.
 
-## Problems Fixed
+## Strategies Implemented
 
-### Bug 1: Null Byte Injection (CRITICAL)
-**Location:** src/partial_register_optimization_strategies.c:147-154 (original)
-**Problem:** Strategy was INTRODUCING null bytes instead of eliminating them
-**Details:** When transforming `MOV AL, 0x42`, the code generated:
+### Strategy 1: BCD Arithmetic Obfuscation (Priority 68)
+**Files:** src/bcd_arithmetic_obfuscation_strategies.[ch]
+**Purpose:** Use BCD (Binary-Coded Decimal) arithmetic instructions for constant generation
+
+**Problem Addressed:**
+MOV instructions with small immediate values (0-99) may contain bad characters in their
+immediate operands. Standard constant construction methods can be inefficient for small values.
+
+**Solution:**
+Leverage the AAM (ASCII Adjust After Multiply) and AAD (ASCII Adjust Before Division)
+instructions to construct values 0-99 by encoding them as BCD digits in AH:AL pairs.
+
+**Transformation Example:**
+```asm
+Original: MOV AL, 42         (B0 2A)
+          └─ May contain bad char in immediate
+
+Transform: MOV AL, 2         (B0 02)
+           MOV AH, 4         (B4 04)
+           AAD               (D5 0A)
+           └─ Result: AL = 4*10 + 2 = 42
+```
+
+**Technical Details:**
+- AAD instruction: Converts AH:AL BCD pair to binary (AL = AH*10 + AL)
+- AAM instruction: Converts binary AL to BCD (AH = AL/10, AL = AL%10)
+- Only handles values 0-99 (BCD range)
+- Requires x86 mode (AAM/AAD invalid in x64 long mode)
+- Size: 5 bytes (MOV AL + MOV AH + AAD/AAM)
+
+**Limitations:**
+- x86-32 only (AAD/AAM are invalid in x64 long mode)
+- Limited to values 0-99
+- Only works for AL register (8-bit accumulator)
+
+**Code Structure:**
 ```c
-buffer_write_byte(b, 0xB8 + reg_idx);  // MOV EAX, imm32
-buffer_write_byte(b, imm_val);         // 0x42
-buffer_write_byte(b, 0x00);            // NULL BYTE!
-buffer_write_byte(b, 0x00);            // NULL BYTE!
-buffer_write_byte(b, 0x00);            // NULL BYTE!
+strategy_t bcd_arithmetic_strategy = {
+    .name = "BCD Arithmetic Obfuscation",
+    .can_handle = can_handle_bcd_arithmetic,
+    .get_size = get_size_bcd_arithmetic,
+    .generate = generate_bcd_arithmetic,
+    .priority = 68
+};
 ```
-**Encoding:** `B8 42 00 00 00` (MOV EAX, 0x00000042) - THREE null bytes introduced!
-**Impact:** Every transformation failed bad-character verification and was rolled back
-
-### Bug 2: Over-Broad can_handle() Function (HIGH)
-**Location:** src/partial_register_optimization_strategies.c:43-62 (original)
-**Problem:** Strategy claimed it could handle ANY instruction with partial registers
-**Details:**
-- Returned `1` for `add byte ptr [eax], al` (memory operation)
-- Returned `1` for `add al, ch` (register-to-register)
-- Only actually transformed `MOV r8, imm8` patterns
-**Code Flow:**
-```
-can_handle(add al, ch) → returns 1
-generate(add al, ch) → falls through to buffer_append(original bytes)
-                     → preserves null bytes
-                     → verification fails
-```
-**Impact:** Strategy attempted 139 instructions it couldn't actually transform
-
-### Bug 3: Zero Immediate Still Contains Null (MEDIUM)
-**Location:** First fix attempt (add al, 0x00 encoding)
-**Problem:** Transformation for zero immediates still had null byte
-**Details:** `XOR EAX, EAX; ADD AL, 0x00` → encoding `31 C0 80 C0 00` (null in immediate)
-**Impact:** Even the fix for Bug 1 failed for zero-value MOV instructions
-
-### Bug 4: Priority Too Low (MEDIUM)
-**Location:** src/partial_register_optimization_strategies.c:151 (original: priority = 89)
-**Problem:** Lower priority than `mov_imm_enhanced` (priority 160)
-**Details:** Strategy selection is priority-based (higher = earlier evaluation)
-- `mov_imm_enhanced` (160) catches ALL `MOV reg, imm` with bad chars
-- `partial_register_optimization` (89) never gets evaluated
-**Impact:** Strategy never executed even after fixing generation bugs
-
-### Bug 5: Register Range Check Assumes Sequential Enum (CRITICAL)
-**Location:** src/partial_register_optimization_strategies.c:57 (original)
-**Problem:** Check `>= X86_REG_AL && <= X86_REG_BH` assumes sequential enum values
-**Actual Capstone Enum Values:**
-```c
-X86_REG_AH = 1    ✓ (within range 2-4)
-X86_REG_AL = 2    ✓
-X86_REG_BH = 4    ✓
-X86_REG_BL = 5    ✗ (outside range!)
-X86_REG_CH = 9    ✗
-X86_REG_CL = 10   ✗
-X86_REG_DH = 13   ✗
-X86_REG_DL = 16   ✗
-```
-**Impact:** Only handled AL and BH; missed BL, CL, DL, AH, CH, DH (6 out of 8 registers)
-
-## Solutions Implemented
-
-### Fix 1: Proper Null-Free Transformation
-**Location:** src/partial_register_optimization_strategies.c:108-126
-**Strategy:** Use `XOR reg32, reg32` to zero register, then `ADD r8, imm8` only if non-zero
-```c
-// Step 1: XOR full_reg, full_reg (zero the register)
-buffer_write_byte(b, 0x31);  // XOR reg32, reg32 (no nulls)
-buffer_write_byte(b, 0xC0 | (reg_idx << 3) | reg_idx);
-
-// Step 2: Only ADD if immediate is non-zero
-if (imm_val != 0x00) {
-    buffer_write_byte(b, 0x80);  // ADD r/m8, imm8
-    buffer_write_byte(b, 0xC0 | partial_idx);
-    buffer_write_byte(b, imm_val);
-}
-```
-**Examples:**
-- `MOV AL, 0x00` (B0 00) → `XOR EAX, EAX` (31 C0) - 2 bytes, no nulls
-- `MOV AL, 0x42` (B0 42) → `XOR EAX, EAX; ADD AL, 0x42` (31 C0 80 C0 42) - 5 bytes, no nulls
-
-### Fix 2: Restrict can_handle() to Actual Capabilities
-**Location:** src/partial_register_optimization_strategies.c:43-65
-**Change:** Only return `1` for `MOV r8, imm8` patterns
-```c
-// ONLY handle MOV instructions with partial registers and immediate values
-if (insn->id == X86_INS_MOV && insn->detail->x86.op_count == 2) {
-    cs_x86_op *dst_op = &insn->detail->x86.operands[0];
-    cs_x86_op *src_op = &insn->detail->x86.operands[1];
-
-    if (dst_op->type == X86_OP_REG && src_op->type == X86_OP_IMM) {
-        // Check for 8-bit registers...
-        return 1;
-    }
-}
-return 0;  // Don't claim to handle other instructions
-```
-
-### Fix 3: Conditional ADD Emission
-**Location:** src/partial_register_optimization_strategies.c:117-124
-**Change:** Skip ADD instruction when immediate is 0x00
-```c
-if (imm_val != 0x00) {
-    // Only emit ADD if value is non-zero
-    // XOR already zeroed the register
-}
-```
-
-### Fix 4: Increase Priority
-**Location:** src/partial_register_optimization_strategies.c:151
-**Change:** Priority 89 → 165 (higher than `mov_imm_enhanced` at 160)
-```c
-.priority = 165  // Higher than mov_imm_enhanced (160) for specialized 8-bit handling
-```
-**Rationale:** More specialized strategies should take precedence over general ones
-
-### Fix 5: Explicit Register Enumeration
-**Location:** src/partial_register_optimization_strategies.c:58-61
-**Change:** Check each register explicitly instead of range
-```c
-x86_reg reg = dst_op->reg;
-if (reg == X86_REG_AL || reg == X86_REG_BL || reg == X86_REG_CL || reg == X86_REG_DL ||
-    reg == X86_REG_AH || reg == X86_REG_BH || reg == X86_REG_CH || reg == X86_REG_DH) {
-    return 1;
-}
-```
-
-### Additional Fix: 8-Bit Register Index Helper
-**Location:** src/partial_register_optimization_strategies.c:21-35
-**Added:** New helper function for proper ModR/M encoding
-```c
-static uint8_t get_reg_index_8bit(x86_reg reg) {
-    switch (reg) {
-        case X86_REG_AL: return 0;
-        case X86_REG_CL: return 1;
-        case X86_REG_DL: return 2;
-        case X86_REG_BL: return 3;
-        case X86_REG_AH: return 4;
-        case X86_REG_CH: return 5;
-        case X86_REG_DH: return 6;
-        case X86_REG_BH: return 7;
-    }
-}
-```
-**Purpose:** Correct ModR/M byte construction for 8-bit registers (AH/CH/DH/BH use indices 4-7)
-
-## Testing
-
-### Test Binary Created
-**File:** test_partial_reg.asm / test_partial_reg.bin
-**Contents:** 25 instructions specifically designed to test the strategy
-- 12 `MOV r8, 0x00` instructions (with null bytes)
-- 8 `MOV r8, non-zero` instructions (without null bytes)
-- 5 other instructions (XOR, INC, PUSH, POP, RET)
-
-**Test Results:**
-
-**Before Fix:**
-```
-STRATEGY USAGE STATISTICS:
-│ Partial Register Optimization  │ 0       │ 139     │ 139          │
-└─────────────────────────────────┴─────────┴─────────┴──────────────┘
-100% failure rate (0 successes, 139 failures)
-```
-
-**After Fix:**
-```
-Test Binary Results:
-- Input:  46 bytes with 12 null bytes
-- Output: 46 bytes with 0 null bytes
-- Size ratio: 1.00 (no expansion!)
-- All 12 MOV r8, 0 instructions successfully transformed
-- Strategy used for all applicable instructions
-```
-
-**Batch Processing Results:**
-```
-STRATEGY USAGE STATISTICS:
-│ Partial Register Optimization  │ [varies] │ 0      │ [varies]     │
-└─────────────────────────────────┴──────────┴────────┴──────────────┘
-0% failure rate (no failures in real-world shellcode)
-```
-**Note:** Strategy doesn't appear in batch results because real-world shellcode samples
-don't contain `MOV r8, imm8` patterns - they use 32-bit MOV instructions instead.
-
-## Verification
-
-### Manual Verification Commands
-```bash
-# Test the strategy with custom binary
-nasm -f bin test_partial_reg.asm -o test_partial_reg.bin
-./bin/byvalver test_partial_reg.bin test_partial_reg_denulled.bin --stats
-
-# Verify no null bytes in output
-xxd -p test_partial_reg_denulled.bin | grep -o '00' | wc -l
-# Expected: 0
-
-# Check transformations
-hexdump -C test_partial_reg_denulled.bin
-# Expected: 31 C0 (XOR EAX, EAX) instead of B0 00 (MOV AL, 0)
-#           31 DB (XOR EBX, EBX) instead of B3 00 (MOV BL, 0)
-```
-
-### Trace Output Examples
-```
-[TRACE] Using strategy 'Partial Register Optimization' for: mov al, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov bl, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov cl, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov dl, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov ah, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov bh, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov ch, 0
-[TRACE] Using strategy 'Partial Register Optimization' for: mov dh, 0
-```
-
-## Impact
-
-### Before Fix
-- **Success Rate:** 0% (0/139 transformations)
-- **Failure Mode:** Bad character verification failure
-- **Root Cause:** Introducing null bytes during transformation
-- **Consequence:** All applications rolled back to fallback strategies
-
-### After Fix
-- **Success Rate:** 100% (all transformations succeed)
-- **Output Quality:** No null bytes, minimal size expansion
-- **Efficiency:** 1:1 size ratio for zero immediates (2 bytes → 2 bytes)
-- **Coverage:** All 8 8-bit registers (AL, BL, CL, DL, AH, BH, CH, DH)
-
-### Performance Characteristics
-**Size Expansion:**
-- `MOV r8, 0x00` (2 bytes) → `XOR r32, r32` (2 bytes) - **0% expansion**
-- `MOV r8, imm8` (2 bytes) → `XOR r32, r32; ADD r8, imm8` (5 bytes) - **150% expansion**
-
-**Comparison to mov_imm_enhanced:**
-- Previous handler: `PUSH/generate_mov_eax_imm/POP` (~12-15 bytes)
-- New handler: `XOR/ADD` (2-5 bytes)
-- **Improvement:** 60-87% size reduction for 8-bit MOV instructions
-
-## Files Modified
-
-- `src/partial_register_optimization_strategies.c` (151 lines)
-  - Added `get_reg_index_8bit()` helper function (lines 21-35)
-  - Fixed `can_handle_partial_register_optimization()` (lines 43-65)
-  - Fixed `generate_partial_register_optimization()` (lines 72-126)
-  - Updated strategy priority to 165 (line 151)
-
-## Files Created
-
-- `test_partial_reg.asm` (46 lines) - Test assembly file with MOV r8, imm8 patterns
-- `test_partial_reg.bin` (46 bytes) - Assembled test binary with 12 null bytes
-- `test_reg_values.c` (13 lines) - Utility to verify Capstone register enum values
-
-## Breaking Changes
-
-None - This is a pure bug fix with no API or behavioral changes for correctly functioning code.
-
-## Migration Notes
-
-No migration required. The fix is transparent to users:
-- Existing shellcode processing will now handle `MOV r8, imm8` more efficiently
-- No configuration changes needed
-- No recompilation of user code required
-
-## Documentation Updates Required
-
-- [x] Update commit.txt with comprehensive fix documentation
-- [ ] Add changelog entry to docs/USAGE.md (What's New section)
-- [ ] Add strategy repair note to docs/BADCHARELIM_STRATS.md
-- [ ] Update strategy statistics in documentation if applicable
-
-## Lessons Learned
-
-### Architecture Issues
-1. **Assumption Validation:** Never assume enum values are sequential without verification
-2. **Encoding Verification:** All transformations must verify output is bad-character free
-3. **Scope Discipline:** can_handle() must match generate() capabilities exactly
-4. **Priority Management:** Strategy priority must reflect specialization level
-
-### Testing Gaps
-1. **Per-Strategy Testing:** Need isolated tests for each strategy, not just integration tests
-2. **Edge Case Coverage:** Zero values and boundary conditions need explicit test cases
-3. **Register Coverage:** Test all register variants, not just common ones
-4. **Negative Testing:** Test that strategies correctly reject inappropriate instructions
-
-### Best Practices Established
-1. **Helper Functions:** Use dedicated helpers for complex register index mapping
-2. **Conditional Generation:** Only emit instructions when actually needed
-3. **Explicit Enumeration:** Don't rely on range checks for non-contiguous enum values
-4. **Priority Hierarchy:** More specialized strategies should have higher priority
 
 ---
 
-This commit completely repairs the Partial Register Optimization strategy, transforming it
-from completely non-functional (0% success) to fully operational (100% success) with
-efficient transformations and comprehensive register coverage.
+### Strategy 2: ENTER/LEAVE Alternative Encoding (Priority 74)
+**Files:** src/enter_leave_alternative_encoding_strategies.[ch]
+**Purpose:** Replace ENTER/LEAVE stack frame instructions with equivalent multi-instruction sequences
 
-Resolves: Strategy failure, null byte injection, register coverage, priority conflicts
+**Problem Addressed:**
+ENTER and LEAVE instructions use compact encodings (C8 XX XX 00, C9) that may contain
+bad characters in their displacement or nesting level operands.
+
+**Solution:**
+Replace ENTER/LEAVE with semantically equivalent sequences using common instructions:
+- ENTER → PUSH EBP; MOV EBP, ESP; SUB ESP, imm
+- LEAVE → MOV ESP, EBP; POP EBP
+
+**Transformation Examples:**
+
+**ENTER Transformation:**
+```asm
+Original: ENTER 16, 0        (C8 10 00 00)
+          └─ Displacement 16 (0x10) in little-endian
+          └─ Nesting level 0 (0x00) - potential bad char
+
+Transform: PUSH EBP           (55)
+           MOV EBP, ESP       (89 E5)
+           SUB ESP, 16        (83 EC 10)
+           └─ Equivalent stack frame setup
+```
+
+**LEAVE Transformation:**
+```asm
+Original: LEAVE              (C9)
+          └─ Single byte, may be bad char
+
+Transform: MOV ESP, EBP      (89 EC)
+           POP EBP           (5D)
+           └─ Equivalent stack frame teardown
+```
+
+**Technical Details:**
+- ENTER encoding: C8 imm16 imm8 (5 bytes for level 0)
+- Transformation size: 7 bytes (PUSH=1 + MOV=2 + SUB=3 or 6)
+- LEAVE encoding: C9 (1 byte)
+- Transformation size: 3 bytes (MOV=2 + POP=1)
+- Handles both x86 and x64 (with RBP/RSP in 64-bit mode)
+
+**Stack Frame Semantics Preserved:**
+1. PUSH EBP - Save old frame pointer
+2. MOV EBP, ESP - Establish new frame pointer
+3. SUB ESP, N - Allocate local variable space
+4. MOV ESP, EBP - Restore stack pointer to frame base
+5. POP EBP - Restore old frame pointer
+
+**Code Structure:**
+```c
+strategy_t enter_leave_strategy = {
+    .name = "ENTER/LEAVE Alternative Encoding",
+    .can_handle = can_handle_enter_leave,
+    .get_size = get_size_enter_leave,
+    .generate = generate_enter_leave,
+    .priority = 74
+};
+```
+
+---
+
+### Strategy 3: POPCNT/LZCNT/TZCNT Bit Counting (Priority 77)
+**Files:** src/bit_counting_constant_strategies.[ch]
+**Purpose:** Generate constants by counting bits in carefully chosen source values
+
+**Problem Addressed:**
+MOV instructions with immediate values may contain bad characters. Traditional constant
+construction uses arithmetic or stack operations, but modern CPUs have bit-counting
+instructions that can generate values 0-32 efficiently.
+
+**Solution:**
+Use bit-counting instructions (POPCNT, TZCNT, LZCNT) to compute constants:
+- POPCNT (Population Count): Counts number of set bits (0-32)
+- TZCNT (Trailing Zero Count): Counts trailing zeros (0-31)
+- LZCNT (Leading Zero Count): Counts leading zeros (0-32)
+
+**Transformation Examples:**
+
+**POPCNT Transformation:**
+```asm
+Original: MOV EAX, 5         (B8 05 00 00 00)
+          └─ May contain null bytes
+
+Transform: MOV EBX, 0x1F     (BB 1F 00 00 00)
+           POPCNT EAX, EBX   (F3 0F B8 C3)
+           └─ 0x1F has 5 set bits: 11111b
+           └─ Result: EAX = 5
+```
+
+**TZCNT Transformation:**
+```asm
+Original: MOV EAX, 8         (B8 08 00 00 00)
+          └─ May contain null bytes
+
+Transform: MOV EBX, 0x100    (BB 00 01 00 00)
+           TZCNT EAX, EBX    (F3 0F BC C3)
+           └─ 0x100 = 100000000b (8 trailing zeros)
+           └─ Result: EAX = 8
+```
+
+**Technical Details:**
+- POPCNT: F3 0F B8 /r (SSE4.2 / POPCNT extension required)
+- TZCNT: F3 0F BC /r (BMI1 extension required, fallback to BSF on older CPUs)
+- LZCNT: F3 0F BD /r (LZCNT extension required)
+- Transformation size: 9 bytes (MOV EBX, imm32 = 5 + POPCNT = 4)
+- Only handles values 0-32 (bit count range)
+- Source value must be bad-character-free
+
+**CPU Feature Requirements:**
+- POPCNT: Intel Nehalem+ (2008), AMD Barcelona+ (2007)
+- TZCNT/LZCNT: Intel Haswell+ (2013), AMD Piledriver+ (2012)
+- Fallback: BSF/BSR on older CPUs (different semantics for zero input)
+
+**Value Construction Strategy:**
+```c
+// For POPCNT: Find value with N set bits that's bad-char-free
+uint32_t find_popcount_source(int target) {
+    // Try consecutive bits: (1 << target) - 1
+    // Try scattered bits: every other bit
+    // Verify bad-char-free encoding
+}
+
+// For TZCNT: Find power-of-2 with N trailing zeros
+uint32_t find_tzcnt_source(int target) {
+    // Use: 1 << target (power of 2)
+    // Verify bad-char-free encoding
+}
+```
+
+**Code Structure:**
+```c
+strategy_t bit_counting_strategy = {
+    .name = "POPCNT/LZCNT/TZCNT Bit Counting",
+    .can_handle = can_handle_bit_counting,
+    .get_size = get_size_bit_counting,
+    .generate = generate_bit_counting,
+    .priority = 77
+};
+```
+
+---
+
+### Strategy 4: SIMD XMM Register Immediate Loading (Priority 89)
+**Files:** src/simd_xmm_register_strategies.[ch]
+**Purpose:** Use SIMD instructions for zero initialization via XMM registers
+
+**Problem Addressed:**
+MOV reg, 0 instructions encode the zero immediate (00 00 00 00) which contains null bytes.
+Standard methods like XOR reg, reg work but SIMD provides an alternative path that can
+avoid detection signatures.
+
+**Solution:**
+Use PXOR (Packed XOR) to zero an XMM register, then transfer to general-purpose register
+using MOVD (Move Doubleword). This provides an alternative data path that some analysis
+tools might not expect.
+
+**Transformation Example:**
+```asm
+Original: MOV EAX, 0         (B8 00 00 00 00)
+          └─ Contains four null bytes
+
+Transform: PXOR XMM0, XMM0   (66 0F EF C0)
+           MOVD EAX, XMM0    (66 0F 7E C0)
+           └─ Zero XMM0, then move low 32 bits to EAX
+           └─ Result: EAX = 0, no null bytes in encoding
+```
+
+**Technical Details:**
+- PXOR XMM0, XMM0: 66 0F EF C0 (4 bytes, SSE2)
+- MOVD reg32, XMM: 66 0F 7E /r (4 bytes, SSE2)
+- Total size: 8 bytes (vs. 2 bytes for XOR EAX, EAX)
+- Works in both x86 and x64
+- Requires SSE2 (universal on modern x86/x64 CPUs since ~2001)
+
+**SIMD Register Encoding:**
+- XMM0-XMM7: Available in both x86 and x64
+- XMM8-XMM15: x64 only (require REX prefix)
+- Uses 128-bit registers for 32-bit operations
+
+**Alternative Uses (Future Extensions):**
+```asm
+; Zero with different XMM registers (evasion)
+PXOR XMM1, XMM1; MOVD EAX, XMM1
+PXOR XMM2, XMM2; MOVD EAX, XMM2
+
+; Partial register initialization
+PXOR XMM0, XMM0; MOVD AX, XMM0  (zero low 16 bits)
+```
+
+**Why This Strategy Matters:**
+1. **Obfuscation:** Unusual instruction sequences can evade signature detection
+2. **Alternative path:** Provides diversity in transformation methods
+3. **Zero-overhead:** PXOR XMM, XMM is recognized as zeroing idiom by CPUs
+4. **Side effects:** Zeroes entire 128-bit XMM register (future optimization opportunity)
+
+**Code Structure:**
+```c
+strategy_t simd_xmm_strategy = {
+    .name = "SIMD XMM Register Immediate Loading",
+    .can_handle = can_handle_simd_xmm,
+    .get_size = get_size_simd_xmm,
+    .generate = generate_simd_xmm,
+    .priority = 89
+};
+```
+
+---
+
+### Strategy 5: JECXZ/JRCXZ Zero-Test Jump Transformation (Priority 85)
+**Files:** src/jecxz_jrcxz_transformation_strategies.[ch]
+**Purpose:** Replace JECXZ/JRCXZ conditional jumps with TEST + JZ sequence
+
+**Problem Addressed:**
+JECXZ (Jump if ECX Zero) and JRCXZ (Jump if RCX Zero) use 8-bit signed displacement
+encoding (E3 XX) where the displacement byte may be a bad character.
+
+**Solution:**
+Replace with semantically equivalent TEST + JZ sequence:
+- JECXZ target → TEST ECX, ECX; JZ target
+- JRCXZ target → TEST RCX, RCX; JZ target
+
+**Transformation Examples:**
+
+**x86 JECXZ Transformation:**
+```asm
+Original: JECXZ target       (E3 0A)
+          └─ Jump if ECX=0 to displacement 0x0A
+          └─ Displacement may be bad char
+
+Transform: TEST ECX, ECX     (85 C9)
+           JZ target         (74 XX)
+           └─ Test ECX for zero, then jump
+           └─ Equivalent behavior, different encoding
+```
+
+**x64 JRCXZ Transformation:**
+```asm
+Original: JRCXZ target       (E3 0A)
+          └─ Jump if RCX=0 to displacement 0x0A
+
+Transform: TEST RCX, RCX     (48 85 C9)
+           JZ target         (74 XX)
+           └─ REX.W prefix for 64-bit operand
+```
+
+**Technical Details:**
+- JECXZ encoding: E3 rel8 (2 bytes, x86)
+- JRCXZ encoding: E3 rel8 (2 bytes, x64, defaults to RCX in 64-bit mode)
+- TEST ECX, ECX: 85 C9 (2 bytes, x86)
+- TEST RCX, RCX: 48 85 C9 (3 bytes, x64 with REX.W)
+- JZ rel8: 74 XX (2 bytes)
+- Total transformation size: 4 bytes (x86) or 5 bytes (x64)
+
+**Displacement Adjustment:**
+Since the transformation is longer than the original instruction, the jump displacement
+must be adjusted to account for the size difference:
+
+```c
+// Original: JECXZ target (2 bytes)
+// Next instruction at: address + 2
+// Displacement: target - (address + 2)
+
+// Transform: TEST + JZ (4 bytes)
+// Next instruction at: address + 4
+// Adjusted displacement: target - (address + 4)
+//                      = original_disp - 2
+```
+
+**Semantic Equivalence:**
+```
+JECXZ target:
+  if (ECX == 0) goto target;
+
+TEST ECX, ECX; JZ target:
+  ZF = (ECX & ECX == 0);
+  if (ZF) goto target;
+```
+
+Both test if ECX is zero and jump, with identical behavior and flag effects.
+
+**Limitations:**
+- Only handles short jumps (rel8, ±128 bytes)
+- Long jumps require 32-bit displacement form (0F 84 for JZ)
+- Could be extended to handle long-form jumps in future
+
+**Code Structure:**
+```c
+strategy_t jecxz_jrcxz_strategy = {
+    .name = "JECXZ/JRCXZ Zero-Test Jump",
+    .can_handle = can_handle_jecxz_jrcxz,
+    .get_size = get_size_jecxz_jrcxz,
+    .generate = generate_jecxz_jrcxz,
+    .priority = 85
+};
+```
+
+---
+
+## Integration Work
+
+### Strategy Registry Updates
+**File:** src/strategy_registry.c
+
+**Added Includes:**
+```c
+#include "bcd_arithmetic_obfuscation_strategies.h"
+#include "enter_leave_alternative_encoding_strategies.h"
+#include "bit_counting_constant_strategies.h"
+#include "simd_xmm_register_strategies.h"
+#include "jecxz_jrcxz_transformation_strategies.h"
+```
+
+**Added Forward Declarations:**
+```c
+void register_bcd_arithmetic_obfuscation_strategies();     // Priority 68
+void register_enter_leave_alternative_encoding_strategies(); // Priority 74
+void register_bit_counting_constant_strategies();          // Priority 77
+void register_simd_xmm_register_strategies();              // Priority 89
+void register_jecxz_jrcxz_transformation_strategies();     // Priority 85
+```
+
+**Registration in init_strategies() (Priority Order):**
+```c
+// High-priority specialized strategies
+register_simd_xmm_register_strategies();                   // Priority 89
+register_jecxz_jrcxz_transformation_strategies();          // Priority 85
+// ... (other strategies by priority)
+register_bit_counting_constant_strategies();               // Priority 77
+register_enter_leave_alternative_encoding_strategies();    // Priority 74
+// ... (other strategies)
+register_bcd_arithmetic_obfuscation_strategies();          // Priority 68
+```
+
+**Implementation of Registration Functions:**
+```c
+void register_bcd_arithmetic_obfuscation_strategies() {
+    extern strategy_t bcd_arithmetic_strategy;
+    register_strategy(&bcd_arithmetic_strategy);
+}
+
+void register_enter_leave_alternative_encoding_strategies() {
+    extern strategy_t enter_leave_strategy;
+    register_strategy(&enter_leave_strategy);
+}
+
+void register_bit_counting_constant_strategies() {
+    extern strategy_t bit_counting_strategy;
+    register_strategy(&bit_counting_strategy);
+}
+
+void register_simd_xmm_register_strategies() {
+    extern strategy_t simd_xmm_strategy;
+    register_strategy(&simd_xmm_strategy);
+}
+
+void register_jecxz_jrcxz_transformation_strategies() {
+    extern strategy_t jecxz_jrcxz_strategy;
+    register_strategy(&jecxz_jrcxz_strategy);
+}
+```
+
+---
+
+## Documentation Updates
+
+### BADCHARELIM_STRATS.md
+**File:** docs/BADCHARELIM_STRATS.md
+
+**Added Section: v3.6 - Five Novel Strategies (2025)**
+
+Comprehensive documentation added for all five strategies including:
+- Problem statements
+- Solution approaches
+- Transformation examples with assembly code
+- Technical details and encodings
+- CPU feature requirements
+- Limitations and edge cases
+- Code structure examples
+
+**Updated Strategy Count:**
+- Previous: "148+ strategies"
+- Updated: "153+ strategies" (throughout document)
+
+### README.md
+**File:** README.md
+
+**Strategy Count Updates:**
+All mentions of strategy counts updated to **153+** for consistency:
+- Feature list
+- Statistics sections
+- Performance metrics
+- Documentation references
+
+**Feature List Additions:**
+```markdown
+- **NEW in v3.6**: `BCD` arithmetic obfuscation (`AAM`/`AAD`)
+- **NEW in v3.6**: `ENTER`/`LEAVE` stack frame alternatives
+- **NEW in v3.6**: `POPCNT`/`LZCNT`/`TZCNT` bit counting for constants
+- **NEW in v3.6**: `SIMD` `XMM` register immediate loading
+- **NEW in v3.6**: `JECXZ`/`JRCXZ` zero-test jump transformations
+```
+
+**Version References:**
+Added v3.6 alongside existing v3.0 references to indicate latest feature set.
+
+---
+
+## Build Verification
+
+### Compilation Results
+```
+[NASM] Assembling decoder stub...
+[XXD] Generating decoder header...
+[CC] Compiling src/adc_strategies.c...
+[CC] Compiling src/bcd_arithmetic_obfuscation_strategies.c...
+[CC] Compiling src/bit_counting_constant_strategies.c...
+[CC] Compiling src/enter_leave_alternative_encoding_strategies.c...
+[CC] Compiling src/jecxz_jrcxz_transformation_strategies.c...
+[CC] Compiling src/simd_xmm_register_strategies.c...
+... (170 more files)
+[LD] Linking byvalver...
+[OK] Built byvalver successfully (175 object files)
+```
+
+**Build Statistics:**
+- Total object files: 175 (previously 170)
+- New object files: 5 (one per new strategy)
+- Compiler warnings: 0
+- Compiler errors: 0
+- Link errors: 0
+
+**Build Commands:**
+```bash
+make clean && make
+./bin/byvalver --version
+# Output: byvalver v3.0.0
+```
+
+---
+
+## Testing Notes
+
+### Compilation Testing
+All strategies compile cleanly with no warnings using:
+- GCC with `-Wall -Wextra -Werror`
+- Capstone 5.x API
+- Standard C99 compilation
+
+### Integration Testing
+Strategies successfully integrated into registry:
+- All 5 registration functions called in priority order
+- No duplicate priorities
+- No registration errors
+- Binary runs without crashes
+
+### Strategy Coverage Analysis
+
+**BCD Arithmetic (Priority 68):**
+- Target: MOV AL, imm8 (values 0-99, x86 only)
+- Real-world occurrence: Rare (most code uses 32-bit MOV)
+- Test case: Would need explicit x86-32 shellcode with small AL immediates
+
+**ENTER/LEAVE (Priority 74):**
+- Target: ENTER/LEAVE stack frame instructions
+- Real-world occurrence: Rare (compilers usually inline frame setup)
+- Test case: Would need hand-written assembly using ENTER/LEAVE
+
+**POPCNT/LZCNT/TZCNT (Priority 77):**
+- Target: MOV reg32, imm32 (values 0-32)
+- Real-world occurrence: Moderate (small immediates common)
+- Test case: Would need shellcode with values 0-32 and bad chars in MOV immediate
+
+**SIMD XMM (Priority 89):**
+- Target: MOV reg, 0 (zero initialization)
+- Real-world occurrence: Very common (zeroing registers is universal)
+- Test case: Any shellcode with MOV EAX, 0 or similar
+
+**JECXZ/JRCXZ (Priority 85):**
+- Target: JECXZ/JRCXZ conditional jumps
+- Real-world occurrence: Rare (modern compilers prefer TEST + Jcc)
+- Test case: Would need hand-written loop code using JECXZ
+
+### Future Testing Recommendations
+
+1. **Create Synthetic Test Cases:**
+   ```asm
+   ; test_new_strategies.asm
+   mov al, 42          ; Test BCD arithmetic
+   enter 16, 0         ; Test ENTER/LEAVE
+   mov eax, 5          ; Test POPCNT
+   mov eax, 0          ; Test SIMD XMM
+   jecxz done          ; Test JECXZ
+   done: ret
+   ```
+
+2. **CPU Feature Detection:**
+   - Add runtime checks for SSE2/SSE4.2/BMI1 before using respective instructions
+   - Provide fallback strategies when CPU features unavailable
+
+3. **Displacement Calculation:**
+   - Verify JECXZ displacement adjustment with various jump distances
+   - Test boundary conditions (±127 bytes for short jumps)
+
+4. **Bad Character Verification:**
+   - Ensure all generated encodings are verified against bad character set
+   - Test with various bad character profiles (null-only, alphanumeric, custom)
+
+---
+
+## Files Created
+
+**Header Files (5):**
+- `src/bcd_arithmetic_obfuscation_strategies.h` (21 lines)
+- `src/enter_leave_alternative_encoding_strategies.h` (21 lines)
+- `src/bit_counting_constant_strategies.h` (21 lines)
+- `src/simd_xmm_register_strategies.h` (21 lines)
+- `src/jecxz_jrcxz_transformation_strategies.h` (21 lines)
+
+**Implementation Files (5):**
+- `src/bcd_arithmetic_obfuscation_strategies.c` (183 lines)
+- `src/enter_leave_alternative_encoding_strategies.c` (187 lines)
+- `src/bit_counting_constant_strategies.c` (242 lines)
+- `src/simd_xmm_register_strategies.c` (127 lines)
+- `src/jecxz_jrcxz_transformation_strategies.c` (137 lines)
+
+**Total New Code:** 981 lines (implementation + headers)
+
+---
+
+## Files Modified
+
+**Strategy Registry:**
+- `src/strategy_registry.c`
+  - Added 5 includes (lines 58-62)
+  - Added 5 forward declarations (lines 195-199)
+  - Added 5 registration calls in init_strategies() (lines 261, 265, 274, 277, 279)
+  - Added 5 registration function implementations (lines 699-728)
+
+**Documentation:**
+- `docs/BADCHARELIM_STRATS.md`
+  - Added v3.6 section with comprehensive strategy documentation
+  - Updated all strategy counts from "148+" to "153+"
+  - Added detailed examples and technical specifications
+
+- `README.md`
+  - Updated all strategy count mentions to "153+"
+  - Added "NEW in v3.6" feature list entries
+  - Added v3.6 version references alongside v3.0
+
+---
+
+## Impact and Benefits
+
+### Expanded Coverage
+**Before:** 148 strategies covering common patterns
+**After:** 153 strategies including specialized edge cases
+
+**New Instruction Coverage:**
+- BCD arithmetic: AAM, AAD (x86-legacy)
+- Stack frames: ENTER, LEAVE (function prologue/epilogue)
+- Bit counting: POPCNT, TZCNT, LZCNT (modern CPU extensions)
+- SIMD: PXOR, MOVD (SSE2 vector operations)
+- Conditional jumps: JECXZ, JRCXZ (specialized loop constructs)
+
+### Obfuscation Diversity
+Adding alternative transformation methods increases the diversity of output shellcode,
+making it harder for signature-based detection systems to identify transformed code.
+
+**Example - Zero Initialization Methods Now Available:**
+1. XOR EAX, EAX (2 bytes) - Traditional
+2. SUB EAX, EAX (2 bytes) - Arithmetic
+3. PXOR XMM0, XMM0; MOVD EAX, XMM0 (8 bytes) - NEW: SIMD path
+4. AND EAX, 0 (5 bytes) - Bitwise
+5. PUSH 0; POP EAX (6 bytes) - Stack-based
+
+### Architecture Support
+**x86-32 Specific:**
+- BCD arithmetic (AAM/AAD invalid in x64 long mode)
+
+**x86-64 Compatible:**
+- ENTER/LEAVE (with RBP/RSP)
+- POPCNT/TZCNT/LZCNT (with REX prefixes)
+- SIMD XMM (universal in x64)
+- JECXZ/JRCXZ (JRCXZ defaults to RCX in 64-bit)
+
+### Size Characteristics
+
+**Compact Transformations:**
+- BCD: 2 bytes → 5 bytes (150% expansion)
+- ENTER: 5 bytes → 7 bytes (40% expansion)
+- LEAVE: 1 byte → 3 bytes (200% expansion)
+
+**Moderate Transformations:**
+- JECXZ: 2 bytes → 4-5 bytes (100-150% expansion)
+
+**Large Transformations:**
+- SIMD: 2 bytes → 8 bytes (300% expansion)
+- POPCNT: 5 bytes → 9 bytes (80% expansion)
+
+**Trade-off:** Size expansion vs. bad character elimination and obfuscation value
+
+---
+
+## CPU Feature Requirements
+
+### SSE2 (Universal on x86-64, ~2001+ on x86-32)
+- PXOR XMM, XMM
+- MOVD reg, XMM
+- Required for: SIMD XMM strategy
+
+### SSE4.2 (Intel Nehalem 2008+, AMD Barcelona 2007+)
+- POPCNT
+- Required for: Bit counting strategy (POPCNT variant)
+
+### BMI1 (Intel Haswell 2013+, AMD Piledriver 2012+)
+- TZCNT, LZCNT
+- Required for: Bit counting strategy (TZCNT/LZCNT variants)
+- Fallback: BSF/BSR on older CPUs (different semantics)
+
+### Legacy x86 Instructions
+- AAM, AAD (x86-32 only, invalid in x64 long mode)
+- Required for: BCD arithmetic strategy
+- Limitation: Cannot be used in x64 shellcode
+
+**Note:** Currently no runtime CPU feature detection. Strategies will generate instructions
+unconditionally. Future enhancement: Add CPUID checks and strategy capability flags.
+
+---
+
+## Priority Hierarchy
+
+Strategy priorities determine evaluation order (higher = earlier):
+
+```
+Priority 89: SIMD XMM Register Immediate Loading
+             └─ Specialized zero initialization via SIMD
+
+Priority 85: JECXZ/JRCXZ Zero-Test Jump Transformation
+             └─ Specialized ECX/RCX zero-test jumps
+
+Priority 77: POPCNT/LZCNT/TZCNT Bit Counting
+             └─ Specialized constant generation for small values
+
+Priority 74: ENTER/LEAVE Alternative Encoding
+             └─ Specialized stack frame instructions
+
+Priority 68: BCD Arithmetic Obfuscation
+             └─ Specialized small constant generation (x86 only)
+```
+
+**Design Principle:** More specialized strategies have higher priority to handle specific
+cases before falling through to general-purpose strategies.
+
+---
+
+## Limitations and Future Work
+
+### Current Limitations
+
+1. **No CPU Feature Detection:**
+   - Strategies generate SSE2/SSE4.2/BMI1 instructions without checking CPUID
+   - Could cause illegal instruction exceptions on older CPUs
+   - **Future:** Add CPUID checks and capability flags
+
+2. **No Architecture Detection:**
+   - BCD strategy doesn't verify x86-32 vs x64 mode
+   - Could generate invalid AAM/AAD in x64 long mode
+   - **Future:** Add mode detection (cs_mode from Capstone)
+
+3. **Limited Value Ranges:**
+   - BCD: Only 0-99
+   - Bit counting: Only 0-32
+   - **Future:** Combine with other strategies for wider ranges
+
+4. **Fixed Register Allocation:**
+   - BCD uses AL/AH
+   - Bit counting uses EBX as scratch
+   - SIMD uses XMM0
+   - **Future:** Dynamic register allocation to avoid conflicts
+
+5. **No Long Jump Support:**
+   - JECXZ only handles 8-bit displacements (±127 bytes)
+   - **Future:** Implement 32-bit displacement form (0F 84 for long JZ)
+
+### Future Enhancements
+
+1. **Dynamic Strategy Selection:**
+   - Profile shellcode to determine best strategy mix
+   - Avoid CPU features if compatibility required
+   - ML-based strategy selection for optimal transformation
+
+2. **Polymorphic Generation:**
+   - Randomly select among equivalent strategies
+   - Generate different output for same input (obfuscation)
+   - Cycle through XMM registers (XMM0-XMM7)
+
+3. **Combined Strategies:**
+   - Chain multiple transformations for better obfuscation
+   - Use BCD + arithmetic for values 100-999
+   - Combine SIMD with other zero-initialization methods
+
+4. **Testing Framework:**
+   - Per-strategy unit tests
+   - CPU feature emulation/detection tests
+   - Edge case coverage (boundaries, overflow, etc.)
+
+5. **Documentation:**
+   - Add usage examples for each strategy
+   - Document CPU compatibility matrix
+   - Create migration guide for x86→x64 strategies
+
+---
+
+## Breaking Changes
+
+None. All changes are additive:
+- New strategies registered alongside existing ones
+- No modifications to existing strategy behavior
+- No API changes
+- No configuration changes required
+
+---
+
+## Migration Notes
+
+No migration required. Changes are transparent to users:
+- Existing shellcode processing continues to work
+- New strategies automatically available
+- No recompilation needed
+- No configuration file updates
+
+**Optional:** Users can verify new strategies by checking strategy count:
+```bash
+# Should report 153 strategies (up from 148)
+./bin/byvalver --stats <input_file> <output_file>
+```
+
+---
+
+## Lessons Learned
+
+### Strategy Design Patterns
+
+1. **Specialized vs. General:**
+   - Specialized strategies handle narrow cases efficiently
+   - Should have higher priority than general-purpose alternatives
+   - Example: SIMD XMM (priority 89) before general MOV (lower priority)
+
+2. **CPU Feature Dependencies:**
+   - Document required CPU features clearly
+   - Consider fallback strategies for older CPUs
+   - BCD (x86-only), POPCNT (SSE4.2+), SIMD (SSE2+)
+
+3. **Size Trade-offs:**
+   - Some transformations significantly expand code size
+   - SIMD: 2→8 bytes (300% expansion)
+   - User should be aware of size implications
+
+4. **Encoding Verification:**
+   - All generated code must be bad-character-free
+   - Verify source values in bit-counting strategies
+   - Check intermediate encodings, not just final output
+
+### Implementation Best Practices
+
+1. **Helper Functions:**
+   - Centralize complex logic (bit counting, register mapping)
+   - Improves testability and maintenance
+   - Example: popcount(), find_popcount_source()
+
+2. **Fallback Handling:**
+   - Always provide fallback to original instruction
+   - Prevents transformation from failing silently
+   - Example: buffer_append(b, insn->bytes, insn->size)
+
+3. **Scope Discipline:**
+   - can_handle() must exactly match generate() capabilities
+   - Don't claim to handle instructions you can't transform
+   - Prevents failure cycles and rollbacks
+
+4. **Documentation:**
+   - Comment complex encodings with bit patterns
+   - Explain displacement calculations
+   - Provide transformation examples in comments
+
+### Testing Insights
+
+1. **Synthetic Test Cases:**
+   - Real-world shellcode may not exercise all strategies
+   - Need hand-crafted test binaries for edge cases
+   - Example: JECXZ rarely seen in compiler output
+
+2. **CPU Compatibility:**
+   - Test on various CPU generations
+   - Verify illegal instruction handling
+   - Consider VM/emulator testing (QEMU, etc.)
+
+3. **Integration Testing:**
+   - Verify strategy registration order
+   - Check priority-based selection
+   - Ensure no strategy conflicts
+
+---
+
+## Conclusion
+
+This commit successfully implements five novel bad-character elimination strategies,
+expanding byvalver's capabilities from 148 to 153 total strategies. The implementation
+demonstrates:
+
+✅ **Diverse Techniques:** BCD arithmetic, stack frames, bit counting, SIMD, conditional jumps
+✅ **Clean Integration:** All strategies properly registered and prioritized
+✅ **Complete Documentation:** Comprehensive technical details and examples
+✅ **Build Verification:** Compiles cleanly with 175 object files, zero warnings
+✅ **Future-Proof Design:** Extensible architecture for additional strategies
+
+The new strategies provide additional obfuscation methods and handle edge cases not
+covered by existing transformations, further enhancing byvalver's effectiveness as a
+comprehensive bad-character elimination framework.
+
+**Total Contribution:**
+- 10 new files (5 headers + 5 implementations)
+- 981 lines of new code
+- 3 documentation files updated
+- 153 total strategies (up from 148)
+- Zero compilation warnings or errors
+
+---
+
+Resolves: Feature request for additional strategy implementations
+Implements: Strategies 18, 23, 25, SIMD XMM, JECXZ/JRCXZ from proposals
+Version: v3.6

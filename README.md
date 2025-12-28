@@ -40,14 +40,14 @@
 
 `**byvalver**` is a CLI tool built in `C` for automatically eliminating null-bytes (`\x00`) from x86/x64 shellcode while maintaining complete functional equivalence
 
-The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 148+ ranked transformation strategies to replace null-containing code with equivalent alternatives. It has been extensively tested on null-byte elimination and achieves a high success rate across diverse, real-world shellcode test suites, including complex Windows payloads.
+The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 153+ ranked transformation strategies to replace null-containing code with equivalent alternatives. It has been extensively tested on null-byte elimination and achieves a high success rate across diverse, real-world shellcode test suites, including complex Windows payloads.
 
 **NEW in v3.0:** Generic bad character elimination framework with two usage modes:
 
 1. **Direct specification**: The `--bad-chars` option allows specification of arbitrary bytes to eliminate (e.g., `--bad-chars "00,0a,0d"` for newline-safe shellcode)
 2. **Profile-based**: The `--profile` option uses pre-configured bad-character sets for common exploit scenarios (e.g., `--profile http-newline`, `--profile sql-injection`, `--profile alphanumeric-only`)
 
-**This feature is functional but newly implemented** - the 148+ transformation strategies were originally designed and optimized specifically for null-byte elimination. While they apply to other bad characters, they have not been extensively tested or optimized for non-null byte scenarios.
+**This feature is functional but newly implemented** - the 153+ transformation strategies were originally designed and optimized specifically for null-byte elimination. While they apply to other bad characters, they have not been extensively tested or optimized for non-null byte scenarios.
 
 Supports Windows, Linux, and macOS
 
@@ -55,7 +55,7 @@ Supports Windows, Linux, and macOS
 - Pure `C` implementation for efficiency and low-level control
 - `Capstone` for precise disassembly
 - `NASM` for generating decoder stubs
-- Modular strategy pattern for extensible transformations (165+ strategy implementations)
+- Modular strategy pattern for extensible transformations (153+ strategy implementations)
 - Neural network integration for intelligent strategy selection
 - Biphasic processing: Obfuscation followed by denullification
 
@@ -215,7 +215,7 @@ Version 3.0 also introduces a generic bad-character elimination framework for ma
 `byvalver` operates by:
 1. Parsing the comma-separated hex byte list (e.g., `"00,0a,0d"`)
 2. Using an O(1) bitmap lookup to identify bad characters in instructions
-3. Applying the same 165+ transformation strategies used for null-byte elimination
+3. Applying the same 153+ transformation strategies used for null-byte elimination
 4. Verifying that the output does not contain the specified bad characters
 
 ### Current Status
@@ -264,7 +264,7 @@ The generic bad-character feature provides a foundation for:
 > This success rate applies specifically to null-byte (`\x00`) elimination, which has been extensively tested and optimized.
 
 ### Advanced Transformation Engine
-161+ strategy implementations covering virtually all common null-byte sources (multiple new strategy families added in v3.0):
+153+ strategy implementations covering virtually all common null-byte sources (multiple new strategy families added in v3.0 and v3.6):
 - `CALL/POP` and stack-based immediate loading
 - `PEB` traversal with hashed API resolution
 - Advanced hash-based API resolution with complex algorithms
@@ -284,6 +284,11 @@ The generic bad-character feature provides a foundation for:
 - `FPU` stack-based immediate encoding
 - `XLAT` table-based byte translation
 - `LAHF`/`SAHF` flag preservation chains
+- **NEW in v3.6**: `BCD` arithmetic obfuscation (`AAM`/`AAD`)
+- **NEW in v3.6**: `ENTER`/`LEAVE` stack frame alternatives
+- **NEW in v3.6**: `POPCNT`/`LZCNT`/`TZCNT` bit counting for constants
+- **NEW in v3.6**: `SIMD` `XMM` register immediate loading
+- **NEW in v3.6**: `JECXZ`/`JRCXZ` zero-test jump transformations
 - Comprehensive support for `MOV`, `ADD/SUB`, `XOR`, `LEA`, `CMP`, `PUSH`, and more
 
 The engine employs multi-pass processing (obfuscation → denulling) with robust fallback mechanisms for edge cases
@@ -356,7 +361,7 @@ Weight Update Max:       0.100000
 Total Weight Updates:    1724.68
 
 Strategy Coverage:
-Total Strategies:        165+
+Total Strategies:        153+
 Strategies Activated:    117                 ████████████████████████░   95.90%
 Zero-Attempt:            5                   █░░░░░░░░░░░░░░░░░░░░░░░░   04.10%
 ```
@@ -921,7 +926,7 @@ See [OBFUSCATION_STRATS](docs/OBFUSCATION_STRATS.md) for detailed strategy docum
 
 ## Denullification Strategies
 
-The core denull pass uses over 165 strategies:
+The core denull pass uses over 153 strategies:
 
 ### `MOV` Strategies
 - Original pass-through

@@ -696,12 +696,13 @@ byvalver --menu
 ## Interactive TUI
 
 <div align="center">
-  <img src="./assets/images/menu_main.png" alt="Main TUI Menu" width="700">
+  <img src="./assets/images/menu_main.png" alt="Main TUI Menu" width="750">
 </div>
+---
 <div align="center">
-  <img src="./assets/images/menu_proc.png" alt="Dynamic Batch Processing Menu" width="700">
+  <img src="./assets/images/menu_proc.png" alt="Dynamic Batch Processing Menu" width="750">
 </div>
-
+---
 byvalver includes a **fully-featured interactive TUI** (Text User Interface) with **complete CLI feature parity**. The TUI provides an intuitive, visual interface for all bad-character elimination operations, including batch processing with live statistics, ML configuration, and comprehensive file browsing.
 
 Launch the interactive mode with the `--menu` flag:

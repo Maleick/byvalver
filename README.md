@@ -148,6 +148,208 @@ byvalver -r --pattern "*.bin" input_dir/ output_dir/
 byvalver -r --profile http-newline input_dir/ output_dir/
 ```
 
+## Interactive TUI
+
+<div align="center">
+  <img src="./assets/images/menu_main.png" alt="Main TUI Menu" width="750">
+</div>
+
+---
+
+<div align="center">
+  <img src="./assets/images/menu_proc.png" alt="Dynamic Batch Processing Menu" width="750">
+</div>
+
+---
+
+`byvalver` includes an **interactive TUI** (Text User Interface) with **complete CLI feature parity**.  
+
+The TUI provides an intuitive, visual interface for all bad-character elimination operations, including:  
+
++ batch processing with live statistics
++ ML configuration &
++ comprehensive file browsing
+
+Launch the interactive mode with the `--menu` flag:
+
+```bash
+byvalver --menu
+```
+
+### Main Features:
+
+The TUI provides 9 main menu options covering all CLI functionality:
+
+1. **Process Single File** - Process individual shellcode files with visual feedback
+2. **Batch Process Directory** - Process entire directories with live progress tracking
+3. **Configure Processing Options** - Toggle biphasic mode, PIC generation, ML, verbose, dry-run
+4. **Set Bad Characters** - Manual entry or select from 13 predefined profiles
+5. **Output Format Settings** - Choose from 5 output formats (raw, C, Python, PowerShell, hexstring)
+6. **ML Metrics Configuration** - Configure ML strategy selection and metrics tracking
+7. **Advanced Options** - XOR encoding, timeouts, limits, validation settings
+8. **Load/Save Configuration** - INI-style configuration file management
+9. **About byvalver** - Version and help information
+
+### Visual File Browser:
+
+- **Directory navigation** with arrow keys or vi-style j/k keys
+- **File/directory distinction** with [FILE] and [DIR] indicators
+- **File size display** with human-readable formats (B, KB, MB, GB)
+- **Extension filtering** (e.g., *.bin)
+- **Intelligent path handling** - Automatically navigates to parent directory if file path is provided
+- **Sorted display** - Directories first, then alphabetical
+- **Multiple selection modes**:
+  - File selection mode: Navigate into directories, select files only
+  - Directory selection mode: Select directories for batch processing
+  - Both mode: Select either files or directories
+
+### Batch Processing with Live Updates:
+
+The batch processing screen provides **real-time visual feedback**:
+
+- **Progress bar** showing files processed (e.g., `[==============        ] 52/100 files`)
+- **Configuration display** showing active settings:
+  - Bad characters count and profile used
+  - Processing options (Biphasic, PIC, XOR, ML)
+  - Output format
+- **Live file statistics** with color-coded status:
+  - Completed: X / Y (files attempted / total)
+  - ✅ Successful (green) - zero bad characters remaining
+  - ❌ Failed (red) - errors or remaining bad characters
+  - Success rate percentage
+- **Current file display** in bold text
+- **Next file preview** in yellow/dim text
+- **Dynamic strategy statistics table** showing:
+  - **All active strategies** (no 10-strategy limit)
+  - **Full strategy names** (up to 50 characters, no truncation)
+  - Success/failure counts per strategy
+  - Success rate percentages
+  - Color-coded by performance (green ≥80%, yellow 50-79%, red <50%)
+  - Real-time updates every 50ms
+
+### Configuration Management:
+
+Load and save configurations in **INI-style format**:
+
+```ini
+[general]
+verbose = 0
+quiet = 0
+show_stats = 1
+
+[processing]
+use_biphasic = 0
+use_pic_generation = 0
+encode_shellcode = 0
+xor_key = 0xDEADBEEF
+
+[output]
+output_format = raw
+
+[bad_characters]
+bad_chars = 00
+
+[ml]
+use_ml_strategist = 0
+metrics_enabled = 0
+
+[batch]
+file_pattern = *.bin
+recursive = 0
+preserve_structure = 1
+```
+
+See `example.conf` for a complete configuration template.
+
+### Bad Character Configuration:
+
+2x input methods available:
+
+1. **Manual Entry** - Comma-separated hex values (e.g., `00,0a,0d`)
+2. **Predefined Profiles** - 13 profiles for common scenarios:
+   - null-only, http-newline, http-whitespace
+   - url-safe, sql-injection, xml-html
+   - json-string, format-string, buffer-overflow
+   - command-injection, ldap-injection
+   - printable-only, alphanumeric-only
+
+### Navigation:
+
+- **Arrow Keys** (↑↓) or **j/k** (vi-style): Navigate between menu options
+- **Enter**: Select highlighted option
+- **q**: Quit the application or cancel operation
+- **0-9**: Quick select menu option by number
+- **Space**: Select current directory (in file browser directory mode)
+
+### Requirements:
+
+Interactive mode requires the `ncurses` library to be installed on your system:
+
+```bash
+# Ubuntu/Debian
+sudo apt install libncurses-dev
+
+# CentOS/RHEL/Fedora
+sudo dnf install ncurses-devel
+
+# macOS (with Homebrew)
+brew install ncurses
+```
+
+The application will automatically detect if ncurses is available and enable TUI support accordingly.
+
+### Build Options:
+
+The TUI support is conditionally compiled based on ncurses availability:
+
+- Default build: `make` - Includes TUI if ncurses is available
+- Force TUI build: `make with-tui` - Builds with TUI support (fails if ncurses not available)
+- Exclude TUI: `make no-tui` - Builds without TUI support for smaller binary
+
+### Example Workflows:
+
+**Single File Processing:**
+1. Launch TUI: `byvalver --menu`
+2. Select "1. Process Single File"
+3. Browse for input file using visual file browser
+4. Browse for output file location
+5. Start processing and view results
+
+**Batch Processing:**
+1. Launch TUI: `byvalver --menu`
+2. Select "2. Batch Process Directory"
+3. Browse for input directory containing shellcode files
+4. Browse for output directory
+5. Configure file pattern (default: <file>.bin) and recursive option
+6. Start batch processing and watch live progress with strategy statistics
+
+**Configuration Management:**
+1. Configure all options in the TUI (bad chars, output format, ML, etc.)
+2. Select "8. Load/Save Configuration"
+3. Save current configuration to a file (e.g., `my_config.conf`)
+4. Later: Load the configuration file to restore all settings
+
+### Performance Notes:
+
+- **Single file processing**: Instant visual feedback, <1 second for typical shellcode
+- **Batch processing**: 50ms delay between files for visual updates
+- **Large directories (100+ files)**: Scanning may take 1-2 seconds
+- **Strategy initialization**: 2-5 seconds on first run (one-time cost per session)
+
+### Terminal Compatibility:
+
+The TUI has been tested with:
+- GNOME Terminal
+- Konsole
+- xterm
+- iTerm2 (macOS)
+- Windows Terminal (WSL)
+- tmux/screen (works but may have color limitations)
+
+**Minimum recommended terminal size**: 80x24 characters (100x30 or larger recommended for full strategy table during batch processing)
+
+For complete TUI documentation, troubleshooting, and advanced usage, see [TUI_README.md](TUI_README.md).
+
 ## Bad-Character Profiles
 
 ### Overview
@@ -692,202 +894,6 @@ byvalver -r --profile http-whitespace --pattern "*.bin" shellcodes/ output/
 # Launch interactive TUI mode
 byvalver --menu
 ```
-
-## Interactive TUI
-
-<div align="center">
-  <img src="./assets/images/menu_main.png" alt="Main TUI Menu" width="750">
-</div>
-
----
-
-<div align="center">
-  <img src="./assets/images/menu_proc.png" alt="Dynamic Batch Processing Menu" width="750">
-</div>
-
----
-
-byvalver includes a **fully-featured interactive TUI** (Text User Interface) with **complete CLI feature parity**. The TUI provides an intuitive, visual interface for all bad-character elimination operations, including batch processing with live statistics, ML configuration, and comprehensive file browsing.
-
-Launch the interactive mode with the `--menu` flag:
-
-```bash
-byvalver --menu
-```
-
-### Main Features:
-
-The TUI provides 9 main menu options covering all CLI functionality:
-
-1. **Process Single File** - Process individual shellcode files with visual feedback
-2. **Batch Process Directory** - Process entire directories with live progress tracking
-3. **Configure Processing Options** - Toggle biphasic mode, PIC generation, ML, verbose, dry-run
-4. **Set Bad Characters** - Manual entry or select from 13 predefined profiles
-5. **Output Format Settings** - Choose from 5 output formats (raw, C, Python, PowerShell, hexstring)
-6. **ML Metrics Configuration** - Configure ML strategy selection and metrics tracking
-7. **Advanced Options** - XOR encoding, timeouts, limits, validation settings
-8. **Load/Save Configuration** - INI-style configuration file management
-9. **About byvalver** - Version and help information
-
-### Visual File Browser:
-
-- **Directory navigation** with arrow keys or vi-style j/k keys
-- **File/directory distinction** with [FILE] and [DIR] indicators
-- **File size display** with human-readable formats (B, KB, MB, GB)
-- **Extension filtering** (e.g., *.bin)
-- **Intelligent path handling** - Automatically navigates to parent directory if file path is provided
-- **Sorted display** - Directories first, then alphabetical
-- **Multiple selection modes**:
-  - File selection mode: Navigate into directories, select files only
-  - Directory selection mode: Select directories for batch processing
-  - Both mode: Select either files or directories
-
-### Batch Processing with Live Updates:
-
-The batch processing screen provides **real-time visual feedback**:
-
-- **Progress bar** showing files processed (e.g., `[==============        ] 52/100 files`)
-- **Configuration display** showing active settings:
-  - Bad characters count and profile used
-  - Processing options (Biphasic, PIC, XOR, ML)
-  - Output format
-- **Live file statistics** with color-coded status:
-  - Completed: X / Y (files attempted / total)
-  - ✅ Successful (green) - zero bad characters remaining
-  - ❌ Failed (red) - errors or remaining bad characters
-  - Success rate percentage
-- **Current file display** in bold text
-- **Next file preview** in yellow/dim text
-- **Dynamic strategy statistics table** showing:
-  - **All active strategies** (no 10-strategy limit)
-  - **Full strategy names** (up to 50 characters, no truncation)
-  - Success/failure counts per strategy
-  - Success rate percentages
-  - Color-coded by performance (green ≥80%, yellow 50-79%, red <50%)
-  - Real-time updates every 50ms
-
-### Configuration Management:
-
-Load and save configurations in **INI-style format**:
-
-```ini
-[general]
-verbose = 0
-quiet = 0
-show_stats = 1
-
-[processing]
-use_biphasic = 0
-use_pic_generation = 0
-encode_shellcode = 0
-xor_key = 0xDEADBEEF
-
-[output]
-output_format = raw
-
-[bad_characters]
-bad_chars = 00
-
-[ml]
-use_ml_strategist = 0
-metrics_enabled = 0
-
-[batch]
-file_pattern = *.bin
-recursive = 0
-preserve_structure = 1
-```
-
-See `example.conf` for a complete configuration template.
-
-### Bad Character Configuration:
-
-Two input methods available:
-
-1. **Manual Entry** - Comma-separated hex values (e.g., `00,0a,0d`)
-2. **Predefined Profiles** - 13 profiles for common scenarios:
-   - null-only, http-newline, http-whitespace
-   - url-safe, sql-injection, xml-html
-   - json-string, format-string, buffer-overflow
-   - command-injection, ldap-injection
-   - printable-only, alphanumeric-only
-
-### Navigation:
-
-- **Arrow Keys** (↑↓) or **j/k** (vi-style): Navigate between menu options
-- **Enter**: Select highlighted option
-- **q**: Quit the application or cancel operation
-- **0-9**: Quick select menu option by number
-- **Space**: Select current directory (in file browser directory mode)
-
-### Requirements:
-
-Interactive mode requires the `ncurses` library to be installed on your system:
-
-```bash
-# Ubuntu/Debian
-sudo apt install libncurses-dev
-
-# CentOS/RHEL/Fedora
-sudo dnf install ncurses-devel
-
-# macOS (with Homebrew)
-brew install ncurses
-```
-
-The application will automatically detect if ncurses is available and enable TUI support accordingly.
-
-### Build Options:
-
-The TUI support is conditionally compiled based on ncurses availability:
-
-- Default build: `make` - Includes TUI if ncurses is available
-- Force TUI build: `make with-tui` - Builds with TUI support (fails if ncurses not available)
-- Exclude TUI: `make no-tui` - Builds without TUI support for smaller binary
-
-### Example Workflows:
-
-**Single File Processing:**
-1. Launch TUI: `byvalver --menu`
-2. Select "1. Process Single File"
-3. Browse for input file using visual file browser
-4. Browse for output file location
-5. Start processing and view results
-
-**Batch Processing:**
-1. Launch TUI: `byvalver --menu`
-2. Select "2. Batch Process Directory"
-3. Browse for input directory containing shellcode files
-4. Browse for output directory
-5. Configure file pattern (default: <file>.bin) and recursive option
-6. Start batch processing and watch live progress with strategy statistics
-
-**Configuration Management:**
-1. Configure all options in the TUI (bad chars, output format, ML, etc.)
-2. Select "8. Load/Save Configuration"
-3. Save current configuration to a file (e.g., `my_config.conf`)
-4. Later: Load the configuration file to restore all settings
-
-### Performance Notes:
-
-- **Single file processing**: Instant visual feedback, <1 second for typical shellcode
-- **Batch processing**: 50ms delay between files for visual updates
-- **Large directories (100+ files)**: Scanning may take 1-2 seconds
-- **Strategy initialization**: 2-5 seconds on first run (one-time cost per session)
-
-### Terminal Compatibility:
-
-The TUI has been tested with:
-- GNOME Terminal
-- Konsole
-- xterm
-- iTerm2 (macOS)
-- Windows Terminal (WSL)
-- tmux/screen (works but may have color limitations)
-
-**Minimum recommended terminal size**: 80x24 characters (100x30 or larger recommended for full strategy table during batch processing)
-
-For complete TUI documentation, troubleshooting, and advanced usage, see [TUI_README.md](TUI_README.md).
 
 ## Obfuscation Strategies
 

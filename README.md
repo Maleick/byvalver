@@ -695,10 +695,10 @@ byvalver --menu
 
 ## Interactive TUI
 
-<div align="left">
+<div align="center">
   <img src="./assets/images/menu_main.png" alt="Main TUI Menu" width="700">
 </div>
-<div align="right">
+<div align="center">
   <img src="./assets/images/menu_proc.png" alt="Dynamic Batch Processing Menu" width="700">
 </div>
 

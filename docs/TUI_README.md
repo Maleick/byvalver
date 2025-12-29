@@ -4,6 +4,33 @@
 
 byvalver includes a fully-featured interactive TUI mode with **complete CLI feature parity**. The TUI provides an intuitive, visual interface for all bad-character elimination operations, including advanced features like batch processing with live statistics, ML configuration, and comprehensive file browsing.
 
+## Recent Improvements (December 2025)
+
+### Critical Bug Fixes
+- ✅ **Exit to Main Menu**: Fixed bug where processing completion would exit to command line instead of returning to main menu
+  - Affects both single file and batch processing modes
+  - Now properly returns to main menu, allowing continued operations
+
+### Display Enhancements
+- ✅ **Full Strategy Names**: Strategy names no longer truncated (50 character display, previously 30)
+  - Example: "Multi-Stage PEB Traversal Strategy" now fully visible
+- ✅ **All Strategies Shown**: Removed artificial 10-strategy limit
+  - All active strategies displayed in statistics table
+- ✅ **Configuration Display**: Added real-time configuration display during batch processing
+  - Shows bad chars count, biphasic mode, PIC generation, XOR encoding, ML status, output format
+- ✅ **Improved Statistics**: Clearer progress tracking
+  - "Completed: X / Y" format shows files attempted vs total
+  - Success rate percentage calculated from completions
+  - Eliminated confusing "Successful: 0" messages during processing
+
+### Re-Implemented Features
+- ✅ **Graphical File Browser**: Restored file/directory browsing functionality
+  - Available in both single file and batch processing screens
+  - Browse input/output files and directories visually
+- ✅ **Bad-Character Profiles**: Restored profile selection interface
+  - Access to all 13 pre-configured profiles (http-newline, sql-injection, etc.)
+  - Load profile option in Bad Characters screen
+
 ## Getting Started
 
 To access the TUI menu, run byvalver with the `--menu` flag:
@@ -52,10 +79,11 @@ The batch processing screen provides **real-time visual feedback** during proces
 Progress: [==========================                    ] 52/100 files
 ```
 
-#### Live Statistics (Color-Coded)
-- ✅ **Successful**: Green text
-- ❌ **Failed**: Red text
-- ⏭️ **Skipped**: Normal text
+#### Live File Statistics (Color-Coded)
+- **Completed**: Shows progress as "X / Y" (files attempted / total files)
+- ✅ **Successful**: Green text - files with zero bad characters remaining
+- ❌ **Failed**: Red text - files with errors or remaining bad characters
+- **Success rate**: Percentage calculated from successful completions
 
 #### Current File Display
 Shows the file currently being processed in **bold text**
@@ -63,31 +91,43 @@ Shows the file currently being processed in **bold text**
 #### Next File Preview
 Shows the next file in queue with **yellow/dim** text
 
+#### Configuration Display
+Shows active processing configuration:
+- Bad characters count and profile used
+- Biphasic mode status (ON/OFF)
+- PIC Generation status (ON/OFF)
+- XOR Encoding with key (if enabled)
+- ML Strategist status (ON/OFF)
+- Output format
+
 #### Dynamic Strategy Statistics Table
 ```
 Strategy Usage Statistics:
-  Strategy                        Total   Success      Rate
-  --------------------------------------------------------------------------------
-  mov_reg_imm_transform            234       234    100.0%  (Green)
-  add_sub_equivalence              145       142     97.9%  (Green)
-  xor_self_zero                     89        67     75.3%  (Yellow)
-  lea_displacement                  45        22     48.9%  (Red)
-  ... and 15 more strategies
+  Strategy                                            Total   Success      Rate
+  ---------------------------------------------------------------------------------
+  Multi-Stage PEB Traversal Strategy                  234       234    100.0%  (Green)
+  Advanced Hash-Based API Resolution                  145       142     97.9%  (Green)
+  Stack-Based Structure Construction                   89        67     75.3%  (Yellow)
+  Enhanced LEA Arithmetic Substitution                 45        22     48.9%  (Red)
 ```
 
-**Color-coded by success rate**:
-- 🟢 Green: ≥80% success rate
-- 🟡 Yellow: 50-79% success rate
-- 🔴 Red: <50% success rate
-
-Shows top 10 most-used strategies with real-time updates every 50ms
+**Features**:
+- **Full strategy names** displayed (up to 50 characters, no truncation)
+- **All strategies shown** (not limited to top 10)
+- **Color-coded by success rate**:
+  - 🟢 Green: ≥80% success rate
+  - 🟡 Yellow: 50-79% success rate
+  - 🔴 Red: <50% success rate
+- **Real-time updates** every 50ms during processing
 
 #### Final Summary Screen
 - Total files processed
 - Success/failure/skipped counts with percentages
 - Total input/output bytes
 - Average size ratio
-- Press any key to return to main menu
+- **Press any key to return to main menu**
+  - ✅ **Fixed**: Properly returns to main menu (no longer exits to command line)
+  - Allows continuing with additional operations or configuration changes
 
 ### 4. Output Format Selection
 Choose from 5 supported formats with descriptions:

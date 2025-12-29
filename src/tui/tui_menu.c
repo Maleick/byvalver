@@ -11,72 +11,12 @@ int run_tui_menu(byvalver_config_t *config) {
         return -1;
     }
 
-    int result = 0;
-    int current_screen = MAIN_SCREEN;
+    // With the new split-panel design, show_main_screen handles everything
+    // It manages the left panel (menu) and right panel (content) internally
+    int result = show_main_screen(config);
 
-    while (1) {
-        switch (current_screen) {
-            case MAIN_SCREEN:
-                current_screen = show_main_screen(config);
-                break;
-
-            case INPUT_SCREEN:
-                current_screen = show_input_screen(config);
-                break;
-
-            case OPTIONS_SCREEN:
-                current_screen = show_options_screen(config);
-                break;
-
-            case PROCESSING_SCREEN:
-                current_screen = show_processing_screen(config);
-                break;
-
-            case RESULTS_SCREEN:
-                current_screen = show_results_screen(config);
-                break;
-
-            case CONFIG_SCREEN:
-                current_screen = show_config_screen(config);
-                break;
-
-            case BAD_CHARS_SCREEN:
-                current_screen = show_bad_chars_screen(config);
-                break;
-
-            case BATCH_SCREEN:
-                current_screen = show_batch_screen(config);
-                break;
-
-            case ML_METRICS_SCREEN:
-                current_screen = show_ml_metrics_screen(config);
-                break;
-
-            case OUTPUT_FORMAT_SCREEN:
-                current_screen = show_output_format_screen(config);
-                break;
-
-            case ADVANCED_OPTIONS_SCREEN:
-                current_screen = show_advanced_options_screen(config);
-                break;
-
-            case ABOUT_SCREEN:
-                current_screen = show_about_screen();
-                break;
-
-            case EXIT_SCREEN:
-                cleanup_tui();
-                return result;
-
-            default:
-                // Invalid screen, exit
-                cleanup_tui();
-                return -1;
-        }
-    }
-    
     cleanup_tui();
-    return result;
+    return (result == EXIT_SCREEN) ? 0 : -1;
 }
 
 // Function to initialize ncurses and set up the TUI environment

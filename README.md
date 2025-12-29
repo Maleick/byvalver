@@ -735,14 +735,20 @@ The TUI provides 9 main menu options covering all CLI functionality:
 The batch processing screen provides **real-time visual feedback**:
 
 - **Progress bar** showing files processed (e.g., `[==============        ] 52/100 files`)
-- **Live statistics** with color-coded status:
-  - ✅ Successful (green)
-  - ❌ Failed (red)
-  - ⏭️ Skipped (normal)
+- **Configuration display** showing active settings:
+  - Bad characters count and profile used
+  - Processing options (Biphasic, PIC, XOR, ML)
+  - Output format
+- **Live file statistics** with color-coded status:
+  - Completed: X / Y (files attempted / total)
+  - ✅ Successful (green) - zero bad characters remaining
+  - ❌ Failed (red) - errors or remaining bad characters
+  - Success rate percentage
 - **Current file display** in bold text
 - **Next file preview** in yellow/dim text
 - **Dynamic strategy statistics table** showing:
-  - Top 10 most-used strategies
+  - **All active strategies** (no 10-strategy limit)
+  - **Full strategy names** (up to 50 characters, no truncation)
   - Success/failure counts per strategy
   - Success rate percentages
   - Color-coded by performance (green ≥80%, yellow 50-79%, red <50%)
@@ -884,6 +890,16 @@ The TUI has been tested with:
 - tmux/screen (works but may have color limitations)
 
 **Minimum recommended terminal size**: 80x24 characters (100x30 or larger recommended for full strategy table during batch processing)
+
+### Recent Improvements (December 2025):
+
+- ✅ **Fixed**: Exit to command line bug after processing - now properly returns to main menu
+- ✅ **Enhanced**: Full strategy names displayed (50 chars, no truncation)
+- ✅ **Enhanced**: All strategies shown in statistics (removed 10-strategy limit)
+- ✅ **Added**: Configuration display during batch processing
+- ✅ **Improved**: Statistics display with "Completed: X / Y" format and success rate
+- ✅ **Restored**: Graphical file browser for input/output selection
+- ✅ **Restored**: Bad-character profile selection interface
 
 For complete TUI documentation, troubleshooting, and advanced usage, see [TUI_README.md](TUI_README.md).
 ## Obfuscation Strategies

@@ -65,7 +65,7 @@ node_modules/
 # Test results and reports
 test_results/
 test_output.bin
-
+config/
 # Python virtual environments and packages
 .Python
 pyvenv.cfg

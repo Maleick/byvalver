@@ -1,1 +1,0 @@
-Fatal error: can't create bin/tui/tui_config_builder.o: Permission denied

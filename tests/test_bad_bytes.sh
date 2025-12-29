@@ -1,5 +1,5 @@
 #!/bin/bash
-# Basic integration test for bad character elimination (v3.0)
+# Basic integration test for bad byte elimination (v3.0)
 # Tests the --bad-chars feature with various character sets
 
 set -e  # Exit on error

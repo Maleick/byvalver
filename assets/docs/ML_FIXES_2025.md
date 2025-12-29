@@ -585,7 +585,7 @@ The ML system is now **theoretically sound** and ready for empirical validation.
 **Documentation**:
 - This file: ML_FIXES_2025.md
 - Original critique: (embedded in user conversation)
-- Architecture: docs/BAD_CHAR_FRAMEWORK_DESIGN.md
+- Architecture: docs/BAD_BYTE_FRAMEWORK_DESIGN.md
 
 **Author**: Claude Sonnet 4.5
 **Date**: 2025-12-17

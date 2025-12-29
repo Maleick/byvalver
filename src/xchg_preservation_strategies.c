@@ -50,7 +50,7 @@ int can_handle_push_imm_preservation(cs_insn *insn) {
     uint32_t imm32 = (uint32_t)imm;
 
     // Check if immediate is already null-free
-    if (is_bad_char_free(imm32)) {
+    if (is_bad_byte_free(imm32)) {
         return 0;
     }
 

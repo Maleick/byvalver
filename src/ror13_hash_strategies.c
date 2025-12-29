@@ -70,7 +70,7 @@ int can_handle_ror13_hash_null(cs_insn *insn) {
 
         // Check for MOV reg, imm32 where immediate contains null bytes
         if (src_op->type == X86_OP_IMM) {
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 // This could be part of an API name string construction
                 // that's part of ROR13 hash resolution
                 return 1;
@@ -87,7 +87,7 @@ int can_handle_ror13_hash_null(cs_insn *insn) {
             cs_x86_op *src_op = &insn->detail->x86.operands[1];
             if (src_op->type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)src_op->imm;
-                if (!is_bad_char_free(imm) && has_null_bytes(insn)) {
+                if (!is_bad_byte_free(imm) && has_null_bytes(insn)) {
                     // Check if this is in context of hash-based API resolution
                     // For now, we'll be conservative and return 1 if immediate has nulls
                     return 1;
@@ -101,7 +101,7 @@ int can_handle_ror13_hash_null(cs_insn *insn) {
         cs_x86_op *op = &insn->detail->x86.operands[0];
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_bad_char_free(target) && has_null_bytes(insn)) {
+            if (!is_bad_byte_free(target) && has_null_bytes(insn)) {
                 // CALL with immediate target that has null bytes
                 // This could be the result of ROR13 hash resolution
                 return 1;
@@ -146,7 +146,7 @@ void generate_ror13_hash_null_free(struct buffer *b, cs_insn *insn) {
         if (src_op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)src_op->imm;
 
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe MOV generation for immediate values containing nulls
                 uint8_t dst_reg = dst_op->reg;
 
@@ -184,7 +184,7 @@ void generate_ror13_hash_null_free(struct buffer *b, cs_insn *insn) {
             if (src_op->type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)src_op->imm;
 
-                if (!is_bad_char_free(imm)) {
+                if (!is_bad_byte_free(imm)) {
                     // Use null-safe approach: MOV reg, imm (null safe) + op reg, EAX or op reg, immediate via register
                     uint8_t dst_reg = dst_op->reg;
 
@@ -225,7 +225,7 @@ void generate_ror13_hash_null_free(struct buffer *b, cs_insn *insn) {
         cs_x86_op *op = &insn->detail->x86.operands[0];
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_bad_char_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 // Transform CALL immediate to CALL register to avoid nulls in immediate
                 // MOV EAX, target_address (null-free)
                 generate_mov_eax_imm(b, target);

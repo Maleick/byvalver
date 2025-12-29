@@ -42,7 +42,7 @@ int can_handle_stack_string_construction(cs_insn *insn) {
             uint32_t imm = (uint32_t)op->imm;
             
             // Check if the immediate contains null bytes
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 return 1;
             }
 
@@ -72,7 +72,7 @@ int can_handle_stack_string_construction(cs_insn *insn) {
         if (dst_op->type == X86_OP_MEM && src_op->type == X86_OP_IMM) {
             if (dst_op->mem.base == X86_REG_ESP || dst_op->mem.base == X86_REG_RSP) {
                 // This is a stack-based memory write, might be part of string construction
-                if (!is_bad_char_free((uint32_t)src_op->imm)) {
+                if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                     return 1;
                 }
             }
@@ -80,7 +80,7 @@ int can_handle_stack_string_construction(cs_insn *insn) {
 
         // Also check for MOV reg, immediate where immediate contains nulls
         if (dst_op->type == X86_OP_REG && src_op->type == X86_OP_IMM) {
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -93,7 +93,7 @@ int can_handle_stack_string_construction(cs_insn *insn) {
 
         if ((dst_op->reg == X86_REG_ESP || dst_op->reg == X86_REG_RSP) && src_op->type == X86_OP_IMM) {
             // Stack pointer subtraction, often for string buffer allocation
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -105,7 +105,7 @@ int can_handle_stack_string_construction(cs_insn *insn) {
         
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_bad_char_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 return 1;
             }
         }
@@ -136,7 +136,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
         if (op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)op->imm;
             
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe approach: MOV EAX, imm; PUSH EAX
                 generate_mov_eax_imm(b, imm);
                 uint8_t push_eax[] = {0x50 + get_reg_index(X86_REG_EAX)}; // PUSH EAX
@@ -156,7 +156,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
             if (dst_op->mem.base == X86_REG_ESP || dst_op->mem.base == X86_REG_RSP) {
                 uint32_t imm = (uint32_t)src_op->imm;
                 
-                if (!is_bad_char_free(imm)) {
+                if (!is_bad_byte_free(imm)) {
                     // Use null-safe approach: MOV EAX, imm; MOV [ESP+offset], EAX
                     generate_mov_eax_imm(b, imm);
                     
@@ -169,7 +169,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
                     buffer_write_dword(b, dst_op->mem.disp); // 32-bit displacement
                 } else {
                     // Check if displacement has nulls
-                    if (!is_bad_char_free(dst_op->mem.disp)) {
+                    if (!is_bad_byte_free(dst_op->mem.disp)) {
                         // If displacement has nulls, use register-based approach
                         // MOV EDI, ESP; ADD EDI, disp; MOV [EDI], imm
                         uint8_t mov_edi_esp[] = {0x89, 0xE7}; // MOV EDI, ESP
@@ -188,7 +188,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
                         buffer_append(b, mov_to_target, 2);
                     } else {
                         // Check if any of the displacement bytes have nulls
-                        if (!is_bad_char_free(dst_op->mem.disp)) {
+                        if (!is_bad_byte_free(dst_op->mem.disp)) {
                             // If disp32 has nulls, use the complex approach 
                             // MOV EDI, ESP; MOV EAX, disp32; ADD EDI, EAX; MOV [EDI], original_imm
                             uint8_t mov_edi_esp[] = {0x89, 0xE7}; // MOV EDI, ESP  
@@ -224,7 +224,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
             // MOV reg, immediate for string construction in registers
             uint32_t imm = (uint32_t)src_op->imm;
 
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe MOV generation
                 uint8_t dst_reg = dst_op->reg;
 
@@ -258,7 +258,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
         if ((dst_op->reg == X86_REG_ESP || dst_op->reg == X86_REG_RSP) && src_op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)src_op->imm;
             
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe approach: MOV EAX, imm; SUB ESP, EAX
                 generate_mov_eax_imm(b, imm);
                 uint8_t sub_esp_eax[] = {0x29, 0xC4}; // SUB ESP, EAX
@@ -277,7 +277,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
         
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_bad_char_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 // Transform CALL immediate to CALL register to avoid nulls in immediate
                 // MOV EAX, target_address (null-free)
                 generate_mov_eax_imm(b, target);
@@ -329,7 +329,7 @@ void generate_stack_string_construction(struct buffer *b, cs_insn *insn) {
             // For PUSH not handled above
             {
                 cs_x86_op *op = &insn->detail->x86.operands[0];
-                if (op->type == X86_OP_IMM && !is_bad_char_free((uint32_t)op->imm)) {
+                if (op->type == X86_OP_IMM && !is_bad_byte_free((uint32_t)op->imm)) {
                     generate_mov_eax_imm(b, (uint32_t)op->imm);
                     uint8_t push_eax[] = {0x50 + get_reg_index(X86_REG_EAX)}; // PUSH EAX
                     buffer_append(b, push_eax, 1);

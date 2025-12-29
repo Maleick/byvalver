@@ -2,12 +2,12 @@
  * Advanced String Operation Transformation Strategies
  *
  * PROBLEM: String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) 
- * with REP prefix may encode with bad characters in:
+ * with REP prefix may encode with bad bytes in:
  * - REP prefix combinations (F3h for REP/REPE, F2h for REPNE)
  * - Operand size overrides (66h prefix)
  * - Register-based addressing
  *
- * SOLUTION: Transform string operations to equivalent manual loops that avoid bad characters.
+ * SOLUTION: Transform string operations to equivalent manual loops that avoid bad bytes.
  */
 
 #include "advanced_string_operation_strategies.h"
@@ -25,14 +25,14 @@ strategy_t advanced_string_operation_strategy = {
     .priority = 85
 };
 
-// Helper function to check if an instruction has bad characters in its encoding
-static int instruction_has_bad_chars(cs_insn *insn) {
+// Helper function to check if an instruction has bad bytes in its encoding
+static int instruction_has_bad_bytes(cs_insn *insn) {
     if (!insn || !insn->bytes) {
         return 0;
     }
     
     for (int i = 0; i < insn->size; i++) {
-        if (!is_bad_char_free_byte(insn->bytes[i])) {
+        if (!is_bad_byte_free_byte(insn->bytes[i])) {
             return 1;
         }
     }
@@ -45,7 +45,7 @@ int can_handle_advanced_string_operation(cs_insn *insn) {
         return 0;
     }
 
-    // Check if this is a string instruction that might have bad characters
+    // Check if this is a string instruction that might have bad bytes
     switch (insn->id) {
         case X86_INS_MOVSB:
         case X86_INS_MOVSW:
@@ -67,8 +67,8 @@ int can_handle_advanced_string_operation(cs_insn *insn) {
         case X86_INS_CMPSW:
         case X86_INS_CMPSD:
         case X86_INS_CMPSQ:  // x64
-            // Check if the instruction itself has bad characters
-            if (instruction_has_bad_chars(insn)) {
+            // Check if the instruction itself has bad bytes
+            if (instruction_has_bad_bytes(insn)) {
                 return 1;
             }
 
@@ -77,7 +77,7 @@ int can_handle_advanced_string_operation(cs_insn *insn) {
                 uint8_t prefix = insn->detail->x86.prefix[i];
                 if (prefix == 0xF3 || prefix == 0xF2 || prefix == 0x66 || prefix == 0x67) {
                     // REP prefixes (F3=REP/REPE, F2=REPNE/REPNZ) might create bad char issues
-                    if (!is_bad_char_free_byte(prefix)) {
+                    if (!is_bad_byte_free_byte(prefix)) {
                         return 1;
                     }
                 }

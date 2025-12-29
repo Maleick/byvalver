@@ -3,7 +3,7 @@
  * Copyright (c) 2022 Marco Ivaldi <raptor@0xdeadbeef.info>
  *
  * Basic MIPS N32 MSB Linux reverse shellcode, showcasing various
- * techniques to avoid badchars.
+ * techniques to avoid badbytes.
  *
  * Cross-compile (https://buildroot.org/) with:
  * $ mips64-linux-gcc -static mips_n32_msb_linux_revsh.c -o revsh

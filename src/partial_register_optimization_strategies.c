@@ -2,11 +2,11 @@
  * Partial Register Optimization Strategy for Bad Character Elimination
  *
  * PROBLEM: Instructions using partial registers (AL, AH, BL, BH, etc.)
- * may result in encodings that contain bad characters, particularly in
+ * may result in encodings that contain bad bytes, particularly in
  * ModR/M bytes or as immediate values.
  *
  * SOLUTION: Replace partial register operations with equivalent full
- * register operations or alternative encodings that avoid bad characters.
+ * register operations or alternative encodings that avoid bad bytes.
  */
 
 #include "partial_register_optimization_strategies.h"
@@ -35,7 +35,7 @@ static uint8_t get_reg_index_8bit(x86_reg reg) {
 }
 
 /**
- * Transform partial register operations that contain bad characters
+ * Transform partial register operations that contain bad bytes
  *
  * Original: MOV AL, 0x00 (contains null byte)
  * Transform: MOV EAX, 0x00000000 or XOR EAX, EAX (then use AL)

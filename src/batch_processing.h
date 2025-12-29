@@ -28,7 +28,7 @@ typedef struct {
     size_t output_size;         // Output file size
     double size_ratio;          // Output/input ratio
     int instruction_count;      // Number of instructions processed
-    int bad_char_count;         // Number of bad characters eliminated
+    int bad_byte_count;         // Number of bad bytes eliminated
     int success;                // Whether processing was successful
 } file_complexity_stats_t;
 
@@ -45,8 +45,8 @@ typedef struct {
     size_t failed_file_count;
     size_t failed_file_capacity;
     // Bad character statistics
-    int bad_char_count;
-    int bad_char_set[256];  // Use int to match ml_metrics.h session_metrics_t bad_char_set type
+    int bad_byte_count;
+    int bad_byte_set[256];  // Use int to match ml_metrics.h session_metrics_t bad_byte_set type
     // Strategy usage statistics
     strategy_stats_t *strategy_stats;
     size_t strategy_count;
@@ -99,6 +99,6 @@ int batch_stats_add_strategy_usage(batch_stats_t *stats, const char *strategy_na
 
 // Add file complexity statistics
 int batch_stats_add_file_stats(batch_stats_t *stats, const char *file_path, size_t input_size,
-                               size_t output_size, int instruction_count, int bad_char_count, int success);
+                               size_t output_size, int instruction_count, int bad_byte_count, int success);
 
 #endif // BATCH_PROCESSING_H

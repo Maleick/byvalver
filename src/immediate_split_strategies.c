@@ -44,7 +44,7 @@
  * Helper function: Check if an immediate value contains null bytes
  */
 static int immediate_has_nulls(uint32_t imm) {
-    return !is_bad_char_free(imm);
+    return !is_bad_byte_free(imm);
 }
 
 /*
@@ -63,7 +63,7 @@ static int find_split_arithmetic(uint32_t target, uint32_t *base, uint32_t *rema
             uint32_t test_base = target | (0x01 << shift);
             uint32_t test_remainder = target - test_base;
 
-            if (is_bad_char_free(test_base) && is_bad_char_free(test_remainder)) {
+            if (is_bad_byte_free(test_base) && is_bad_byte_free(test_remainder)) {
                 *base = test_base;
                 *remainder = test_remainder;
                 return 1;
@@ -77,7 +77,7 @@ static int find_split_arithmetic(uint32_t target, uint32_t *base, uint32_t *rema
     uint32_t high_word = target & 0xFFFF0000;
 
     if (low_word != 0 && high_word != 0) {
-        if (is_bad_char_free(low_word) && is_bad_char_free(high_word)) {
+        if (is_bad_byte_free(low_word) && is_bad_byte_free(high_word)) {
             *base = high_word;
             *remainder = low_word;
             return 1;
@@ -88,7 +88,7 @@ static int find_split_arithmetic(uint32_t target, uint32_t *base, uint32_t *rema
     int operation;
     if (find_arithmetic_equivalent(target, base, remainder, &operation)) {
         // Verify both are null-free
-        if (is_bad_char_free(*base) && is_bad_char_free(*remainder)) {
+        if (is_bad_byte_free(*base) && is_bad_byte_free(*remainder)) {
             return 1;
         }
     }
@@ -296,16 +296,16 @@ static void generate_bit_manipulation(struct buffer *b, uint8_t reg_num, uint32_
     }
 
     // Set initial byte (using low byte register if possible)
-    if (first_nonzero == 0 && is_bad_char_free_byte(bytes[0])) {
+    if (first_nonzero == 0 && is_bad_byte_free_byte(bytes[0])) {
         // MOV reg_low, imm8 (AL, CL, DL, BL, etc.)
         buffer_write_byte(b, 0xB0 + reg_num);
         buffer_write_byte(b, bytes[0]);
     } else {
         // Need to use OR to set bits
-        if (is_bad_char_free_byte(bytes[first_nonzero])) {
+        if (is_bad_byte_free_byte(bytes[first_nonzero])) {
             // OR reg, shifted_byte
             uint32_t shifted_val = (uint32_t)bytes[first_nonzero] << (first_nonzero * 8);
-            if (is_bad_char_free(shifted_val)) {
+            if (is_bad_byte_free(shifted_val)) {
                 // OR reg, imm32
                 buffer_write_byte(b, 0x81); // OR r/m32, imm32
                 buffer_write_byte(b, 0xC8 + reg_num); // ModR/M
@@ -319,7 +319,7 @@ static void generate_bit_manipulation(struct buffer *b, uint8_t reg_num, uint32_
 
     // Build remaining bytes using shifts and ORs
     for (int i = first_nonzero + 1; i < 4; i++) {
-        if (bytes[i] != 0 && is_bad_char_free_byte(bytes[i])) {
+        if (bytes[i] != 0 && is_bad_byte_free_byte(bytes[i])) {
             // Shift left to make room
             uint8_t shift_amount = 8;
             // SHL reg, 8

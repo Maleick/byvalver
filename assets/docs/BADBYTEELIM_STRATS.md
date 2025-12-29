@@ -1,26 +1,26 @@
-# Generic Bad-Character Elimination Framework (v3.0)
+# Generic Bad-Byte Elimination Framework (v3.0)
 
 ## Overview
 
 **Version:** 3.0.0
 **Status:** Functional, newly implemented (experimental for non-null characters)
 
-BYVALVER v3.0 introduces a generic bad-character elimination framework that extends the tool's capabilities beyond null-byte removal. Users can now specify arbitrary bytes to eliminate via the `--bad-chars` command-line option.
+BYVALVER v3.0 introduces a generic bad-byte elimination framework that extends the tool's capabilities beyond null-byte removal. Users can now specify arbitrary bytes to eliminate via the `--bad-bytes` command-line option.
 
-**Important:** The 122+ transformation strategies were originally designed, tested, and optimized specifically for null-byte elimination. While they now support generic bad characters at the implementation level, their effectiveness for non-null byte scenarios has not been comprehensively validated.
+**Important:** The 122+ transformation strategies were originally designed, tested, and optimized specifically for null-byte elimination. While they now support generic bad bytes at the implementation level, their effectiveness for non-null byte scenarios has not been comprehensively validated.
 
 ## Architecture
 
 ### Core Data Structures
 
-#### Bad Character Configuration (`bad_char_config_t`)
+#### Bad Character Configuration (`bad_byte_config_t`)
 
 ```c
 typedef struct {
     uint8_t bad_chars[256];      // Bitmap: 1=bad, 0=ok (O(1) lookup)
-    int bad_char_count;           // Number of bad characters
+    int bad_char_count;           // Number of bad bytes
     uint8_t bad_char_list[256];   // List of bad byte values
-} bad_char_config_t;
+} bad_byte_config_t;
 ```
 
 **Design Rationale:**
@@ -33,7 +33,7 @@ typedef struct {
 
 ```c
 typedef struct {
-    bad_char_config_t config;
+    bad_byte_config_t config;
     int initialized;
 } bad_char_context_t;
 
@@ -51,13 +51,13 @@ extern bad_char_context_t g_bad_char_context;
 #### Core Checking Functions
 
 ```c
-// Check if single byte is free of bad characters
+// Check if single byte is free of bad bytes
 int is_bad_char_free_byte(uint8_t byte);
 
-// Check if 32-bit value contains bad characters
+// Check if 32-bit value contains bad bytes
 int is_bad_char_free(uint32_t val);
 
-// Check if buffer contains bad characters
+// Check if buffer contains bad bytes
 int is_bad_char_free_buffer(const uint8_t *data, size_t size);
 ```
 
@@ -74,14 +74,14 @@ int is_bad_char_free_byte(uint8_t byte) {
 #### Context Management Functions
 
 ```c
-// Initialize bad character context with configuration
-void init_bad_char_context(bad_char_config_t *config);
+// Initialize bad byte context with configuration
+void init_bad_char_context(bad_byte_config_t *config);
 
 // Reset context to default state
 void reset_bad_char_context(void);
 
-// Get current bad character configuration
-bad_char_config_t* get_bad_char_config(void);
+// Get current bad byte configuration
+bad_byte_config_t* get_bad_char_config(void);
 ```
 
 ### Configuration Flow
@@ -94,9 +94,9 @@ bad_char_config_t* get_bad_char_config(void);
 **Initialization:**
 ```c
 // In core.c
-void init_bad_char_context(bad_char_config_t *config) {
+void init_bad_char_context(bad_byte_config_t *config) {
     if (config) {
-        memcpy(&g_bad_char_context.config, config, sizeof(bad_char_config_t));
+        memcpy(&g_bad_char_context.config, config, sizeof(bad_byte_config_t));
         g_bad_char_context.initialized = 1;
     } else {
         // Default: null byte only
@@ -111,11 +111,11 @@ void init_bad_char_context(bad_char_config_t *config) {
 
 ## Command-Line Interface
 
-### `--bad-chars` Option
+### `--bad-bytes` Option
 
 **Syntax:**
 ```bash
-byvalver --bad-chars "XX,YY,ZZ" input.bin output.bin
+byvalver --bad-bytes "XX,YY,ZZ" input.bin output.bin
 ```
 
 **Format:**
@@ -128,16 +128,16 @@ byvalver --bad-chars "XX,YY,ZZ" input.bin output.bin
 ```bash
 # Null bytes only (default)
 byvalver input.bin output.bin
-byvalver --bad-chars "00" input.bin output.bin
+byvalver --bad-bytes "00" input.bin output.bin
 
 # Null + newlines (network protocols)
-byvalver --bad-chars "00,0a,0d" input.bin output.bin
+byvalver --bad-bytes "00,0a,0d" input.bin output.bin
 
 # Null + space + tab (string safety)
-byvalver --bad-chars "00,20,09" input.bin output.bin
+byvalver --bad-bytes "00,20,09" input.bin output.bin
 
-# Multiple bad characters
-byvalver --bad-chars "00,0a,0d,20,09" input.bin output.bin
+# Multiple bad bytes
+byvalver --bad-bytes "00,0a,0d,20,09" input.bin output.bin
 ```
 
 ### Parsing Implementation
@@ -145,7 +145,7 @@ byvalver --bad-chars "00,0a,0d,20,09" input.bin output.bin
 **File:** `src/cli.c`
 
 ```c
-bad_char_config_t* parse_bad_chars_string(const char *input) {
+bad_byte_config_t* parse_bad_chars_string(const char *input) {
     // Parse comma-separated hex: "00,0a,0d" → {0x00, 0x0a, 0x0d}
     // Build bitmap and list
     // Default to {0x00} if empty
@@ -162,7 +162,7 @@ bad_char_config_t* parse_bad_chars_string(const char *input) {
 **Error Handling:**
 ```c
 if (!config->bad_chars) {
-    fprintf(stderr, "Error: Invalid --bad-chars format: %s\n", optarg);
+    fprintf(stderr, "Error: Invalid --bad-bytes format: %s\n", optarg);
     fprintf(stderr, "Expected format: \"00,0a,0d\" (comma-separated hex bytes)\n");
     return EXIT_INVALID_ARGUMENTS;
 }
@@ -188,13 +188,13 @@ if (has_null_bytes(insn)) {
 
 **After (v3.0):**
 ```c
-// Generic bad-character checking
+// Generic bad-byte checking
 if (!is_bad_char_free_byte(insn->bytes[i])) {
-    // handle bad character
+    // handle bad byte
 }
 
 if (has_bad_chars_insn(insn)) {
-    // instruction contains bad characters
+    // instruction contains bad bytes
 }
 ```
 
@@ -216,7 +216,7 @@ int is_null_free(uint32_t val) {
 ```c
 // In strategy_registry.c
 int has_null_bytes(cs_insn *insn) {
-    // Updated in v3.0: Now checks for generic bad characters
+    // Updated in v3.0: Now checks for generic bad bytes
     // Function name kept for backward compatibility with 100+ strategy files
     return !is_bad_char_free_buffer(insn->bytes, insn->size);
 }
@@ -226,10 +226,10 @@ int has_null_bytes(cs_insn *insn) {
 
 ### Conceptual Differences
 
-| Aspect | Null-Byte Elimination (v2.x) | Generic Bad-Character (v3.0) |
+| Aspect | Null-Byte Elimination (v2.x) | Generic Bad-Byte (v3.0) |
 |--------|------------------------------|------------------------------|
 | **Target** | Single byte: 0x00 | Arbitrary set of bytes |
-| **Configuration** | Hardcoded | User-specified via `--bad-chars` |
+| **Configuration** | Hardcoded | User-specified via `--bad-bytes` |
 | **Default** | Always null-only | Null-only if not specified |
 | **Testing** | Extensively tested, 100% success | Functional but not validated |
 | **Optimization** | Strategies optimized for null patterns | Strategies apply generically |
@@ -243,10 +243,10 @@ int has_null_bytes(cs_insn *insn) {
 - Well-defined patterns (trailing zeros, ModR/M null bytes, etc.)
 - Predictable transformation requirements
 
-**Generic Bad-Character Elimination:**
+**Generic Bad-Byte Elimination:**
 - Bitmap check: `if (bad_chars[byte] == 1)`
 - Configurable set of bytes to avoid
-- Patterns vary based on bad character set
+- Patterns vary based on bad byte set
 - Transformation requirements depend on character distribution
 
 ### Strategy Applicability
@@ -269,10 +269,10 @@ Eliminate bytes that terminate network input:
 
 ```bash
 # TCP protocol (null, newline, carriage return)
-byvalver --bad-chars "00,0a,0d" payload.bin output.bin
+byvalver --bad-bytes "00,0a,0d" payload.bin output.bin
 
 # HTTP headers (null, newline, carriage return, space)
-byvalver --bad-chars "00,0a,0d,20" payload.bin output.bin
+byvalver --bad-bytes "00,0a,0d,20" payload.bin output.bin
 ```
 
 **Common Bad Characters:**
@@ -287,10 +287,10 @@ Eliminate characters that C input functions treat specially:
 
 ```bash
 # gets() safety (null, newline)
-byvalver --bad-chars "00,0a" payload.bin output.bin
+byvalver --bad-bytes "00,0a" payload.bin output.bin
 
 # scanf() safety (null, whitespace)
-byvalver --bad-chars "00,20,09,0a,0d" payload.bin output.bin
+byvalver --bad-bytes "00,20,09,0a,0d" payload.bin output.bin
 ```
 
 ### Custom Input Filters
@@ -302,7 +302,7 @@ Eliminate bytes filtered by custom input validation:
 # (Note: This would require listing all non-alphanum bytes)
 
 # Custom application filter
-byvalver --bad-chars "00,0a,0d,1a,00" payload.bin output.bin
+byvalver --bad-bytes "00,0a,0d,1a,00" payload.bin output.bin
 ```
 
 ## Current Limitations
@@ -317,7 +317,7 @@ byvalver --bad-chars "00,0a,0d,1a,00" payload.bin output.bin
 **Generic Patterns:**
 - Strategies apply same transformations regardless of which byte
 - May not optimize for non-null specific patterns
-- May generate longer output for some bad character combinations
+- May generate longer output for some bad byte combinations
 
 ### Testing Coverage
 
@@ -327,18 +327,18 @@ byvalver --bad-chars "00,0a,0d,1a,00" payload.bin output.bin
 - Validated against diverse real-world payloads
 - Comprehensive edge case coverage
 
-**Generic Bad-Character Elimination:**
+**Generic Bad-Byte Elimination:**
 - Framework is functional and operational
 - Strategies updated to use generic API
-- Limited testing with non-null bad character sets
+- Limited testing with non-null bad byte sets
 - Real-world effectiveness not comprehensively validated
 
 ### ML Model Training
 
 **Current State:**
 - ML model trained exclusively on null-byte elimination data
-- Feature extraction updated to track generic bad characters
-- Model has not been retrained with diverse bad character datasets
+- Feature extraction updated to track generic bad bytes
+- Model has not been retrained with diverse bad byte datasets
 
 **Impact:**
 - ML mode may not perform optimally for non-null characters
@@ -346,7 +346,7 @@ byvalver --bad-chars "00,0a,0d,1a,00" payload.bin output.bin
 - Confidence scores calibrated for null elimination
 
 **Recommendation:**
-- Use standard mode (without `--ml`) for generic bad characters
+- Use standard mode (without `--ml`) for generic bad bytes
 - ML mode should only be used with default null-byte elimination
 
 ## Performance Characteristics
@@ -354,7 +354,7 @@ byvalver --bad-chars "00,0a,0d,1a,00" payload.bin output.bin
 ### Memory Usage
 
 **Per-Process Overhead:**
-- 512 bytes for bad_char_config_t (256 bitmap + 256 list)
+- 512 bytes for bad_byte_config_t (256 bitmap + 256 list)
 - Negligible compared to typical shellcode processing
 
 ### Time Complexity
@@ -375,9 +375,9 @@ byvalver --bad-chars "00,0a,0d,1a,00" payload.bin output.bin
 - Typical expansion: 1.5x-3x original size
 - Highly optimized transformations
 
-**Generic Bad-Character Elimination:**
-- Expansion depends on bad character distribution
-- May be larger if many bad characters present
+**Generic Bad-Byte Elimination:**
+- Expansion depends on bad byte distribution
+- May be larger if many bad bytes present
 - Strategies not optimized for specific non-null patterns
 
 ## Validation and Verification
@@ -432,7 +432,7 @@ def analyze_shellcode_for_bad_chars(shellcode_data, bad_chars=None):
 
 **Usage:**
 ```bash
-python3 verify_denulled.py output.bin --bad-chars "00,0a,0d"
+python3 verify_denulled.py output.bin --bad-bytes "00,0a,0d"
 ```
 
 ## Recommendations
@@ -441,13 +441,13 @@ python3 verify_denulled.py output.bin --bad-chars "00,0a,0d"
 
 **✅ Recommended:**
 - Use default mode (null-byte elimination only)
-- No `--bad-chars` option or `--bad-chars "00"`
+- No `--bad-bytes` option or `--bad-bytes "00"`
 - Well-tested, 100% success rate
 - Optimized transformations
 - Proven effectiveness
 
 **⚠️ Experimental:**
-- Use `--bad-chars` with non-null values
+- Use `--bad-bytes` with non-null values
 - Test thoroughly before production deployment
 - Validate output with verification tools
 - Report any issues encountered
@@ -456,7 +456,7 @@ python3 verify_denulled.py output.bin --bad-chars "00,0a,0d"
 
 **Best Practices:**
 1. Start with null-byte only mode to validate baseline
-2. Add one bad character at a time
+2. Add one bad byte at a time
 3. Verify output after each addition
 4. Test with verification script
 5. Compare output size and functionality
@@ -465,21 +465,21 @@ python3 verify_denulled.py output.bin --bad-chars "00,0a,0d"
 ```bash
 # Step 1: Baseline (null-only)
 byvalver input.bin output1.bin
-python3 verify_denulled.py output1.bin --bad-chars "00"
+python3 verify_denulled.py output1.bin --bad-bytes "00"
 
 # Step 2: Add newline
-byvalver --bad-chars "00,0a" input.bin output2.bin
-python3 verify_denulled.py output2.bin --bad-chars "00,0a"
+byvalver --bad-bytes "00,0a" input.bin output2.bin
+python3 verify_denulled.py output2.bin --bad-bytes "00,0a"
 
 # Step 3: Add carriage return
-byvalver --bad-chars "00,0a,0d" input.bin output3.bin
-python3 verify_denulled.py output3.bin --bad-chars "00,0a,0d"
+byvalver --bad-bytes "00,0a,0d" input.bin output3.bin
+python3 verify_denulled.py output3.bin --bad-bytes "00,0a,0d"
 ```
 
 ### For Development
 
 **Contributing Strategy Improvements:**
-1. Identify patterns specific to your bad character set
+1. Identify patterns specific to your bad byte set
 2. Design transformations optimized for those patterns
 3. Implement as new strategies or enhance existing ones
 4. Test with diverse shellcode samples
@@ -517,7 +517,7 @@ python3 verify_denulled.py output3.bin --bad-chars "00,0a,0d"
 
 **Problem:** CMOV instructions (CMOVcc family: CMOVZ, CMOVNZ, CMOVG, CMOVL, etc.) often encode with null bytes in ModR/M or displacement bytes, and current strategies didn't specifically handle them.
 
-**Solution:** Replace CMOV with equivalent logic using SETcc + arithmetic operations to maintain branchless execution semantics while avoiding bad characters.
+**Solution:** Replace CMOV with equivalent logic using SETcc + arithmetic operations to maintain branchless execution semantics while avoiding bad bytes.
 
 **Implementation:**
 ```c
@@ -537,9 +537,9 @@ or ecx, edi           ; ECX = EDX (if zero) or ECX (if not zero)
 
 ### Strategy 12: Advanced String Operation Transformation (Priority 85)
 
-**Problem:** String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) with REP prefix often encode with bad characters in REP prefixes, operand size overrides, or displacement bytes.
+**Problem:** String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) with REP prefix often encode with bad bytes in REP prefixes, operand size overrides, or displacement bytes.
 
-**Solution:** Replace REP-prefixed string operations with manual loops that avoid bad characters in prefixes.
+**Solution:** Replace REP-prefixed string operations with manual loops that avoid bad bytes in prefixes.
 
 **Implementation:**
 ```c
@@ -559,7 +559,7 @@ copy_loop:
 
 ### Strategy 13: Atomic Operation Encoding Chains (Priority 78)
 
-**Problem:** Atomic operations (XADD, CMPXCHG, LOCK prefix) may encode with bad characters in LOCK prefix, ModR/M bytes, or memory displacements.
+**Problem:** Atomic operations (XADD, CMPXCHG, LOCK prefix) may encode with bad bytes in LOCK prefix, ModR/M bytes, or memory displacements.
 
 **Solution:** Decompose atomic operations into non-atomic equivalents for single-threaded contexts.
 
@@ -575,7 +575,7 @@ mov eax, temp         ; Return old value
 
 ### Strategy 15: FPU Stack Immediate Encoding (Priority 76)
 
-**Problem:** Immediate values that contain bad characters can't be loaded directly. FPU instructions can be used to load and manipulate values in alternative ways that may avoid bad characters.
+**Problem:** Immediate values that contain bad bytes can't be loaded directly. FPU instructions can be used to load and manipulate values in alternative ways that may avoid bad bytes.
 
 **Solution:** Use FPU stack operations (FLD, FISTP, etc.) to load immediate values indirectly.
 
@@ -591,9 +591,9 @@ pop eax               ; Pop to register
 
 ### Strategy 16: XLAT Table Lookup Strategy (Priority 72)
 
-**Problem:** XLAT instruction is commonly used in shellcode for byte translation but the table address may contain bad characters in displacement bytes.
+**Problem:** XLAT instruction is commonly used in shellcode for byte translation but the table address may contain bad bytes in displacement bytes.
 
-**Solution:** Replace XLAT with equivalent logic using MOV from memory with alternative addressing modes that avoid bad characters.
+**Solution:** Replace XLAT with equivalent logic using MOV from memory with alternative addressing modes that avoid bad bytes.
 
 **Implementation:**
 ```c
@@ -606,9 +606,9 @@ mov al, [eax]         ; Load the byte from calculated address
 
 ### Strategy 20: LAHF/SAHF Flag Preservation Strategy (Priority 83)
 
-**Problem:** LAHF/SAHF instructions (Load/Store AH from/to flags) may contain bad characters in their opcodes or may need to be replaced when working with shellcode that has bad character restrictions.
+**Problem:** LAHF/SAHF instructions (Load/Store AH from/to flags) may contain bad bytes in their opcodes or may need to be replaced when working with shellcode that has bad byte restrictions.
 
-**Solution:** Replace LAHF/SAHF with PUSHF/POPF or manual flag manipulation that avoids bad characters.
+**Solution:** Replace LAHF/SAHF with PUSHF/POPF or manual flag manipulation that avoids bad bytes.
 
 **Implementation:**
 ```c
@@ -621,9 +621,9 @@ mov ah, al            ; Move low byte of flags to AH
 
 ### Strategy XX: Partial Register Optimization Strategy (Priority 89)
 
-**Problem:** Instructions using partial registers (AL, AH, BL, BH, etc.) may result in encodings that contain bad characters, particularly in ModR/M bytes or as immediate values.
+**Problem:** Instructions using partial registers (AL, AH, BL, BH, etc.) may result in encodings that contain bad bytes, particularly in ModR/M bytes or as immediate values.
 
-**Solution:** Replace partial register operations with equivalent full register operations or alternative encodings that avoid bad characters.
+**Solution:** Replace partial register operations with equivalent full register operations or alternative encodings that avoid bad bytes.
 
 **Implementation:**
 ```c
@@ -634,9 +634,9 @@ xor eax, eax          ; Zero the full register
 
 ### Strategy XX: Segment Register TEB/PEB Access Strategy (Priority 94)
 
-**Problem:** Direct access to TEB (FS:[0x30]) and PEB (FS:[0x34] on x86, GS:[0x60] on x64) may contain bad characters in displacement bytes.
+**Problem:** Direct access to TEB (FS:[0x30]) and PEB (FS:[0x34] on x86, GS:[0x60] on x64) may contain bad bytes in displacement bytes.
 
-**Solution:** Replace segment register access with equivalent memory access that avoids bad characters in displacement, or use alternative API resolution.
+**Solution:** Replace segment register access with equivalent memory access that avoids bad bytes in displacement, or use alternative API resolution.
 
 **Implementation:**
 ```c
@@ -669,7 +669,7 @@ xor eax, eax          ; Zero the full register
 **File:** `src/advanced_string_operation_strategies.h`
 
 **Problem Statement:**
-String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) with REP prefix often encode with bad characters in:
+String instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, STOSB/STOSW/STOSD) with REP prefix often encode with bad bytes in:
 - REP prefix combinations (F3h for REP/REPE, F2h for REPNE)
 - Operand size overrides (66h prefix)
 - Register-based addressing displacement bytes
@@ -735,7 +735,7 @@ add esi, 4            ; Advance ESI by 4 (use null-free immediate)
 
 **Problem Statement:**
 Atomic operations (XADD, CMPXCHG, LOCK prefix) are used in multi-threaded shellcode and rootkits for synchronization. These instructions:
-- Use LOCK prefix (F0h) which may combine with opcodes to form bad characters
+- Use LOCK prefix (F0h) which may combine with opcodes to form bad bytes
 - Encode with complex ModR/M bytes
 - Often operate on memory with displacements containing nulls
 
@@ -800,7 +800,7 @@ cmpxchg_done:
 **File:** `src/fpu_stack_immediate_encoding_strategies.h`
 
 **Problem Statement:**
-The x87 Floating-Point Unit (FPU) stack provides an alternative data storage mechanism that can be exploited for encoding integer values and avoiding bad characters in GPR operations.
+The x87 Floating-Point Unit (FPU) stack provides an alternative data storage mechanism that can be exploited for encoding integer values and avoiding bad bytes in GPR operations.
 
 FPU operations:
 - Use ST(0)-ST(7) register stack
@@ -859,7 +859,7 @@ The XLAT (translate byte) instruction provides table-based byte translation:
 - Can be used for byte remapping, encoding, and obfuscation
 
 **Use Cases:**
-1. **Byte Remapping:** Remap bad characters to safe characters, translate back at runtime
+1. **Byte Remapping:** Remap bad bytes to safe characters, translate back at runtime
 2. **Encoding:** Use XLAT as a substitution cipher
 3. **Compact Lookups:** Replace switch statements with table lookups
 
@@ -959,7 +959,7 @@ sahf                      ; Restore flags from AH (1 byte)
 
 #### Strategy 11: CMOV Conditional Move Elimination (Priority 92)
 
-**Purpose:** Eliminate CMOV instructions that may contain bad characters in ModR/M encoding bytes or displacement.
+**Purpose:** Eliminate CMOV instructions that may contain bad bytes in ModR/M encoding bytes or displacement.
 
 **Implementation Files:**
 - `src/cmov_conditional_elimination_strategies.c`
@@ -993,7 +993,7 @@ or ecx, edi           ; ECX = EDX (if zero) or ECX (if not zero)
 
 #### Strategy 14: Segment Register TEB/PEB Access (Priority 94)
 
-**Purpose:** Exploit FS/GS segment registers to access Thread Environment Block (TEB) and Process Environment Block (PEB) without using immediate values that contain bad characters.
+**Purpose:** Exploit FS/GS segment registers to access Thread Environment Block (TEB) and Process Environment Block (PEB) without using immediate values that contain bad bytes.
 
 **Implementation Files:**
 - `src/segment_register_teb_peb_strategies.c`
@@ -1052,12 +1052,12 @@ mov eax, fs:[ebx]     ; Access FS:[EBX] - no immediate offset with bad chars
 ### Planned Improvements
 
 1. **Strategy Optimization:**
-   - Identify common non-null bad character patterns
+   - Identify common non-null bad byte patterns
    - Optimize transformations for newline elimination
-   - Special handling for common bad character sets
+   - Special handling for common bad byte sets
 
 2. **ML Model Retraining:**
-   - Collect training data with varied bad character sets
+   - Collect training data with varied bad byte sets
    - Retrain neural network with diverse patterns
    - Improve strategy selection for generic cases
 
@@ -1073,7 +1073,7 @@ mov eax, fs:[ebx]     ; Access FS:[EBX] - no immediate offset with bad chars
    - Edge case identification and coverage
 
 4. **Performance Tuning:**
-   - Profile performance with various bad character sets
+   - Profile performance with various bad byte sets
    - Optimize hot paths for generic checking
    - Reduce output size expansion
 
@@ -1081,12 +1081,12 @@ mov eax, fs:[ebx]     ; Access FS:[EBX] - no immediate offset with bad chars
 
 1. **Automated Strategy Discovery:**
    - Analyze shellcode for pattern-specific transformations
-   - Automatically generate strategies for common bad characters
+   - Automatically generate strategies for common bad bytes
    - Machine learning for optimal strategy selection
 
 2. **Hybrid Approaches:**
    - Combine multiple encoding techniques
-   - Adaptive strategy selection based on bad character distribution
+   - Adaptive strategy selection based on bad byte distribution
    - Context-aware transformations
 
 ## Technical Reference
@@ -1094,7 +1094,7 @@ mov eax, fs:[ebx]     ; Access FS:[EBX] - no immediate offset with bad chars
 ### Files Modified in v3.0
 
 **Core Infrastructure:**
-- `src/cli.h` - Added bad_char_config_t structure
+- `src/cli.h` - Added bad_byte_config_t structure
 - `src/core.h` - Added global context declarations
 - `src/core.c` - Implemented context management
 - `src/utils.h` - Added generic function prototypes
@@ -1131,7 +1131,7 @@ Reference implementation commits:
 **File:** `src/bswap_endianness_transformation_strategies.h`
 
 **Problem Statement:**
-MOV instructions with immediate values often contain bad characters, particularly when encoding IP addresses or port numbers in network byte order. Traditional strategies may not recognize that byte-swapping can eliminate bad characters.
+MOV instructions with immediate values often contain bad bytes, particularly when encoding IP addresses or port numbers in network byte order. Traditional strategies may not recognize that byte-swapping can eliminate bad bytes.
 
 **Target Patterns:**
 ```asm
@@ -1142,7 +1142,7 @@ mov ebx, 0x00005000    ; Port 80 in network byte order (contains nulls)
 
 **Transformation Strategy:**
 ```c
-// Check if byte-swapped version has fewer bad characters
+// Check if byte-swapped version has fewer bad bytes
 uint32_t original = 0x00007F01;      // Has 2 null bytes
 uint32_t swapped = 0x017F0000;       // Has 2 null bytes at end
 
@@ -1152,8 +1152,8 @@ bswap eax              ; Reverse byte order to get original value
 ```
 
 **Implementation:**
-- Check if value is bad-char-free after byte swap
-- Only apply if swapped version has fewer bad characters
+- Check if value is bad-byte-free after byte swap
+- Only apply if swapped version has fewer bad bytes
 - Uses BSWAP instruction (2 bytes: 0F C8+r)
 - Total: 7 bytes (MOV=5 + BSWAP=2) vs original 5 bytes
 
@@ -1170,7 +1170,7 @@ bswap eax              ; Reverse byte order to get original value
 **File:** `src/pushf_popf_bit_manipulation_strategies.h`
 
 **Problem Statement:**
-Flag-setting instructions (STC, CLC, STD, CLD, CMC) are single-byte opcodes that may themselves be bad characters. Current strategies don't transform these simple instructions.
+Flag-setting instructions (STC, CLC, STD, CLD, CMC) are single-byte opcodes that may themselves be bad bytes. Current strategies don't transform these simple instructions.
 
 **Target Patterns:**
 ```asm
@@ -1244,7 +1244,7 @@ mov eax, ecx           ; Move result
 
 **Applicability:**
 - Only works for power-of-2 values (single bit set)
-- Bit position must not be a bad character
+- Bit position must not be a bad byte
 - Common for bitmasks and flag values
 
 ---
@@ -1255,7 +1255,7 @@ mov eax, ecx           ; Move result
 **File:** `src/loop_comprehensive_strategies.h`
 
 **Problem Statement:**
-LOOP family instructions use 8-bit signed displacement which may contain bad characters. These are common in shellcode iteration loops.
+LOOP family instructions use 8-bit signed displacement which may contain bad bytes. These are common in shellcode iteration loops.
 
 **Target Patterns:**
 ```asm
@@ -1300,7 +1300,7 @@ skip:
 **File:** `src/atomic_operation_encoding_strategies.h`
 
 **Problem Statement:**
-LOCK-prefixed atomic operations may encode with bad characters, particularly in multi-threaded exploitation scenarios. The LOCK prefix (F0h) combined with opcode bytes can form bad character sequences.
+LOCK-prefixed atomic operations may encode with bad bytes, particularly in multi-threaded exploitation scenarios. The LOCK prefix (F0h) combined with opcode bytes can form bad byte sequences.
 
 **Target Patterns:**
 ```asm
@@ -1341,7 +1341,7 @@ inc [mem]              ; Remove F0 prefix
 **File:** `src/bcd_arithmetic_obfuscation_strategies.h`
 
 **Problem Statement:**
-MOV immediate instructions may contain bad characters. Binary-Coded Decimal (BCD) arithmetic instructions provide an alternative method for constructing small constant values (0-99) through obfuscated arithmetic operations.
+MOV immediate instructions may contain bad bytes. Binary-Coded Decimal (BCD) arithmetic instructions provide an alternative method for constructing small constant values (0-99) through obfuscated arithmetic operations.
 
 **Target Patterns:**
 ```asm
@@ -1376,7 +1376,7 @@ aad                     ; ASCII Adjust: AL = AH*10 + AL = 4*10 + 2 = 42
 **File:** `src/enter_leave_alternative_encoding_strategies.h`
 
 **Problem Statement:**
-ENTER and LEAVE instructions may encode with bad characters in their immediate values. While rare in shellcode (<5% usage), they appear in compiler-generated payloads.
+ENTER and LEAVE instructions may encode with bad bytes in their immediate values. While rare in shellcode (<5% usage), they appear in compiler-generated payloads.
 
 **Target Patterns:**
 ```asm
@@ -1404,7 +1404,7 @@ pop ebp                 ; Restore frame pointer (5D)
 
 **Benefits:**
 - Manual prologue/epilogue is actually faster on modern CPUs
-- Eliminates immediate values that may contain bad characters
+- Eliminates immediate values that may contain bad bytes
 
 ---
 
@@ -1487,7 +1487,7 @@ movd eax, xmm0          ; Move XMM0[31:0] to EAX (66 0F 7E C0)
 **File:** `src/jecxz_jrcxz_transformation_strategies.h`
 
 **Problem Statement:**
-JECXZ (Jump if ECX Zero) and JRCXZ (Jump if RCX Zero) use 8-bit signed displacement which may contain bad characters.
+JECXZ (Jump if ECX Zero) and JRCXZ (Jump if RCX Zero) use 8-bit signed displacement which may contain bad bytes.
 
 **Target Patterns:**
 ```asm
@@ -1520,7 +1520,7 @@ jz target               ; Jump if zero (74 XX)
 
 ## Conclusion
 
-The generic bad-character elimination framework in BYVALVER v3.6 extends the tool's capabilities with 5 additional specialized strategies. The framework now includes:
+The generic bad-byte elimination framework in BYVALVER v3.6 extends the tool's capabilities with 5 additional specialized strategies. The framework now includes:
 
 - **153+ total strategies** covering diverse transformation patterns
 - **20 newly documented strategies** from proposals (as of Dec 2025)
@@ -1541,9 +1541,9 @@ Recent additions (v3.6 - 2025-12-28):
 - **Jump transformations**: JECXZ/JRCXZ zero-test jump handling
 
 While **null-byte elimination** remains the primary, well-tested use case:
-- **Generic bad-character elimination** is fully functional
+- **Generic bad-byte elimination** is fully functional
 - **Strategies** continue to evolve for non-null character patterns
 - **Testing** is recommended before production use
 - **Community contributions** welcomed for additional patterns
 
-The framework provides a solid foundation for advanced shellcode transformation and bad character elimination scenarios.
+The framework provides a solid foundation for advanced shellcode transformation and bad byte elimination scenarios.

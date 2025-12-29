@@ -8,7 +8,7 @@
  * BSF/BSR Bit Scanning Strategy for Bad Character Elimination
  *
  * PURPOSE: Detect MOV immediate with power-of-2 values or values with isolated
- * bits that contain bad characters. Use BSF (Bit Scan Forward) or BSR (Bit Scan
+ * bits that contain bad bytes. Use BSF (Bit Scan Forward) or BSR (Bit Scan
  * Reverse) to find bit positions, then shift to reconstruct the value.
  *
  * TECHNIQUE:

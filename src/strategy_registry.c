@@ -480,9 +480,9 @@ int is_arithmetic_instruction(cs_insn *insn) {
 }
 
 int has_null_bytes(cs_insn *insn) {
-    // Updated in v3.0: Now checks for generic bad characters, not just null bytes
+    // Updated in v3.0: Now checks for generic bad bytes, not just null bytes
     // Function name kept for backward compatibility with 100+ strategy files
-    return !is_bad_char_free_buffer(insn->bytes, insn->size);
+    return !is_bad_byte_free_buffer(insn->bytes, insn->size);
 }
 
 // Register the new strategies

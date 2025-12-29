@@ -16,9 +16,9 @@ int can_handle_mov_neg_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but negated value doesn't
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_bad_char_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         uint32_t negated_val = ~imm + 1; // Two's complement negation
-        if (is_bad_char_free(negated_val)) {
+        if (is_bad_byte_free(negated_val)) {
             return 1;
         }
     }
@@ -85,9 +85,9 @@ int can_handle_mov_not_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but bitwise NOT value doesn't
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_bad_char_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         uint32_t not_val = ~imm; // Bitwise NOT
-        if (is_bad_char_free(not_val)) {
+        if (is_bad_byte_free(not_val)) {
             return 1;
         }
     }
@@ -155,7 +155,7 @@ int can_handle_mov_addsub_proper(cs_insn *insn) {
     // This strategy is more complex - we need to know initial register state
     // For now, implement a simpler version that uses XOR to zero first, then ADD
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_bad_char_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         // Just check if we can build it with ADD (knowing reg starts as 0 or some known value)
         // For this implementation, if imm is small enough and null-free when we add it to zero reg
         // We'll use XOR reg,reg then ADD/SUB reg,imm approach

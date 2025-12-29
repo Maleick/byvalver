@@ -7,8 +7,8 @@
 /*
  * BSWAP Endianness Transformation Strategy for Bad Character Elimination
  *
- * PURPOSE: Detect MOV instructions with immediate values that contain bad characters.
- * Check if byte-swapped version has fewer/no bad characters, then generate:
+ * PURPOSE: Detect MOV instructions with immediate values that contain bad bytes.
+ * Check if byte-swapped version has fewer/no bad bytes, then generate:
  * MOV reg, swapped_value; BSWAP reg
  *
  * This is particularly useful for network byte order in socket shellcode where
@@ -25,6 +25,6 @@ void generate_bswap_endianness_transformation(struct buffer *b, cs_insn *insn);
 
 // Helper functions
 uint32_t bswap32(uint32_t val);
-int count_bad_chars_in_value(uint32_t val);
+int count_bad_bytes_in_value(uint32_t val);
 
 #endif /* BSWAP_ENDIANNESS_TRANSFORMATION_STRATEGIES_H */

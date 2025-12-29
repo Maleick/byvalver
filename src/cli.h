@@ -23,13 +23,13 @@
 #define EXIT_TIMEOUT_EXCEEDED 6
 #define EXIT_CONFIG_ERROR 7
 
-// Bad character configuration structure
+// Bad byte configuration structure
 // Uses bitmap for O(1) lookup performance
 typedef struct {
-    uint8_t bad_chars[256];      // Bitmap: bad_chars[byte] = 1 if bad, 0 if ok
-    int bad_char_count;           // Number of distinct bad characters
-    uint8_t bad_char_list[256];   // Ordered list of bad character values
-} bad_char_config_t;
+    uint8_t bad_bytes[256];      // Bitmap: bad_bytes[byte] = 1 if bad, 0 if ok
+    int bad_byte_count;           // Number of distinct bad bytes
+    uint8_t bad_byte_list[256];   // Ordered list of bad byte values
+} bad_byte_config_t;
 
 // Configuration structure
 typedef struct {
@@ -73,8 +73,8 @@ typedef struct {
     int show_stats;
     int validate_output;
 
-    // Bad character configuration (NEW in v3.0)
-    bad_char_config_t *bad_chars;  // Dynamically allocated bad character configuration
+    // Bad byte configuration (NEW in v3.0)
+    bad_byte_config_t *bad_bytes;  // Dynamically allocated bad byte configuration
 
     // Internal flags
     int help_requested;
@@ -92,7 +92,7 @@ void print_version(FILE *stream);
 int load_config_file(const char *config_path, byvalver_config_t *config);
 void print_detailed_help(FILE *stream, const char *program_name);
 
-// Bad character configuration functions
-bad_char_config_t* parse_bad_chars_string(const char *input);
+// Bad byte configuration functions
+bad_byte_config_t* parse_bad_bytes_string(const char *input);
 
 #endif

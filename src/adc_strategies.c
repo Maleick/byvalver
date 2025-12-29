@@ -184,7 +184,7 @@ static int can_handle_adc_immediate_null(cs_insn *insn) {
 
     // Check if immediate contains null bytes
     uint32_t imm = (uint32_t)op1->imm;
-    return !is_bad_char_free(imm);
+    return !is_bad_byte_free(imm);
 }
 
 static size_t get_size_adc_immediate_null(cs_insn *insn) {
@@ -223,13 +223,13 @@ static void generate_adc_immediate_null(struct buffer *b, cs_insn *insn) {
     // Try to find shift amount that makes value null-free
     for (int i = 0; i < 32; i++) {
         uint32_t shifted = imm << i;
-        if (is_bad_char_free(shifted)) {
+        if (is_bad_byte_free(shifted)) {
             base_val = shifted;
             shift_amount = i;
             break;
         }
         shifted = imm >> i;
-        if (is_bad_char_free(shifted) && shifted != 0) {
+        if (is_bad_byte_free(shifted) && shifted != 0) {
             base_val = shifted;
             shift_amount = -i;
             break;
@@ -237,7 +237,7 @@ static void generate_adc_immediate_null(struct buffer *b, cs_insn *insn) {
     }
 
     // MOV EBX, base_val (5 bytes if null-free)
-    if (is_bad_char_free(base_val)) {
+    if (is_bad_byte_free(base_val)) {
         buffer_write_byte(b, 0xBB); // MOV EBX, imm32
         buffer_write_dword(b, base_val);
 
@@ -354,7 +354,7 @@ static int can_handle_adc_sib_disp32_null(cs_insn *insn) {
         int64_t disp = mem_op->mem.disp;
         if (disp != 0) {
             uint32_t disp_u32 = (uint32_t)disp;
-            if (!is_bad_char_free(disp_u32)) {
+            if (!is_bad_byte_free(disp_u32)) {
                 return 1;  // SIB with null-containing disp32
             }
         }
@@ -434,7 +434,7 @@ static void generate_adc_sib_disp32_null(struct buffer *b, cs_insn *insn) {
     int found_shift = 0;
     for (int i = 0; i < 24; i++) {
         uint32_t shifted = disp_u32 << i;
-        if (is_bad_char_free(shifted)) {
+        if (is_bad_byte_free(shifted)) {
             // MOV EDX, shifted
             buffer_write_byte(b, 0xBA);  // MOV EDX, imm32
             buffer_write_dword(b, shifted);

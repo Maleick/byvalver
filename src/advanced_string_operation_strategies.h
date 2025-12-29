@@ -9,7 +9,7 @@
  * Advanced String Operation Transformation Strategies
  *
  * PURPOSE: Transform string instructions (MOVSB/MOVSW/MOVSD, LODSB/LODSW/LODSD, 
- * STOSB/STOSW/STOSD) with REP prefix that may encode with bad characters in:
+ * STOSB/STOSW/STOSD) with REP prefix that may encode with bad bytes in:
  * - REP prefix combinations
  * - Operand size overrides
  * - Register-based addressing

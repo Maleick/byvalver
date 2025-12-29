@@ -3,9 +3,9 @@
 BYVALVER Verification Tool - Bad Character Elimination
 verify_denulled.py
 
-This tool verifies that the output file from byvalver has successfully eliminated all specified bad characters.
-Updated in v3.0 to support generic bad character checking (not just null bytes).
-Updated in v3.0.3 to support bad-character profiles matching byvalver's --profile option.
+This tool verifies that the output file from byvalver has successfully eliminated all specified bad bytes.
+Updated in v3.0 to support generic bad byte checking (not just null bytes).
+Updated in v3.0.3 to support bad-byte profiles matching byvalver's --profile option.
 """
 
 import sys
@@ -16,7 +16,7 @@ import fnmatch
 
 # =============================================================================
 # BAD-CHARACTER PROFILE DEFINITIONS
-# Matches the profiles defined in src/badchar_profiles.h
+# Matches the profiles defined in src/badbyte_profiles.h
 # =============================================================================
 
 BADCHAR_PROFILES = {
@@ -82,7 +82,7 @@ BADCHAR_PROFILES = {
     },
     'buffer-overflow': {
         'name': 'buffer-overflow',
-        'description': 'Common buffer overflow bad characters',
+        'description': 'Common buffer overflow bad bytes',
         'context': 'Stack/heap overflows with character filtering',
         'bad_chars': [0x00, 0x09, 0x0A, 0x0D, 0x20],
         'difficulty': 3,  # Medium
@@ -133,7 +133,7 @@ DIFFICULTY_LABELS = {
 }
 
 def list_profiles():
-    """List all available bad-character profiles."""
+    """List all available bad-byte profiles."""
     print("=" * 80)
     print("AVAILABLE BAD-CHARACTER PROFILES")
     print("=" * 80)
@@ -158,7 +158,7 @@ def list_profiles():
 
 def get_profile_bad_chars(profile_name):
     """
-    Get bad characters from a profile name.
+    Get bad bytes from a profile name.
 
     Args:
         profile_name (str): Name of the profile
@@ -231,14 +231,14 @@ def parse_bad_chars(bad_chars_str):
 
 def analyze_shellcode_for_bad_chars(shellcode_data, bad_chars=None):
     """
-    Analyze shellcode data to count bad characters and provide detailed information.
+    Analyze shellcode data to count bad bytes and provide detailed information.
 
     Args:
         shellcode_data (bytes): The shellcode data to analyze
         bad_chars (set): Set of bad byte values (default: {0x00})
 
     Returns:
-        dict: Information about bad characters in the data
+        dict: Information about bad bytes in the data
     """
     if bad_chars is None:
         bad_chars = {0x00}
@@ -257,7 +257,7 @@ def analyze_shellcode_for_bad_chars(shellcode_data, bad_chars=None):
             seq_start = i
             seq_bytes = []
             while i < len(shellcode_data) and shellcode_data[i] in bad_chars:
-                # Count each bad character individually
+                # Count each bad byte individually
                 bad_char_count += 1
                 bad_char_positions[shellcode_data[i]].append(i)
                 seq_bytes.append(shellcode_data[i])
@@ -279,7 +279,7 @@ def analyze_shellcode_for_bad_chars(shellcode_data, bad_chars=None):
 
 def verify_bad_char_elimination(input_file, output_file=None, bad_chars=None):
     """
-    Verify that the output file has eliminated all specified bad characters.
+    Verify that the output file has eliminated all specified bad bytes.
 
     Args:
         input_file (str): Path to the original file
@@ -328,7 +328,7 @@ def verify_bad_char_elimination(input_file, output_file=None, bad_chars=None):
     if output_file is None:
         print("\n[INFO] No output file specified. Only analyzed input file.")
         success = input_analysis['bad_char_count'] == 0
-        print(f"Input file {'PASSES' if success else 'FAILS'} bad character check: {'PASS' if success else 'FAIL'}")
+        print(f"Input file {'PASSES' if success else 'FAILS'} bad byte check: {'PASS' if success else 'FAIL'}")
         return success
 
     # Analyze output file
@@ -364,17 +364,17 @@ def verify_bad_char_elimination(input_file, output_file=None, bad_chars=None):
     remaining_bad_char_count = output_analysis['bad_char_count']
     size_change = output_analysis['total_bytes'] - input_analysis['total_bytes']
 
-    print(f"Original bad characters: {original_bad_char_count}")
-    print(f"Remaining bad characters: {remaining_bad_char_count}")
+    print(f"Original bad bytes: {original_bad_char_count}")
+    print(f"Remaining bad bytes: {remaining_bad_char_count}")
     print(f"Size change: {size_change:+d} bytes")
 
     if remaining_bad_char_count == 0:
-        print("\n[SUCCESS] All bad characters have been successfully eliminated!")
-        print("✓ VERIFICATION PASSED: Output contains zero bad characters")
+        print("\n[SUCCESS] All bad bytes have been successfully eliminated!")
+        print("✓ VERIFICATION PASSED: Output contains zero bad bytes")
         return True
     else:
-        print(f"\n[FAILURE] {remaining_bad_char_count} bad characters remain in the output!")
-        print("✗ VERIFICATION FAILED: Output still contains bad characters")
+        print(f"\n[FAILURE] {remaining_bad_char_count} bad bytes remain in the output!")
+        print("✗ VERIFICATION FAILED: Output still contains bad bytes")
         return False
 
 # Backward compatibility wrapper
@@ -388,7 +388,7 @@ def verify_null_elimination(input_file, output_file=None):
 def batch_verify_bad_char_elimination(input_dir, output_dir=None, recursive=False, pattern="*.bin",
                                       continue_on_error=False, bad_chars=None):
     """
-    Batch verify bad character elimination for all files in a directory.
+    Batch verify bad byte elimination for all files in a directory.
 
     Args:
         input_dir (str): Directory containing input files
@@ -524,7 +524,7 @@ def batch_verify_null_elimination(input_dir, output_dir=None, recursive=False, p
 
 def main():
     parser = argparse.ArgumentParser(
-        description="BYVALVER: Verify bad character elimination in processed shellcode (v3.0+)",
+        description="BYVALVER: Verify bad byte elimination in processed shellcode (v3.0+)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -545,7 +545,7 @@ Examples:
   %(prog)s input_dir/ output_dir/ --profile http-whitespace  # Batch with profile
   %(prog)s input_dir/ -r --bad-chars 00             # Batch recursive with bad chars
 
-Note: This tool verifies that the output has no bad characters after processing with byvalver.
+Note: This tool verifies that the output has no bad bytes after processing with byvalver.
       Use --profile for predefined sets or --bad-chars for manual specification.
       Default: null bytes (0x00) only.
         """
@@ -554,13 +554,13 @@ Note: This tool verifies that the output has no bad characters after processing 
     parser.add_argument(
         'input_path',
         nargs='?',
-        help='Path to the input file or directory before bad character elimination'
+        help='Path to the input file or directory before bad byte elimination'
     )
 
     parser.add_argument(
         'output_path',
         nargs='?',
-        help='Path to the processed file or directory after bad character elimination (optional)'
+        help='Path to the processed file or directory after bad byte elimination (optional)'
     )
 
     parser.add_argument(
@@ -574,13 +574,13 @@ Note: This tool verifies that the output has no bad characters after processing 
         '--profile',
         type=str,
         metavar='NAME',
-        help='Use predefined bad-character profile (e.g., http-newline, sql-injection, alphanumeric-only). Use --list-profiles to see all available profiles.'
+        help='Use predefined bad-byte profile (e.g., http-newline, sql-injection, alphanumeric-only). Use --list-profiles to see all available profiles.'
     )
 
     parser.add_argument(
         '--list-profiles',
         action='store_true',
-        help='List all available bad-character profiles and exit'
+        help='List all available bad-byte profiles and exit'
     )
 
     # Batch processing options
@@ -629,7 +629,7 @@ Note: This tool verifies that the output has no bad characters after processing 
     # Determine output path
     output_path = args.output_path or args.output_path_alt
 
-    # Determine bad characters - profile takes precedence
+    # Determine bad bytes - profile takes precedence
     if args.profile:
         bad_chars = get_profile_bad_chars(args.profile)
         if bad_chars is None:
@@ -639,7 +639,7 @@ Note: This tool verifies that the output has no bad characters after processing 
 
         if args.verbose or True:  # Always show which profile is being used
             profile = BADCHAR_PROFILES[args.profile]
-            print(f"Using profile: {args.profile} ({len(bad_chars)} bad characters)")
+            print(f"Using profile: {args.profile} ({len(bad_chars)} bad bytes)")
             print(f"Description: {profile['description']}")
             print()
     else:

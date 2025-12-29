@@ -6,7 +6,7 @@
 
 ## Overview
 
-Implemented 4 high-priority bad-character elimination strategies targeting the most common patterns in shellcode. These strategies address gaps in the current 122+ strategy suite and provide enhanced coverage for:
+Implemented 4 high-priority bad-byte elimination strategies targeting the most common patterns in shellcode. These strategies address gaps in the current 122+ strategy suite and provide enhanced coverage for:
 
 1. **Polymorphic immediate value construction** (90% applicability)
 2. **Jump offset elimination via SETcc** (70% applicability)
@@ -39,9 +39,9 @@ Implemented 4 high-priority bad-character elimination strategies targeting the m
 
 **Key Features:**
 - Multiple encoding variants per immediate value
-- Automatic bad-character checking for all components
+- Automatic bad-byte checking for all components
 - Fallback chain: tries XOR → ADD/SUB → Shift/OR
-- Works with any bad-character set
+- Works with any bad-byte set
 
 **Code Highlights:**
 ```c
@@ -208,9 +208,9 @@ MOV AL, 11         // B0 0B (2 bytes, no nulls)
 
 ## Expected Impact
 
-### Bad-Character Elimination Success Rate
+### Bad-Byte Elimination Success Rate
 - **Baseline (null-only):** 100% on test corpus
-- **Generic bad-chars (current):** ~75-85% (estimated)
+- **Generic bad-bytes (current):** ~75-85% (estimated)
 - **With Tier 1 strategies:** +10-15% improvement
 - **Target success rate:** 85-95% for non-null profiles
 
@@ -239,28 +239,28 @@ MOV AL, 11         // B0 0B (2 bytes, no nulls)
 make clean && make
 
 # Test on single file
-./bin/byvalver shellcodes/test.bin output.bin --bad-chars "00,0a,0d"
+./bin/byvalver shellcodes/test.bin output.bin --bad-bytes "00,0a,0d"
 
 # Verify output
-python3 verify_denulled.py --bad-chars "00,0a,0d" output.bin
+python3 verify_denulled.py --bad-bytes "00,0a,0d" output.bin
 ```
 
 ### Phase 2: Integration Testing (Next)
 ```bash
 # Test with diverse shellcode corpus
-./bin/byvalver -r shellcodes/ output_dir/ --bad-chars "00,0a,0d"
+./bin/byvalver -r shellcodes/ output_dir/ --bad-bytes "00,0a,0d"
 
 # Check success rate
-python3 verify_denulled.py -r --bad-chars "00,0a,0d" output_dir/
+python3 verify_denulled.py -r --bad-bytes "00,0a,0d" output_dir/
 
 # Compare with baseline (null-only)
-./bin/byvalver -r shellcodes/ baseline_output/ --bad-chars "00"
+./bin/byvalver -r shellcodes/ baseline_output/ --bad-bytes "00"
 ```
 
 ### Phase 3: ML Retraining (Future)
 ```bash
 # Collect performance metrics
-./bin/byvalver --ml -r shellcodes/ ml_output/ --bad-chars "00,0a,0d"
+./bin/byvalver --ml -r shellcodes/ ml_output/ --bad-bytes "00,0a,0d"
 
 # Analyze ml_metrics.log
 cat ml_metrics.log | grep "Polymorphic\|SETcc\|Dependency\|Syscall"
@@ -270,7 +270,7 @@ cat ml_metrics.log | grep "Polymorphic\|SETcc\|Dependency\|Syscall"
 ```
 
 ### Phase 4: Production Validation (Final)
-- Test with bad-character profiles (http-newline, sql-injection, etc.)
+- Test with bad-byte profiles (http-newline, sql-injection, etc.)
 - Benchmark processing speed with large corpus
 - Validate semantic equivalence of output
 - Compare size overhead against estimates
@@ -295,7 +295,7 @@ cat ml_metrics.log | grep "Polymorphic\|SETcc\|Dependency\|Syscall"
 ### Compatibility
 - **Architecture:** x86/x64 (tested on both)
 - **Syscall strategies:** Linux-specific (x86 INT 0x80, x64 SYSCALL)
-- **Bad-char sets:** Universal (works with any bad-character configuration)
+- **Bad-char sets:** Universal (works with any bad-byte configuration)
 
 ---
 
@@ -367,7 +367,7 @@ ML Support: Enabled
 
 ## Conclusion
 
-Successfully implemented **11 new strategies** across **4 high-priority categories**, expanding BYVALVER's bad-character elimination capabilities from 122 to 133+ strategies. These Tier 1 strategies target the most common patterns in shellcode and are expected to improve success rates by +10-15% for generic bad-character elimination.
+Successfully implemented **11 new strategies** across **4 high-priority categories**, expanding BYVALVER's bad-byte elimination capabilities from 122 to 133+ strategies. These Tier 1 strategies target the most common patterns in shellcode and are expected to improve success rates by +10-15% for generic bad-byte elimination.
 
 **Key Achievements:**
 - ✅ Polymorphic immediate construction (3 variants)

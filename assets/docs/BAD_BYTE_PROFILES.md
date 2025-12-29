@@ -1,4 +1,4 @@
-# Bad-Character Profiles Guide
+# Bad-Byte Profiles Guide
 
 **Version**: 3.0+
 **Last Updated**: 2025-12-17
@@ -18,9 +18,9 @@
 
 ## Overview
 
-### What Are Bad-Character Profiles?
+### What Are Bad-Byte Profiles?
 
-Bad-character profiles are pre-configured sets of bytes that byvalver will eliminate from your shellcode. Instead of manually specifying hex values with `--bad-chars`, you can use profile names that match common exploit scenarios.
+Bad-character profiles are pre-configured sets of bytes that byvalver will eliminate from your shellcode. Instead of manually specifying hex values with `--bad-bytes`, you can use profile names that match common exploit scenarios.
 
 ### Why Use Profiles?
 
@@ -36,9 +36,9 @@ User Input:  --profile http-newline
      ↓
 Profile DB:  Matches "http-newline" → [0x00, 0x0A, 0x0D]
      ↓
-Config:      Loads bad_char_config_t with bitmap
+Config:      Loads bad_byte_config_t with bitmap
      ↓
-Pipeline:    All strategies respect these bad characters
+Pipeline:    All strategies respect these bad bytes
      ↓
 Output:      Shellcode free of 0x00, 0x0A, 0x0D
 ```
@@ -55,7 +55,7 @@ $ ./bin/byvalver --list-profiles
 
 Output:
 ```
-Available Bad-Character Profiles:
+Available Bad-Byte Profiles:
 
   null-only             [█░░░░]  (1 bad chars)
       Eliminate NULL bytes only (classic denullification)
@@ -76,7 +76,7 @@ Difficulty Legend: [█░░░░]=Trivial  [███░░]=Medium  [██�
 
 ```bash
 # Instead of:
-$ ./bin/byvalver --bad-chars "00,0a,0d" input.bin output.bin
+$ ./bin/byvalver --bad-bytes "00,0a,0d" input.bin output.bin
 
 # Use:
 $ ./bin/byvalver --profile http-newline input.bin output.bin
@@ -576,18 +576,18 @@ Everything except:
 
 ## Creating Custom Profiles
 
-### Method 1: Using `--bad-chars` Directly
+### Method 1: Using `--bad-bytes` Directly
 
-If you have a one-off bad-character set:
+If you have a one-off bad-byte set:
 
 ```bash
 # Custom set: eliminate 0x00, 0x41 ('A'), 0x42 ('B')
-./bin/byvalver --bad-chars "00,41,42" input.bin output.bin
+./bin/byvalver --bad-bytes "00,41,42" input.bin output.bin
 ```
 
 ### Method 2: Adding to Profile Database
 
-To create a permanent profile, edit `src/badchar_profiles.h`:
+To create a permanent profile, edit `src/badbyte_profiles.h`:
 
 ```c
 // 1. Define the character array
@@ -601,7 +601,7 @@ static const uint8_t PROFILE_CUSTOM_CHARS[] = {
 // 2. Add to BADCHAR_PROFILES array
 {
     .name = "custom-profile",
-    .description = "My custom bad-character set",
+    .description = "My custom bad-byte set",
     .context = "Specific application vulnerability",
     .bad_chars = PROFILE_CUSTOM_CHARS,
     .bad_char_count = sizeof(PROFILE_CUSTOM_CHARS),
@@ -666,7 +666,7 @@ make clean && make
 
 **Notes**:
 - Overhead depends heavily on original shellcode structure
-- More bad characters = more transformations = larger output
+- More bad bytes = more transformations = larger output
 - Complex shellcode suffers more overhead
 - Simple shellcode (few instructions) has lower overhead
 
@@ -703,7 +703,7 @@ Use --list-profiles to see available profiles.
 
 **Symptom**:
 ```
-WARNING: Output shellcode still contains bad characters!
+WARNING: Output shellcode still contains bad bytes!
 Bad character 0x0a found at offset 0x42 (from instruction: mov eax, 0x0a)
 ```
 
@@ -743,7 +743,7 @@ Output is 10x larger than input
 
 **Symptom**:
 ```
-Error: Could not eliminate all bad characters
+Error: Could not eliminate all bad bytes
 Failed on instruction: syscall
 ```
 
@@ -778,8 +778,8 @@ Many transformation failures, large overhead
 
 If multiple options conflict:
 ```bash
-# --profile takes precedence over --bad-chars
-./bin/byvalver --bad-chars "00" --profile http-newline ...
+# --profile takes precedence over --bad-bytes
+./bin/byvalver --bad-bytes "00" --profile http-newline ...
 # Result: Uses http-newline profile (0x00, 0x0A, 0x0D)
 ```
 
@@ -797,12 +797,12 @@ To verify a profile's character set:
 ### Encoding vs. Inline Transformation
 
 **When to use profiles (inline transformation)**:
-- Few bad characters (<10)
+- Few bad bytes (<10)
 - Moderate size overhead acceptable
 - Need to preserve overall shellcode structure
 
 **When to use encoding**:
-- Many bad characters (>20)
+- Many bad bytes (>20)
 - Size overhead is critical
 - Decoder stub can meet constraints
 

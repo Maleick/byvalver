@@ -4,7 +4,7 @@
  * Priority: 88 (Tier 1 - Linux/x64 specific)
  * Applicability: Linux syscalls (80%+ of Linux shellcode)
  *
- * Implements syscall number obfuscation to eliminate bad characters in
+ * Implements syscall number obfuscation to eliminate bad bytes in
  * syscall number immediates. Syscall numbers frequently contain null bytes
  * when encoded as 32-bit immediates (e.g., MOV EAX, 11 -> B8 0B 00 00 00).
  *
@@ -87,7 +87,7 @@ int can_handle_syscall_number_al_load(cs_insn *insn) {
     }
 
     // Check if full 32-bit encoding has bad chars
-    return !is_bad_char_free(syscall_num);
+    return !is_bad_byte_free(syscall_num);
 }
 
 size_t get_size_syscall_number_al_load(__attribute__((unused)) cs_insn *insn) {
@@ -123,7 +123,7 @@ int can_handle_syscall_number_push_pop(cs_insn *insn) {
     uint32_t syscall_num = (uint32_t)insn->detail->x86.operands[1].imm;
 
     // Check if original has bad chars but PUSH immediate doesn't
-    if (is_bad_char_free(syscall_num)) {
+    if (is_bad_byte_free(syscall_num)) {
         return 0;
     }
 
@@ -197,7 +197,7 @@ int can_handle_syscall_number_lea(cs_insn *insn) {
     uint32_t syscall_num = (uint32_t)insn->detail->x86.operands[1].imm;
 
     // Check if original has bad chars
-    if (is_bad_char_free(syscall_num)) {
+    if (is_bad_byte_free(syscall_num)) {
         return 0;
     }
 
@@ -250,7 +250,7 @@ int can_handle_syscall_number_inc_chain(cs_insn *insn) {
         return 0;
     }
 
-    return !is_bad_char_free(syscall_num);
+    return !is_bad_byte_free(syscall_num);
 }
 
 size_t get_size_syscall_number_inc_chain(cs_insn *insn) {

@@ -13,9 +13,9 @@ int can_handle_arithmetic_neg_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
         
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_bad_char_free(imm)) {
+        if (!is_bad_byte_free(imm)) {
             uint32_t negated_val;
-            if (find_neg_equivalent(imm, &negated_val) && is_bad_char_free(negated_val)) {
+            if (find_neg_equivalent(imm, &negated_val) && is_bad_byte_free(negated_val)) {
                 return 1;
             }
         }
@@ -110,7 +110,7 @@ int can_handle_arithmetic_xor_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
         
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_bad_char_free(imm)) {
+        if (!is_bad_byte_free(imm)) {
             uint32_t xor_key;
             if (find_xor_key(imm, &xor_key)) {
                 return 1;
@@ -219,7 +219,7 @@ int can_handle_arithmetic_addsub_enhanced(cs_insn *insn) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
         
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_bad_char_free(imm)) {
+        if (!is_bad_byte_free(imm)) {
             uint32_t val1, val2;
             int is_add;
             if (find_addsub_key(imm, &val1, &val2, &is_add)) {

@@ -1,10 +1,10 @@
 /*
  * BSWAP Endianness Transformation Strategy for Bad Character Elimination
  *
- * PROBLEM: MOV instructions with immediate values that contain bad characters.
+ * PROBLEM: MOV instructions with immediate values that contain bad bytes.
  * Example: MOV EAX, 0x00007F01 (127.0.0.1 in network byte order - contains nulls)
  *
- * SOLUTION: Use BSWAP to reverse byte order, avoiding bad characters.
+ * SOLUTION: Use BSWAP to reverse byte order, avoiding bad bytes.
  * If swapped version has fewer bad chars:
  *   MOV EAX, 0x017F0000  (byte-swapped value)
  *   BSWAP EAX            (reverse to get 0x00007F01)
@@ -32,13 +32,13 @@ uint32_t bswap32(uint32_t val) {
 }
 
 /**
- * Count number of bad characters in a 32-bit value
+ * Count number of bad bytes in a 32-bit value
  */
-int count_bad_chars_in_value(uint32_t val) {
+int count_bad_bytes_in_value(uint32_t val) {
     int count = 0;
     for (int i = 0; i < 4; i++) {
         uint8_t byte = (val >> (i * 8)) & 0xFF;
-        if (!is_bad_char_free_byte(byte)) {
+        if (!is_bad_byte_free_byte(byte)) {
             count++;
         }
     }
@@ -86,18 +86,18 @@ int can_handle_bswap_endianness_transformation(cs_insn *insn) {
 
     uint32_t imm = (uint32_t)src_op->imm;
 
-    // Check if original value has bad characters
-    int original_bad_chars = count_bad_chars_in_value(imm);
-    if (original_bad_chars == 0) {
+    // Check if original value has bad bytes
+    int original_bad_bytes = count_bad_bytes_in_value(imm);
+    if (original_bad_bytes == 0) {
         return 0; // No bad chars, no need to transform
     }
 
-    // Check if byte-swapped version has fewer bad characters
+    // Check if byte-swapped version has fewer bad bytes
     uint32_t swapped = bswap32(imm);
-    int swapped_bad_chars = count_bad_chars_in_value(swapped);
+    int swapped_bad_bytes = count_bad_bytes_in_value(swapped);
 
-    // Only apply if swapped version has fewer or no bad characters
-    if (swapped_bad_chars < original_bad_chars) {
+    // Only apply if swapped version has fewer or no bad bytes
+    if (swapped_bad_bytes < original_bad_bytes) {
         return 1;
     }
 

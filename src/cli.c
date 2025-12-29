@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "cli.h"
-#include "badchar_profiles.h"
+#include "badbyte_profiles.h"
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
@@ -8,16 +8,16 @@
 #include <ctype.h>
 
 /**
- * Parse bad characters from comma-separated hex string
+ * Parse bad bytes from comma-separated hex string
  * @param input: String like "00,0a,0d"
- * @return: Allocated bad_char_config_t or NULL on error
+ * @return: Allocated bad_byte_config_t or NULL on error
  */
-bad_char_config_t* parse_bad_chars_string(const char *input) {
+bad_byte_config_t* parse_bad_bytes_string(const char *input) {
     if (!input || strlen(input) == 0) {
         return NULL;
     }
 
-    bad_char_config_t *config = calloc(1, sizeof(bad_char_config_t));
+    bad_byte_config_t *config = calloc(1, sizeof(bad_byte_config_t));
     if (!config) {
         return NULL;
     }
@@ -31,7 +31,7 @@ bad_char_config_t* parse_bad_chars_string(const char *input) {
 
     // Parse comma-separated tokens
     char *token = strtok(input_copy, ",");
-    while (token && config->bad_char_count < 256) {
+    while (token && config->bad_byte_count < 256) {
         // Trim leading whitespace
         while (*token && isspace((unsigned char)*token)) {
             token++;
@@ -72,9 +72,9 @@ bad_char_config_t* parse_bad_chars_string(const char *input) {
         uint8_t byte = (uint8_t)byte_val;
 
         // Add to bitmap if not already present (avoid duplicates)
-        if (config->bad_chars[byte] == 0) {
-            config->bad_chars[byte] = 1;
-            config->bad_char_list[config->bad_char_count++] = byte;
+        if (config->bad_bytes[byte] == 0) {
+            config->bad_bytes[byte] = 1;
+            config->bad_byte_list[config->bad_byte_count++] = byte;
         }
 
         token = strtok(NULL, ",");
@@ -83,11 +83,11 @@ bad_char_config_t* parse_bad_chars_string(const char *input) {
     free(input_copy);
 
     // Default to null byte if no bytes were successfully parsed
-    if (config->bad_char_count == 0) {
-        fprintf(stderr, "Warning: No valid bad characters specified, defaulting to null byte (00)\n");
-        config->bad_chars[0x00] = 1;
-        config->bad_char_list[0] = 0x00;
-        config->bad_char_count = 1;
+    if (config->bad_byte_count == 0) {
+        fprintf(stderr, "Warning: No valid bad bytes specified, defaulting to null byte (00)\n");
+        config->bad_bytes[0x00] = 1;
+        config->bad_byte_list[0] = 0x00;
+        config->bad_byte_count = 1;
     }
 
     return config;
@@ -141,11 +141,11 @@ byvalver_config_t* config_create_default(void) {
 
     // Bad character configuration defaults (v3.0)
     // Default: only null byte (0x00) for backward compatibility
-    config->bad_chars = calloc(1, sizeof(bad_char_config_t));
-    if (config->bad_chars) {
-        config->bad_chars->bad_chars[0x00] = 1;      // Mark null byte as bad
-        config->bad_chars->bad_char_list[0] = 0x00;  // Add to list
-        config->bad_chars->bad_char_count = 1;        // Count = 1
+    config->bad_bytes = calloc(1, sizeof(bad_byte_config_t));
+    if (config->bad_bytes) {
+        config->bad_bytes->bad_bytes[0x00] = 1;      // Mark null byte as bad
+        config->bad_bytes->bad_byte_list[0] = 0x00;  // Add to list
+        config->bad_bytes->bad_byte_count = 1;        // Count = 1
     }
 
     return config;
@@ -155,10 +155,10 @@ byvalver_config_t* config_create_default(void) {
 void config_free(byvalver_config_t *config) {
     if (!config) return;
 
-    // Free bad character configuration (v3.0)
-    if (config->bad_chars) {
-        free(config->bad_chars);
-        config->bad_chars = NULL;
+    // Free bad byte configuration (v3.0)
+    if (config->bad_bytes) {
+        free(config->bad_bytes);
+        config->bad_bytes = NULL;
     }
 
     // Note: We don't free strings that point to argv or are static
@@ -174,20 +174,20 @@ void print_usage(FILE *stream, const char *program_name) {
 
 // Print detailed help
 void print_detailed_help(FILE *stream, const char *program_name) {
-    fprintf(stream, "byvalver v3.0 - Generic Bad-Character Elimination Framework\n\n");
+    fprintf(stream, "byvalver v3.0 - Generic Bad-Byte Elimination Framework\n\n");
 
     fprintf(stream, "SYNOPSIS\n");
     fprintf(stream, "    %s [OPTIONS] <input_file> [output_file]\n\n", program_name);
 
     fprintf(stream, "DESCRIPTION\n");
     fprintf(stream, "    byvalver is an advanced C-based command-line tool designed for automated \n");
-    fprintf(stream, "    elimination of bad characters from shellcode while preserving functional \n");
+    fprintf(stream, "    elimination of bad bytes from shellcode while preserving functional \n");
     fprintf(stream, "    equivalence. The tool leverages the Capstone disassembly framework to analyze \n");
     fprintf(stream, "    x86/x64 assembly instructions and applies sophisticated transformation strategies \n");
-    fprintf(stream, "    to replace bad-character-containing instructions with functionally equivalent \n");
+    fprintf(stream, "    to replace bad-byte-containing instructions with functionally equivalent \n");
     fprintf(stream, "    alternatives.\n\n");
     fprintf(stream, "    By default, byvalver eliminates null bytes (0x00). Version 3.0 introduces generic \n");
-    fprintf(stream, "    bad character elimination via the --bad-chars option, allowing you to specify \n");
+    fprintf(stream, "    bad byte elimination via the --bad-bytes option, allowing you to specify \n");
     fprintf(stream, "    any set of bytes to eliminate (e.g., newlines, spaces, CRLF sequences).\n\n");
     
     fprintf(stream, "OPTIONS\n");
@@ -207,12 +207,12 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n\n");
 
     fprintf(stream, "    Bad Character Elimination (v3.0):\n");
-    fprintf(stream, "      --bad-chars BYTES             Comma-separated hex bytes to eliminate (e.g., \"00,0a,0d\")\n");
+    fprintf(stream, "      --bad-bytes BYTES             Comma-separated hex bytes to eliminate (e.g., \"00,0a,0d\")\n");
     fprintf(stream, "                                    Default: \"00\" (null bytes only)\n");
-    fprintf(stream, "      --profile NAME                Use predefined bad-character profile\n");
+    fprintf(stream, "      --profile NAME                Use predefined bad-byte profile\n");
     fprintf(stream, "                                    Examples: http-newline, url-safe, sql-injection,\n");
     fprintf(stream, "                                              alphanumeric-only, printable-only\n");
-    fprintf(stream, "      --list-profiles               List all available bad-character profiles\n\n");
+    fprintf(stream, "      --list-profiles               List all available bad-byte profiles\n\n");
 
     fprintf(stream, "    ML Metrics Options (requires --ml):\n");
     fprintf(stream, "      --metrics                     Enable ML metrics tracking and learning\n");
@@ -252,11 +252,11 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "    Generate position-independent code:\n");
     fprintf(stream, "      %s --pic shellcode.bin output.bin\n\n", program_name);
 
-    fprintf(stream, "    Eliminate specific bad characters (v3.0+):\n");
+    fprintf(stream, "    Eliminate specific bad bytes (v3.0+):\n");
     fprintf(stream, "      # Eliminate null, newline, and carriage return (for network protocols)\n");
-    fprintf(stream, "      %s --bad-chars \"00,0a,0d\" shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "      %s --bad-bytes \"00,0a,0d\" shellcode.bin output.bin\n\n", program_name);
     fprintf(stream, "      # Avoid space character (for command injection)\n");
-    fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "      %s --bad-bytes \"00,20\" shellcode.bin output.bin\n\n", program_name);
 
     fprintf(stream, "    Use predefined profiles (v3.0+):\n");
     fprintf(stream, "      # List all available profiles\n");
@@ -295,7 +295,7 @@ void print_version(FILE *stream) {
             BYVALVER_VERSION_MINOR, 
             BYVALVER_VERSION_PATCH);
     fprintf(stream, "Built: %s", ctime(&build_time));
-    fprintf(stream, "Copyright (c) The Monad (Mo) - Advanced Cyber Security Framework\n");
+    fprintf(stream, "UNLICENSED by 'umpolungfish'\n");
 }
 
 // Parse command line arguments
@@ -323,8 +323,8 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"format", required_argument, 0, 0},
         {"arch", required_argument, 0, 0},
         {"ml", no_argument, 0, 0},  // EXPERIMENTAL: Known to degrade performance
-        {"bad-chars", required_argument, 0, 0},  // NEW in v3.0: Generic bad character elimination
-        {"profile", required_argument, 0, 0},    // NEW in v3.0: Use predefined bad-char profile
+        {"bad-bytes", required_argument, 0, 0},  // NEW in v3.0: Generic bad byte elimination
+        {"profile", required_argument, 0, 0},    // NEW in v3.0: Use predefined bad-byte profile
         {"list-profiles", no_argument, 0, 0},    // NEW in v3.0: List available profiles
 
         // ML Metrics options
@@ -433,44 +433,44 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                             return EXIT_INVALID_ARGUMENTS;
                         }
                     }
-                    else if (strcmp(opt_name, "bad-chars") == 0) {
-                        // Parse bad characters (v3.0)
-                        if (config->bad_chars) {
-                            free(config->bad_chars);  // Free default config
+                    else if (strcmp(opt_name, "bad-bytes") == 0) {
+                        // Parse bad bytes (v3.0)
+                        if (config->bad_bytes) {
+                            free(config->bad_bytes);  // Free default config
                         }
-                        config->bad_chars = parse_bad_chars_string(optarg);
-                        if (!config->bad_chars) {
-                            fprintf(stderr, "Error: Invalid --bad-chars format: %s\n", optarg);
+                        config->bad_bytes = parse_bad_bytes_string(optarg);
+                        if (!config->bad_bytes) {
+                            fprintf(stderr, "Error: Invalid --bad-bytes format: %s\n", optarg);
                             fprintf(stderr, "Expected: comma-separated hex bytes (e.g., \"00,0a,0d\")\n");
                             return EXIT_INVALID_ARGUMENTS;
                         }
                     }
                     else if (strcmp(opt_name, "profile") == 0) {
                         // Use predefined profile (v3.0)
-                        const badchar_profile_t *profile = find_badchar_profile(optarg);
+                        const badbyte_profile_t *profile = find_badbyte_profile(optarg);
                         if (!profile) {
                             fprintf(stderr, "Error: Unknown profile: %s\n", optarg);
                             fprintf(stderr, "Use --list-profiles to see available profiles.\n");
                             return EXIT_INVALID_ARGUMENTS;
                         }
 
-                        if (config->bad_chars) {
-                            free(config->bad_chars);
+                        if (config->bad_bytes) {
+                            free(config->bad_bytes);
                         }
-                        config->bad_chars = profile_to_config(profile);
-                        if (!config->bad_chars) {
+                        config->bad_bytes = profile_to_config(profile);
+                        if (!config->bad_bytes) {
                             fprintf(stderr, "Error: Failed to load profile: %s\n", optarg);
                             return EXIT_INVALID_ARGUMENTS;
                         }
 
                         if (!config->quiet) {
                             fprintf(stderr, "Using profile '%s': %s\n", profile->name, profile->description);
-                            fprintf(stderr, "Eliminating %zu bad characters\n", profile->bad_char_count);
+                            fprintf(stderr, "Eliminating %zu bad bytes\n", profile->bad_byte_count);
                         }
                     }
                     else if (strcmp(opt_name, "list-profiles") == 0) {
                         // List available profiles
-                        list_badchar_profiles(stdout);
+                        list_badbyte_profiles(stdout);
                         exit(EXIT_SUCCESS);
                     }
                     else if (strcmp(opt_name, "format") == 0) {
@@ -669,12 +669,12 @@ int load_config_file(const char *config_path, byvalver_config_t *config) {
                 config->output_format = strdup(value);
             }
         }
-        else if (strcmp(current_section, "bad_characters") == 0) {
-            if (strcmp(key, "bad_chars") == 0) {
-                bad_char_config_t *bad_chars = parse_bad_chars_string(value);
-                if (bad_chars) {
-                    if (config->bad_chars) free(config->bad_chars);
-                    config->bad_chars = bad_chars;
+        else if (strcmp(current_section, "bad_bytes") == 0) {
+            if (strcmp(key, "bad_bytes") == 0) {
+                bad_byte_config_t *bad_bytes = parse_bad_bytes_string(value);
+                if (bad_bytes) {
+                    if (config->bad_bytes) free(config->bad_bytes);
+                    config->bad_bytes = bad_bytes;
                 }
             }
         }

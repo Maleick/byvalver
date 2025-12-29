@@ -7,7 +7,7 @@
 /*
  * PUSHF/POPF Bit Manipulation Strategy for Bad Character Elimination
  *
- * PURPOSE: Detect flag-setting instructions that may encode with bad characters.
+ * PURPOSE: Detect flag-setting instructions that may encode with bad bytes.
  * Transform using PUSHF/POPF to manipulate EFLAGS register bits directly.
  *
  * TECHNIQUE: Instead of flag-setting instructions that may have bad char encodings,

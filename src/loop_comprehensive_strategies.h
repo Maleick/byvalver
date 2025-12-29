@@ -20,7 +20,7 @@
  * 2. LOOPE target → DEC ECX; JZ end; JE target; end:
  * 3. LOOPNE target → DEC ECX; JZ end; JNE target; end:
  *
- * All LOOP variants use 8-bit displacement which may contain bad characters.
+ * All LOOP variants use 8-bit displacement which may contain bad bytes.
  * The transformation uses standard conditional jumps which we can further
  * transform if needed.
  *

@@ -85,8 +85,8 @@ input_shellcode = (
 # input_charset = U_CASE + L_CASE
 input_charset = ALL_CHARS
 
-# badchars = b''
-badchars = b''
+# badbytes = b''
+badbytes = b''
 
 nops = ASCII_NOPS
 
@@ -96,12 +96,12 @@ nops = ASCII_NOPS
 
 class ASCII_Encoder(object):
 
-    def __init__(self, shellcode_, charset_, badchars_, nops_):
+    def __init__(self, shellcode_, charset_, badbytes_, nops_):
 
         # Constructor args
         self.shellcode = bytearray(shellcode_)
         self.charset = charset_
-        self.badchars = badchars_
+        self.badbytes = badbytes_
         self.nops = nops_
 
         # Private vars
@@ -113,7 +113,7 @@ class ASCII_Encoder(object):
     def encode(self):
 
         self.align_to_dwords()
-        self.remove_badchars()
+        self.remove_badbytes()
         self.derive_dwords_sub()
         self.compensate_overflow()
         self.derived_dwords_to_sub_operands()
@@ -129,11 +129,11 @@ class ASCII_Encoder(object):
         if 0 < pad_count < 4:
             self.shellcode += nop * pad_count
 
-    def remove_badchars(self):
+    def remove_badbytes(self):
 
-        for badchar in self.badchars:
-            self.charset = self.charset.replace(bytes([badchar]), b'')
-            self.nops = self.nops.replace(bytes([badchar]), b'')
+        for badbyte in self.badbytes:
+            self.charset = self.charset.replace(bytes([badbyte]), b'')
+            self.nops = self.nops.replace(bytes([badbyte]), b'')
 
     def derive_dwords_sub(self):
 
@@ -143,7 +143,7 @@ class ASCII_Encoder(object):
             0x100 - (0x21+0x21) = 0xbe
 
             We need to select x, y, z such that it gives target when summed and all of
-            x, y, z is ASCII and non-badchar
+            x, y, z is ASCII and non-badbyte
             """
 
             # Get all possible solutions
@@ -151,7 +151,7 @@ class ASCII_Encoder(object):
             results = []
             for x, y in all_xy:
                 z = target - (x + y)
-                # Get only bytes which are ASCII and non-badchar
+                # Get only bytes which are ASCII and non-badbyte
                 if (0 < z < 256) and (z in self.charset):
                     results.append({
                         'x': x,
@@ -275,6 +275,6 @@ class ASCII_Encoder(object):
 
 if __name__ == '__main__':
 
-    encoder = ASCII_Encoder(input_shellcode, input_charset, badchars, nops)
+    encoder = ASCII_Encoder(input_shellcode, input_charset, badbytes, nops)
     encoder.encode()
     encoder.print_payload()

@@ -80,7 +80,7 @@ void generate_push_pop_immediate(struct buffer *b, cs_insn *insn) {
     uint32_t value_to_load = (uint32_t)src_op->imm;
 
     // Check if we can PUSH the value directly without creating nulls
-    if (is_bad_char_free(value_to_load)) {
+    if (is_bad_byte_free(value_to_load)) {
         // We can PUSH the value directly
         // PUSH value_to_load
         generate_push_imm32(b, value_to_load);

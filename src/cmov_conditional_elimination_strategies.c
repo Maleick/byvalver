@@ -1,13 +1,13 @@
 /*
  * CMOV Conditional Move Elimination Strategies
  *
- * PROBLEM: CMOV instructions (CMOVcc family) often contain bad characters in:
+ * PROBLEM: CMOV instructions (CMOVcc family) often contain bad bytes in:
  * - ModR/M bytes (0F 44 xx patterns can contain nulls)
- * - Displacement bytes when accessing memory with bad character offsets
+ * - Displacement bytes when accessing memory with bad byte offsets
  * - CMOV is common in modern shellcode for anti-debugging and branchless logic
  *
  * SOLUTION: Replace CMOV with equivalent logic using SETcc + arithmetic operations
- * to maintain branchless execution semantics while avoiding bad characters.
+ * to maintain branchless execution semantics while avoiding bad bytes.
  */
 
 #include "cmov_conditional_elimination_strategies.h"
@@ -336,7 +336,7 @@ int can_handle_cmov_elimination_strategy(cs_insn *insn) {
         case X86_INS_CMOVO:
         case X86_INS_CMOVP:
         case X86_INS_CMOVS:
-            // Check if the CMOV instruction has bad characters in its encoding
+            // Check if the CMOV instruction has bad bytes in its encoding
             // For now, we'll handle all CMOV instructions as they can potentially have bad chars in ModR/M
             return 1;
         default:

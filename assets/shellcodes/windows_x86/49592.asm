@@ -15,7 +15,7 @@
 # Function address of CreateProcessA in kernel32.dll: 0x77082082
 # Function address of ExitProcess in kernel32.dll: 0x770d214f
 # Administartor user credentials: alfred:test
-# Size of message db parameter, 152 bytes -> 0x98 hex =3D 0x111111A9 - 0x11111111 (0x00 badchar avoidance) ;)
+# Size of message db parameter, 152 bytes -> 0x98 hex =3D 0x111111A9 - 0x11111111 (0x00 badbyte avoidance) ;)
 #
 
 

@@ -69,14 +69,14 @@ void generate_custom_hash_pattern(struct buffer *b, cs_insn *insn) {
             // Find a safe adjustment value to make all bytes non-zero
             for (int attempt = 1; attempt < 256; attempt++) {
                 uint32_t test_hash = original_hash + attempt;
-                if (is_bad_char_free(test_hash)) {
+                if (is_bad_byte_free(test_hash)) {
                     adjusted_hash = test_hash;
                     compensation = attempt;
                     break;
                 }
 
                 test_hash = original_hash - attempt;
-                if (is_bad_char_free(test_hash)) {
+                if (is_bad_byte_free(test_hash)) {
                     adjusted_hash = test_hash;
                     compensation = -attempt;
                     break;

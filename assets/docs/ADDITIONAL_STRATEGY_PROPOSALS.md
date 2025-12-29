@@ -1,9 +1,9 @@
-# BYVALVER: Additional Bad-Character Elimination Strategy Proposals
+# BYVALVER: Additional Bad-Byte Elimination Strategy Proposals
 
 **Date:** 2025-12-19
 **Version:** 3.0+
 **Status:** Design Proposal (Supplement to NEW_STRATEGY_PROPOSALS.md)
-**Target:** Generic bad-character elimination framework enhancement
+**Target:** Generic bad-byte elimination framework enhancement
 
 ## Executive Summary
 
@@ -137,7 +137,7 @@ xor ecx, eax          ; Restore ECX or swap to EDX
 
 #### Expected Benefits
 
-- **Branch Elimination:** No conditional jumps with bad-char offsets
+- **Branch Elimination:** No conditional jumps with bad-byte offsets
 - **Null Avoidance:** Replaces CMOV encoding that may have null ModR/M bytes
 - **High Applicability:** CMOV is common in modern compiler output and hand-written shellcode
 - **Spectre-Safe:** Maintains branchless execution semantics
@@ -248,7 +248,7 @@ popf
 #### Expected Benefits
 
 - **Null Elimination:** Avoids REP prefix and instruction encoding nulls
-- **Flexibility:** Loop-based approach allows bad-char avoidance in offsets
+- **Flexibility:** Loop-based approach allows bad-byte avoidance in offsets
 - **Size Control:** Can optimize small vs large counts
 - **Compatibility:** Maintains functional equivalence
 
@@ -263,7 +263,7 @@ popf
 #### Problem Statement
 
 Atomic operations (XADD, CMPXCHG, LOCK prefix) are used in multi-threaded shellcode and rootkits for synchronization. These instructions:
-- Use LOCK prefix (F0h) which may combine with opcodes to form bad characters
+- Use LOCK prefix (F0h) which may combine with opcodes to form bad bytes
 - Encode with complex ModR/M bytes
 - Often operate on memory with displacements containing nulls
 
@@ -353,13 +353,13 @@ Windows shellcode frequently accesses Thread Environment Block (TEB) and Process
 - `FS:[0]` on x86 points to TEB
 - `GS:[60h]` on x64 points to PEB
 
-Current PEB strategies use inline assembly and hashing, but don't optimize segment prefix usage for bad-character elimination.
+Current PEB strategies use inline assembly and hashing, but don't optimize segment prefix usage for bad-byte elimination.
 
 Segment prefix bytes:
 - `64h` - FS: segment override
 - `65h` - GS: segment override
 
-These may combine with following bytes to form bad characters.
+These may combine with following bytes to form bad bytes.
 
 #### Target Patterns
 
@@ -437,7 +437,7 @@ mov eax, [ebx]        ; Load value
 
 #### Problem Statement
 
-The x87 Floating-Point Unit (FPU) stack provides an alternative data storage mechanism that can be exploited for encoding integer values and avoiding bad characters in GPR operations.
+The x87 Floating-Point Unit (FPU) stack provides an alternative data storage mechanism that can be exploited for encoding integer values and avoiding bad bytes in GPR operations.
 
 FPU operations:
 - Use ST(0)-ST(7) register stack
@@ -541,11 +541,11 @@ The XLAT (translate byte) instruction provides table-based byte translation:
 - `xlat` or `xlatb`: `AL = [EBX + AL]`
 - Can be used for byte remapping, encoding, and obfuscation
 
-Current strategies don't utilize XLAT for bad-character avoidance.
+Current strategies don't utilize XLAT for bad-byte avoidance.
 
 #### Use Cases
 
-1. **Byte Remapping:** Remap bad characters to safe characters, translate back at runtime
+1. **Byte Remapping:** Remap bad bytes to safe characters, translate back at runtime
 2. **Encoding:** Use XLAT as a substitution cipher
 3. **Compact Lookups:** Replace switch statements with table lookups
 
@@ -781,9 +781,9 @@ daa                       ; Adjust: AL = 0x42 (BCD 42)
 **Priority: Very Low** - BCD instructions are:
 1. x86 only (invalid in x64 long mode)
 2. Extremely complex to generate automatically
-3. Provide minimal bad-char avoidance benefit
+3. Provide minimal bad-byte avoidance benefit
 
-Implement only for comprehensive obfuscation module, not for core bad-char elimination.
+Implement only for comprehensive obfuscation module, not for core bad-byte elimination.
 
 ---
 
@@ -1082,13 +1082,13 @@ popf
 
 #### Problem Statement
 
-LOOP instruction family provides compact iteration but may have bad-character issues in displacement bytes:
+LOOP instruction family provides compact iteration but may have bad-byte issues in displacement bytes:
 
 - **LOOP** (E2 cb): Decrement ECX, jump if ECX≠0
 - **LOOPE/LOOPZ** (E1 cb): Decrement ECX, jump if ECX≠0 and ZF=1
 - **LOOPNE/LOOPNZ** (E0 cb): Decrement ECX, jump if ECX≠0 and ZF=0
 
-Displacement (cb) is 8-bit signed (-128 to +127), may contain bad characters.
+Displacement (cb) is 8-bit signed (-128 to +127), may contain bad bytes.
 
 Current loop strategies likely exist but may not be comprehensive.
 
@@ -1460,7 +1460,7 @@ Implement ultra-high and high priority strategies from BOTH documents:
 
 ### Unit Testing (Per Strategy)
 1. Create targeted test cases for each instruction pattern
-2. Verify bad-character elimination for:
+2. Verify bad-byte elimination for:
    - Null bytes (0x00) - primary target
    - Common profiles (http-newline, sql-injection, etc.)
    - Extreme profiles (alphanumeric-only)
@@ -1469,7 +1469,7 @@ Implement ultra-high and high priority strategies from BOTH documents:
 ### Integration Testing (Per Phase)
 1. Process real-world shellcode samples
 2. Measure:
-   - Success rate (% bad-char-free)
+   - Success rate (% bad-byte-free)
    - Size overhead (expansion ratio)
    - Processing time
 3. Identify failure modes and edge cases
@@ -1489,7 +1489,7 @@ Implement ultra-high and high priority strategies from BOTH documents:
 
 ## Conclusion
 
-This document proposes **15 additional bad-character elimination strategies** targeting under-covered instruction families and advanced x86/x64 patterns. Combined with the 10 strategies in NEW_STRATEGY_PROPOSALS.md, this provides a roadmap for **25 new strategies** to enhance BYVALVER's capabilities.
+This document proposes **15 additional bad-byte elimination strategies** targeting under-covered instruction families and advanced x86/x64 patterns. Combined with the 10 strategies in NEW_STRATEGY_PROPOSALS.md, this provides a roadmap for **25 new strategies** to enhance BYVALVER's capabilities.
 
 **Key Highlights:**
 1. **Foundational:** Partial register optimization (Strategy 19)

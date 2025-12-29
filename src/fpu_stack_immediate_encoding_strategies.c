@@ -1,9 +1,9 @@
 /*
  * FPU Stack Immediate Encoding Strategy for Bad Character Elimination
  *
- * PROBLEM: Immediate values that contain bad characters can't be loaded
+ * PROBLEM: Immediate values that contain bad bytes can't be loaded
  * directly. FPU instructions can be used to load and manipulate values
- * in alternative ways that may avoid bad characters.
+ * in alternative ways that may avoid bad bytes.
  *
  * SOLUTION: Use FPU stack operations (FLD, FSTP, etc.) to load immediate
  * values indirectly, or use FPU arithmetic to construct values.
@@ -15,7 +15,7 @@
 #include <stdlib.h>
 
 /**
- * Transform immediate load with bad characters using FPU stack
+ * Transform immediate load with bad bytes using FPU stack
  *
  * Original: MOV EAX, 0x00123456 (contains null byte)
  * Transform: Create float representation on stack, move to integer register
@@ -25,7 +25,7 @@ int can_handle_fpu_immediate_encoding(cs_insn *insn) {
         return 0;
     }
     
-    // Check if this is a MOV instruction with immediate that might contain bad characters
+    // Check if this is a MOV instruction with immediate that might contain bad bytes
     if (insn->id == X86_INS_MOV && insn->detail->x86.op_count == 2) {
         cs_x86_op *dst_op = &insn->detail->x86.operands[0];
         cs_x86_op *src_op = &insn->detail->x86.operands[1];
@@ -33,7 +33,7 @@ int can_handle_fpu_immediate_encoding(cs_insn *insn) {
         // Check if destination is a register and source is an immediate value
         if (dst_op->type == X86_OP_REG && src_op->type == X86_OP_IMM) {
             // For now, we'll consider any MOV with immediate as a candidate
-            // In a real implementation, we'd check against the bad character set
+            // In a real implementation, we'd check against the bad byte set
             return 1;
         }
     }
@@ -76,9 +76,9 @@ void generate_fpu_immediate_encoding(struct buffer *b, cs_insn *insn) {
     // But first, let's try to decompose the immediate into operations that avoid bad chars
     
     // For now, we'll implement a fallback that uses arithmetic to construct the value
-    // if it contains bad characters
+    // if it contains bad bytes
     
-    // Check if immediate contains bad characters (simplified check for null)
+    // Check if immediate contains bad bytes (simplified check for null)
     if ((imm_val & 0xFF) == 0x00 || ((imm_val >> 8) & 0xFF) == 0x00 || 
         ((imm_val >> 16) & 0xFF) == 0x00 || ((imm_val >> 24) & 0xFF) == 0x00) {
         
@@ -121,7 +121,7 @@ void generate_fpu_immediate_encoding(struct buffer *b, cs_insn *insn) {
             buffer_append(b, insn->bytes, insn->size);
         }
     } else {
-        // No bad characters, use original
+        // No bad bytes, use original
         buffer_append(b, insn->bytes, insn->size);
     }
 }

@@ -14,7 +14,7 @@
 /**
  * Register all register dependency chain optimization strategies.
  * These strategies analyze multi-instruction patterns and optimize
- * them together for better bad-character elimination.
+ * them together for better bad-byte elimination.
  *
  * Strategies included:
  * 1. Value Accumulation Optimization (Priority 91)

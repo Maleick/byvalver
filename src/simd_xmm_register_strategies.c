@@ -1,7 +1,7 @@
 /*
  * SIMD XMM Register Immediate Loading Strategy
  *
- * PROBLEM: MOV immediate instructions may contain bad characters.
+ * PROBLEM: MOV immediate instructions may contain bad bytes.
  *
  * SOLUTION: Use SIMD XMM registers as an alternative data path to load
  * and transfer values, particularly for zero initialization.
@@ -57,8 +57,8 @@ int can_handle_simd_xmm(cs_insn *insn) {
         return 0;
     }
 
-    // Check if the instruction encoding contains bad characters
-    if (!is_bad_char_free_buffer(insn->bytes, insn->size)) {
+    // Check if the instruction encoding contains bad bytes
+    if (!is_bad_byte_free_buffer(insn->bytes, insn->size)) {
         return 1;  // Has bad chars, we can handle it
     }
 

@@ -35,9 +35,9 @@ int validate_config(byvalver_config_t *config) {
         return 0; // Input file is required
     }
     
-    // Validate bad character configuration
-    if (!config->bad_chars) {
-        return 0; // Bad character config should be set
+    // Validate bad byte configuration
+    if (!config->bad_bytes) {
+        return 0; // Bad byte config should be set
     }
     
     return 1; // Valid configuration
@@ -58,16 +58,16 @@ void reset_config_to_defaults(byvalver_config_t *config) {
         config->output_file = "output.bin"; // Default value
     }
     
-    if (config->bad_chars) {
-        free(config->bad_chars);
+    if (config->bad_bytes) {
+        free(config->bad_bytes);
     }
     
-    // Create default bad character configuration (null byte only)
-    config->bad_chars = calloc(1, sizeof(bad_char_config_t));
-    if (config->bad_chars) {
-        config->bad_chars->bad_chars[0x00] = 1;
-        config->bad_chars->bad_char_list[0] = 0x00;
-        config->bad_chars->bad_char_count = 1;
+    // Create default bad byte configuration (null byte only)
+    config->bad_bytes = calloc(1, sizeof(bad_byte_config_t));
+    if (config->bad_bytes) {
+        config->bad_bytes->bad_bytes[0x00] = 1;
+        config->bad_bytes->bad_byte_list[0] = 0x00;
+        config->bad_bytes->bad_byte_count = 1;
     }
     
     // Reset flags
@@ -108,11 +108,11 @@ int save_config_to_file(byvalver_config_t *config, const char *filename) {
     fprintf(file, "show_stats=%d\n", config->show_stats);
     fprintf(file, "validate_output=%d\n", config->validate_output);
     
-    // Save bad characters
-    fprintf(file, "bad_chars=");
+    // Save bad bytes
+    fprintf(file, "bad_bytes=");
     int first = 1;
     for (int i = 0; i < 256; i++) {
-        if (config->bad_chars && config->bad_chars->bad_chars[i]) {
+        if (config->bad_bytes && config->bad_bytes->bad_bytes[i]) {
             if (!first) fprintf(file, ",");
             fprintf(file, "%02x", i);
             first = 0;
@@ -185,12 +185,12 @@ int load_config_from_file(byvalver_config_t *config, const char *filename) {
         else if (strcmp(key, "validate_output") == 0) {
             config->validate_output = atoi(value);
         }
-        else if (strcmp(key, "bad_chars") == 0) {
-            // Parse bad characters
-            if (config->bad_chars) {
-                free(config->bad_chars);
+        else if (strcmp(key, "bad_bytes") == 0) {
+            // Parse bad bytes
+            if (config->bad_bytes) {
+                free(config->bad_bytes);
             }
-            config->bad_chars = parse_bad_chars_string(value);
+            config->bad_bytes = parse_bad_bytes_string(value);
         }
     }
     

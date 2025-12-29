@@ -115,7 +115,7 @@ void generate_cmp_reg_imm_null(struct buffer *b, cs_insn *insn) {
         // MOV temp_reg, imm (construct null-free)
         uint32_t val = (uint32_t)imm;
 
-        if (!is_bad_char_free(val)) {
+        if (!is_bad_byte_free(val)) {
             // Try arithmetic equivalent first
             uint32_t base, offset;
             int operation;

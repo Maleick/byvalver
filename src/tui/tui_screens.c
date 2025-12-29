@@ -2,7 +2,7 @@
 #include "tui_screens.h"
 #include "tui_file_browser.h"  // Include file browser header
 #include "tui_config_builder.h"  // Include config builder for save/load/reset
-#include "../badchar_profiles.h"  // Include bad character profiles header
+#include "../badbyte_profiles.h"  // Include bad byte profiles header
 #include "../processing.h"  // Include processing function header
 #include "../core.h"  // Include core functions
 #include "../strategy.h"  // Include strategy initialization
@@ -34,7 +34,7 @@ void draw_main_menu(byvalver_config_t *config, int current_selection) {
     draw_menu_item(row++, 2, "1. Process Single File", current_selection == 1);
     draw_menu_item(row++, 2, "2. Batch Process Directory", current_selection == 2);
     draw_menu_item(row++, 2, "3. Processing Options", current_selection == 3);
-    draw_menu_item(row++, 2, "4. Bad Characters", current_selection == 4);
+    draw_menu_item(row++, 2, "4. Bad Bytes", current_selection == 4);
     draw_menu_item(row++, 2, "5. Output Format", current_selection == 5);
     draw_menu_item(row++, 2, "6. ML Metrics", current_selection == 6);
     draw_menu_item(row++, 2, "7. Advanced Options", current_selection == 7);
@@ -85,7 +85,7 @@ int show_main_screen(byvalver_config_t *config) {
                     result = show_options_screen(config, &sub_selection);
                     break;
                 case 4:
-                    result = show_bad_chars_screen(config, &sub_selection);
+                    result = show_bad_bytes_screen(config, &sub_selection);
                     break;
                 case 5:
                     result = show_output_format_screen(config, &sub_selection);
@@ -171,7 +171,7 @@ int show_main_screen(byvalver_config_t *config) {
             attron(COLOR_PAIR(4));
             mvprintw(row++, col, "Quick Start:");
             attroff(COLOR_PAIR(4));
-            mvprintw(row++, col, "  1. Set bad characters (optional)");
+            mvprintw(row++, col, "  1. Set bad bytes (optional)");
             mvprintw(row++, col, "  2. Select input/output file");
             mvprintw(row++, col, "  3. Configure processing options");
             mvprintw(row++, col, "  4. Start processing");
@@ -451,20 +451,20 @@ int show_main_screen(byvalver_config_t *config) {
                     }
                 } else if (active_screen == BAD_CHARS_SCREEN) {
                     if (sub_selection >= 1 && sub_selection <= 5) {
-                        // Ensure bad_chars is initialized
-                        if (!config->bad_chars) {
-                            config->bad_chars = calloc(1, sizeof(bad_char_config_t));
+                        // Ensure bad_bytes is initialized
+                        if (!config->bad_bytes) {
+                            config->bad_bytes = calloc(1, sizeof(bad_byte_config_t));
                         }
 
                         if (sub_selection == 1) {
                             // Load Profile - arrow-key navigation
-                            init_badchar_profiles();
+                            init_badbyte_profiles();
                             int selected_profile = 0;
                             int done = 0;
 
                             while (!done) {
                                 clear_right_panel();
-                                draw_right_panel_header("Select Bad Character Profile");
+                                draw_right_panel_header("Select Bad Byte Profile");
                                 int prof_row = 5;
                                 int prof_col = RIGHT_PANEL_START + 2;
 
@@ -472,7 +472,7 @@ int show_main_screen(byvalver_config_t *config) {
                                 prof_row++;
 
                                 for (size_t i = 0; i < NUM_PROFILES; i++) {
-                                    const badchar_profile_t *profile = &BADCHAR_PROFILES[i];
+                                    const badbyte_profile_t *profile = &BADBYTE_PROFILES[i];
                                     if ((int)i == selected_profile) {
                                         attron(COLOR_PAIR(2) | A_BOLD);
                                         mvprintw(prof_row, prof_col, " -> ");
@@ -493,17 +493,17 @@ int show_main_screen(byvalver_config_t *config) {
                                 } else if (ch == KEY_DOWN || ch == 'j' || ch == 'J') {
                                     selected_profile = (selected_profile < (int)NUM_PROFILES - 1) ? selected_profile + 1 : 0;
                                 } else if (ch == '\n' || ch == '\r' || ch == ' ') {
-                                    const badchar_profile_t *profile = &BADCHAR_PROFILES[selected_profile];
-                                    bad_char_config_t *new_config = profile_to_config(profile);
+                                    const badbyte_profile_t *profile = &BADBYTE_PROFILES[selected_profile];
+                                    bad_byte_config_t *new_config = profile_to_config(profile);
                                     if (new_config) {
-                                        if (config->bad_chars) free(config->bad_chars);
-                                        config->bad_chars = new_config;
+                                        if (config->bad_bytes) free(config->bad_bytes);
+                                        config->bad_bytes = new_config;
                                         clear_right_panel();
                                         draw_right_panel_header("Profile Loaded");
                                         attron(COLOR_PAIR(4));
                                         mvprintw(5, RIGHT_PANEL_START + 2, "Loaded: %s", profile->name);
                                         attroff(COLOR_PAIR(4));
-                                        mvprintw(6, RIGHT_PANEL_START + 2, "%zu bad characters", profile->bad_char_count);
+                                        mvprintw(6, RIGHT_PANEL_START + 2, "%zu bad bytes", profile->bad_byte_count);
                                         mvprintw(8, RIGHT_PANEL_START + 2, "Press any key...");
                                         refresh();
                                         getch();
@@ -514,12 +514,12 @@ int show_main_screen(byvalver_config_t *config) {
                                 }
                             }
                         } else if (sub_selection == 2) {
-                            // Add bad character
+                            // Add bad byte
                             char input[32] = "";
                             int input_row = LINES - 3;
 
                             clear_right_panel();
-                            draw_right_panel_header("Add Bad Character");
+                            draw_right_panel_header("Add Bad Byte");
                             mvprintw(input_row, RIGHT_PANEL_START + 2, "Enter hex value (e.g., 0x0A or 0A): ");
                             echo();
                             curs_set(1);
@@ -531,20 +531,20 @@ int show_main_screen(byvalver_config_t *config) {
                                 unsigned int byte_val;
                                 if (sscanf(input, "0x%x", &byte_val) == 1 || sscanf(input, "%x", &byte_val) == 1) {
                                     if (byte_val <= 0xFF) {
-                                        if (!config->bad_chars->bad_chars[byte_val]) {
-                                            config->bad_chars->bad_chars[byte_val] = 1;
-                                            config->bad_chars->bad_char_list[config->bad_chars->bad_char_count++] = (uint8_t)byte_val;
+                                        if (!config->bad_bytes->bad_bytes[byte_val]) {
+                                            config->bad_bytes->bad_bytes[byte_val] = 1;
+                                            config->bad_bytes->bad_byte_list[config->bad_bytes->bad_byte_count++] = (uint8_t)byte_val;
                                         }
                                     }
                                 }
                             }
                         } else if (sub_selection == 3) {
-                            // Remove bad character
+                            // Remove bad byte
                             char input[32] = "";
                             int input_row = LINES - 3;
 
                             clear_right_panel();
-                            draw_right_panel_header("Remove Bad Character");
+                            draw_right_panel_header("Remove Bad Byte");
                             mvprintw(input_row, RIGHT_PANEL_START + 2, "Enter hex value (e.g., 0x0A or 0A): ");
                             echo();
                             curs_set(1);
@@ -555,28 +555,28 @@ int show_main_screen(byvalver_config_t *config) {
                             if (strlen(input) > 0) {
                                 unsigned int byte_val;
                                 if (sscanf(input, "0x%x", &byte_val) == 1 || sscanf(input, "%x", &byte_val) == 1) {
-                                    if (byte_val <= 0xFF && config->bad_chars->bad_chars[byte_val]) {
-                                        config->bad_chars->bad_chars[byte_val] = 0;
-                                        // Rebuild bad_char_list
-                                        config->bad_chars->bad_char_count = 0;
+                                    if (byte_val <= 0xFF && config->bad_bytes->bad_bytes[byte_val]) {
+                                        config->bad_bytes->bad_bytes[byte_val] = 0;
+                                        // Rebuild bad_byte_list
+                                        config->bad_bytes->bad_byte_count = 0;
                                         for (int i = 0; i < 256; i++) {
-                                            if (config->bad_chars->bad_chars[i]) {
-                                                config->bad_chars->bad_char_list[config->bad_chars->bad_char_count++] = (uint8_t)i;
+                                            if (config->bad_bytes->bad_bytes[i]) {
+                                                config->bad_bytes->bad_byte_list[config->bad_bytes->bad_byte_count++] = (uint8_t)i;
                                             }
                                         }
                                     }
                                 }
                             }
                         } else if (sub_selection == 4) {
-                            // Clear all bad characters
-                            memset(config->bad_chars->bad_chars, 0, 256);
-                            config->bad_chars->bad_char_count = 0;
+                            // Clear all bad bytes
+                            memset(config->bad_bytes->bad_bytes, 0, 256);
+                            config->bad_bytes->bad_byte_count = 0;
                         } else if (sub_selection == 5) {
                             // Reset to default (0x00 only)
-                            memset(config->bad_chars->bad_chars, 0, 256);
-                            config->bad_chars->bad_chars[0] = 1;
-                            config->bad_chars->bad_char_count = 1;
-                            config->bad_chars->bad_char_list[0] = 0x00;
+                            memset(config->bad_bytes->bad_bytes, 0, 256);
+                            config->bad_bytes->bad_bytes[0] = 1;
+                            config->bad_bytes->bad_byte_count = 1;
+                            config->bad_bytes->bad_byte_list[0] = 0x00;
                         }
                     }
                 } else if (active_screen == ML_METRICS_SCREEN) {
@@ -891,26 +891,26 @@ int show_options_screen(byvalver_config_t *config, int *current_selection) {
     return -1;
 }
 
-// Bad chars screen - fully interactive
-int show_bad_chars_screen(byvalver_config_t *config, int *current_selection) {
+// Bad bytes screen - fully interactive
+int show_bad_bytes_screen(byvalver_config_t *config, int *current_selection) {
     clear_right_panel();
-    draw_right_panel_header("Bad Characters");
+    draw_right_panel_header("Bad Bytes");
 
     int row = 5;
     int col = RIGHT_PANEL_START + 2;
 
-    // Display current bad characters
+    // Display current bad bytes
     attron(A_BOLD | COLOR_PAIR(4));
-    mvprintw(row++, col, "Current Bad Characters:");
+    mvprintw(row++, col, "Current Bad Bytes:");
     attroff(A_BOLD | COLOR_PAIR(4));
     row++; // empty line
 
-    if (config->bad_chars && config->bad_chars->bad_char_count > 0) {
+    if (config->bad_bytes && config->bad_bytes->bad_byte_count > 0) {
         // Display in rows of 8 for better readability
         int count = 0;
         char line_buf[256] = "";
         for (int i = 0; i < 256; i++) {
-            if (config->bad_chars->bad_chars[i]) {
+            if (config->bad_bytes->bad_bytes[i]) {
                 char tmp[8];
                 if (count > 0 && count % 8 == 0) {
                     mvprintw(row++, col + 2, "%s", line_buf);
@@ -927,13 +927,13 @@ int show_bad_chars_screen(byvalver_config_t *config, int *current_selection) {
         }
         row++; // empty line
         attron(COLOR_PAIR(5));
-        mvprintw(row++, col + 2, "Total: %d bad character%s",
-                 config->bad_chars->bad_char_count,
-                 config->bad_chars->bad_char_count == 1 ? "" : "s");
+        mvprintw(row++, col + 2, "Total: %d bad byte%s",
+                 config->bad_bytes->bad_byte_count,
+                 config->bad_bytes->bad_byte_count == 1 ? "" : "s");
         attroff(COLOR_PAIR(5));
     } else {
         attron(COLOR_PAIR(5));
-        mvprintw(row++, col + 2, "No bad characters configured");
+        mvprintw(row++, col + 2, "No bad bytes configured");
         attroff(COLOR_PAIR(5));
     }
 
@@ -948,17 +948,17 @@ int show_bad_chars_screen(byvalver_config_t *config, int *current_selection) {
 
     const char *options[] = {
         "Load Profile",
-        "Add Bad Character",
-        "Remove Bad Character",
+        "Add Bad Byte",
+        "Remove Bad Byte",
         "Clear All",
         "Reset to Default (0x00)"
     };
 
     const char *descriptions[] = {
-        "Load a pre-configured bad character profile",
-        "Add a new bad character (hex value)",
-        "Remove a bad character from the list",
-        "Remove all bad characters",
+        "Load a pre-configured bad byte profile",
+        "Add a new bad byte (hex value)",
+        "Remove a bad byte from the list",
+        "Remove all bad bytes",
         "Reset to only null byte (0x00)"
     };
 
@@ -1545,11 +1545,11 @@ int show_processing_screen(byvalver_config_t *config) {
             init_obfuscation_strategies();
         }
 
-        mvprintw(row++, 5, "Initializing bad character context...");
+        mvprintw(row++, 5, "Initializing bad byte context...");
         refresh();
 
-        // Initialize bad character context for processing
-        init_bad_char_context(config->bad_chars);
+        // Initialize bad byte context for processing
+        init_bad_byte_context(config->bad_bytes);
 
         mvprintw(row++, 5, "Setting up batch statistics...");
         refresh();
@@ -1559,12 +1559,12 @@ int show_processing_screen(byvalver_config_t *config) {
         batch_stats_init(&stats);
         stats.total_files = file_list.count;
 
-        // Set bad character configuration in stats
-        bad_char_config_t* bad_char_config = get_bad_char_config();
-        if (bad_char_config) {
-            stats.bad_char_count = bad_char_config->bad_char_count;
+        // Set bad byte configuration in stats
+        bad_byte_config_t* bad_byte_config = get_bad_byte_config();
+        if (bad_byte_config) {
+            stats.bad_byte_count = bad_byte_config->bad_byte_count;
             for (int i = 0; i < 256; i++) {
-                stats.bad_char_set[i] = bad_char_config->bad_chars[i];
+                stats.bad_byte_set[i] = bad_byte_config->bad_bytes[i];
             }
         }
 
@@ -1626,29 +1626,29 @@ int show_processing_screen(byvalver_config_t *config) {
             mvprintw(left_row++, left_col, " ");
             mvprintw(left_row++, left_col, "Configuration:");
 
-            // Bad characters
-            if (config->bad_chars && config->bad_chars->bad_char_count > 0) {
+            // Bad bytes
+            if (config->bad_bytes && config->bad_bytes->bad_byte_count > 0) {
                 attron(COLOR_PAIR(5));
-                // Build hex string of bad chars from bad_char_list (not bitmap)
-                char bad_chars_str[256];
+                // Build hex string of bad bytes from bad_byte_list (not bitmap)
+                char bad_bytes_str[256];
                 int pos = 0;
-                for (int bc = 0; bc < config->bad_chars->bad_char_count && pos < 250; bc++) {
+                for (int bc = 0; bc < config->bad_bytes->bad_byte_count && pos < 250; bc++) {
                     if (bc > 0) {
-                        pos += snprintf(bad_chars_str + pos, sizeof(bad_chars_str) - pos, ",");
+                        pos += snprintf(bad_bytes_str + pos, sizeof(bad_bytes_str) - pos, ",");
                     }
-                    pos += snprintf(bad_chars_str + pos, sizeof(bad_chars_str) - pos,
-                                   "%02x", config->bad_chars->bad_char_list[bc]);
+                    pos += snprintf(bad_bytes_str + pos, sizeof(bad_bytes_str) - pos,
+                                   "%02x", config->bad_bytes->bad_byte_list[bc]);
                 }
                 // Show actual chars if <= 25 chars, otherwise show count
-                if (strlen(bad_chars_str) <= 25) {
-                    mvprintw(left_row++, left_col, "  Bad chars: %s", bad_chars_str);
+                if (strlen(bad_bytes_str) <= 25) {
+                    mvprintw(left_row++, left_col, "  Bad bytes: %s", bad_bytes_str);
                 } else {
-                    mvprintw(left_row++, left_col, "  Bad chars: %d configured", config->bad_chars->bad_char_count);
+                    mvprintw(left_row++, left_col, "  Bad bytes: %d configured", config->bad_bytes->bad_byte_count);
                 }
                 attroff(COLOR_PAIR(5));
             } else {
                 attron(COLOR_PAIR(5));
-                mvprintw(left_row++, left_col, "  Bad chars: 00");
+                mvprintw(left_row++, left_col, "  Bad bytes: 00");
                 attroff(COLOR_PAIR(5));
             }
 
@@ -1850,10 +1850,10 @@ int show_processing_screen(byvalver_config_t *config) {
                 if (input_file) {
                     uint8_t *input_data = malloc(input_size);
                     if (input_data && fread(input_data, 1, input_size, input_file) == input_size) {
-                        int instr_count, bad_char_count;
-                        count_shellcode_stats(input_data, input_size, &instr_count, &bad_char_count);
+                        int instr_count, bad_byte_count;
+                        count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
                         batch_stats_add_file_stats(&stats, input_path, input_size,
-                                                 output_size, instr_count, bad_char_count, 1);
+                                                 output_size, instr_count, bad_byte_count, 1);
                     }
                     if (input_data) free(input_data);
                     fclose(input_file);
@@ -1872,10 +1872,10 @@ int show_processing_screen(byvalver_config_t *config) {
                     if (fsize > 0) {
                         uint8_t *input_data = malloc(fsize);
                         if (input_data && fread(input_data, 1, fsize, input_file) == fsize) {
-                            int instr_count, bad_char_count;
-                            count_shellcode_stats(input_data, input_size, &instr_count, &bad_char_count);
+                            int instr_count, bad_byte_count;
+                            count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
                             batch_stats_add_file_stats(&stats, input_path, fsize,
-                                                     0, instr_count, bad_char_count, 0);
+                                                     0, instr_count, bad_byte_count, 0);
                         }
                         if (input_data) free(input_data);
                     }
@@ -1946,8 +1946,8 @@ int show_processing_screen(byvalver_config_t *config) {
             init_obfuscation_strategies();
         }
 
-        // Initialize bad character context for processing
-        init_bad_char_context(config->bad_chars);
+        // Initialize bad byte context for processing
+        init_bad_byte_context(config->bad_bytes);
 
         mvprintw(row++, 5, "Processing file...");
         refresh();
@@ -2003,14 +2003,14 @@ int show_processing_screen(byvalver_config_t *config) {
         // Configuration display
         mvprintw(row++, 5, "Configuration:");
 
-        // Bad characters
-        if (config->bad_chars && config->bad_chars->bad_char_count > 0) {
+        // Bad bytes
+        if (config->bad_bytes && config->bad_bytes->bad_byte_count > 0) {
             attron(COLOR_PAIR(5));
-            mvprintw(row++, 5, "  Bad chars: %d configured", config->bad_chars->bad_char_count);
+            mvprintw(row++, 5, "  Bad bytes: %d configured", config->bad_bytes->bad_byte_count);
             attroff(COLOR_PAIR(5));
         } else {
             attron(COLOR_PAIR(5));
-            mvprintw(row++, 5, "  Bad chars: Default (0x00)");
+            mvprintw(row++, 5, "  Bad bytes: Default (0x00)");
             attroff(COLOR_PAIR(5));
         }
 
@@ -2082,7 +2082,7 @@ int show_about_screen() {
     int col = RIGHT_PANEL_START + 2;
 
     attron(A_BOLD | COLOR_PAIR(4));
-    mvprintw(row++, col, "byvalver - Bad-Character Elimination Framework");
+    mvprintw(row++, col, "byvalver - Bad-Byte Elimination Framework");
     attroff(A_BOLD | COLOR_PAIR(4));
 
     row++; // empty line
@@ -2093,7 +2093,7 @@ int show_about_screen() {
     mvprintw(row++, col, "Description:");
     attroff(A_BOLD);
     mvprintw(row++, col, "Advanced C-based command-line tool for automated");
-    mvprintw(row++, col, "elimination of bad characters from shellcode while");
+    mvprintw(row++, col, "elimination of bad bytes from shellcode while");
     mvprintw(row++, col, "preserving functional equivalence.");
     row++; // empty line
 
@@ -2101,7 +2101,7 @@ int show_about_screen() {
     mvprintw(row++, col, "Core Features:");
     attroff(A_BOLD | COLOR_PAIR(4));
     mvprintw(row++, col, "  * Null-byte elimination");
-    mvprintw(row++, col, "  * Generic bad character removal");
+    mvprintw(row++, col, "  * Generic bad byte removal");
     mvprintw(row++, col, "  * Biphasic processing");
     mvprintw(row++, col, "    (obfuscation + elimination)");
     mvprintw(row++, col, "  * Position-independent code (PIC)");

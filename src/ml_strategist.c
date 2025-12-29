@@ -135,8 +135,8 @@ int ml_strategist_init(ml_strategist_t* strategist, const char* model_path) {
 static int ml_extract_single_instruction_features(cs_insn* insn,
                                                    double* output,
                                                    int offset,
-                                                   int* has_bad_chars_out,
-                                                   int* bad_char_count_out) {
+                                                   int* has_bad_bytes_out,
+                                                   int* bad_byte_count_out) {
     if (!insn || !output) {
         return -1;
     }
@@ -149,22 +149,22 @@ static int ml_extract_single_instruction_features(cs_insn* insn,
         output[idx++] = (i == onehot_idx) ? 1.0 : 0.0;
     }
 
-    // Check for bad characters
-    int has_bad_chars = !is_bad_char_free_buffer(insn->bytes, insn->size);
-    int bad_char_count = 0;
+    // Check for bad bytes
+    int has_bad_bytes = !is_bad_byte_free_buffer(insn->bytes, insn->size);
+    int bad_byte_count = 0;
     for (size_t i = 0; i < insn->size; i++) {
-        if (!is_bad_char_free_byte(insn->bytes[i])) {
-            bad_char_count++;
+        if (!is_bad_byte_free_byte(insn->bytes[i])) {
+            bad_byte_count++;
         }
     }
 
-    if (has_bad_chars_out) *has_bad_chars_out = has_bad_chars;
-    if (bad_char_count_out) *bad_char_count_out = bad_char_count;
+    if (has_bad_bytes_out) *has_bad_bytes_out = has_bad_bytes;
+    if (bad_byte_count_out) *bad_byte_count_out = bad_byte_count;
 
     // [51-54] Basic features
     output[idx++] = (double)insn->size;
-    output[idx++] = (double)has_bad_chars;
-    output[idx++] = (double)bad_char_count;
+    output[idx++] = (double)has_bad_bytes;
+    output[idx++] = (double)bad_byte_count;
     output[idx++] = (double)insn->detail->x86.op_count;
 
     // [55-58] Operand types
@@ -270,8 +270,8 @@ static void ml_update_history_buffer(instruction_history_t* history,
  * NEW FEATURE LAYOUT v2.0 (84 dimensions per instruction):
  * [0-50]   : One-hot instruction encoding (51 dims)
  * [51]     : instruction_size (1-15 bytes)
- * [52]     : has_bad_chars (0 or 1)
- * [53]     : bad_char_count (0-N)
+ * [52]     : has_bad_bytes (0 or 1)
+ * [53]     : bad_byte_count (0-N)
  * [54]     : operand_count (0-4)
  * [55-58]  : operand_type[0-3] (4 slots)
  * [59-62]  : register[0-3] (4 slots)
@@ -287,8 +287,8 @@ static void ml_update_history_buffer(instruction_history_t* history,
  * OLD LAYOUT for reference:
  * [0]      : instruction_id (categorical, will be one-hot encoded later)
  * [1]      : instruction_size (1-15 bytes)
- * [2]      : has_bad_chars (0 or 1)
- * [3]      : bad_char_count (0-N)
+ * [2]      : has_bad_bytes (0 or 1)
+ * [3]      : bad_byte_count (0-N)
  * [4]      : operand_count (0-4)
  * [5-8]    : operand_type[0-3] (always 4 slots, 0 if unused)
  * [9-12]   : register[0-3] (always 4 slots, 0 if not REG type)
@@ -309,21 +309,21 @@ int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* featu
     memset(features, 0, sizeof(instruction_features_t));
 
     // Extract current instruction features at offset 0 (v2.0: one-hot encoding)
-    int has_bad_chars, bad_char_count;
+    int has_bad_bytes, bad_byte_count;
     ml_extract_single_instruction_features(insn, features->features, 0,
-                                          &has_bad_chars, &bad_char_count);
+                                          &has_bad_bytes, &bad_byte_count);
 
     // Store metadata
     features->instruction_type = insn->id;
-    features->has_bad_chars = has_bad_chars;
-    features->has_nulls = has_bad_chars;  // Backward compatibility
-    features->bad_char_count = bad_char_count;
+    features->has_bad_bytes = has_bad_bytes;
+    features->has_nulls = has_bad_bytes;  // Backward compatibility
+    features->bad_byte_count = bad_byte_count;
 
-    // Extract bad character types bitmap
-    memset(features->bad_char_types, 0, sizeof(features->bad_char_types));
+    // Extract bad byte types bitmap
+    memset(features->bad_byte_types, 0, sizeof(features->bad_byte_types));
     for (size_t i = 0; i < insn->size; i++) {
-        if (!is_bad_char_free_byte(insn->bytes[i])) {
-            features->bad_char_types[insn->bytes[i]] = 1;
+        if (!is_bad_byte_free_byte(insn->bytes[i])) {
+            features->bad_byte_types[insn->bytes[i]] = 1;
         }
     }
 
@@ -819,17 +819,17 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         }
     }
 
-    // Track instruction processing with bad character awareness (v3.0)
+    // Track instruction processing with bad byte awareness (v3.0)
     if (g_ml_metrics) {
-        // Record the bad character configuration for this session if not already recorded
+        // Record the bad byte configuration for this session if not already recorded
         // This would typically happen once per session when processing starts
-        // For now, we'll record the instruction processing with bad character count
-        uint8_t bad_chars_in_insn[256] = {0};
+        // For now, we'll record the instruction processing with bad byte count
+        uint8_t bad_bytes_in_insn[256] = {0};
         for (int i = 0; i < 256; i++) {
-            bad_chars_in_insn[i] = features.bad_char_types[i];
+            bad_bytes_in_insn[i] = features.bad_byte_types[i];
         }
 
-        ml_metrics_record_instruction_processed_v3(g_ml_metrics, bad_chars_in_insn, features.bad_char_count);
+        ml_metrics_record_instruction_processed_v3(g_ml_metrics, bad_bytes_in_insn, features.bad_byte_count);
     }
 
     // Check if the applied strategy matches our prediction and record it
@@ -903,23 +903,23 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         }
     }
 
-    // Record strategy result metrics with bad character awareness (v3.0)
+    // Record strategy result metrics with bad byte awareness (v3.0)
     if (g_ml_metrics && applied_strategy != NULL) {
-        // Calculate bad characters eliminated (more accurate than just using features.has_nulls)
-        int bad_chars_eliminated = 0;
+        // Calculate bad bytes eliminated (more accurate than just using features.has_nulls)
+        int bad_bytes_eliminated = 0;
 
         // In a real implementation, we'd compare the original instruction bytes
-        // with the transformed bytes to count how many bad characters were eliminated
-        // For now, we'll use features.bad_char_count as a proxy if the strategy was successful
+        // with the transformed bytes to count how many bad bytes were eliminated
+        // For now, we'll use features.bad_byte_count as a proxy if the strategy was successful
         if (success) {
-            bad_chars_eliminated = features.bad_char_count;
+            bad_bytes_eliminated = features.bad_byte_count;
         }
 
         // Record the strategy result using the new v3 function
         ml_metrics_record_strategy_result_v3(g_ml_metrics,
                                              applied_strategy->name,
                                              success,
-                                             bad_chars_eliminated,
+                                             bad_bytes_eliminated,
                                              (int)new_shellcode_size,
                                              0.0); // processing_time_ms placeholder
     }
@@ -1132,11 +1132,11 @@ void ml_strategist_print_strategy_breakdown(void) {
 }
 
 /**
- * @brief Print bad character elimination breakdown
+ * @brief Print bad byte elimination breakdown
  */
-void ml_strategist_print_bad_char_breakdown(void) {
+void ml_strategist_print_bad_byte_breakdown(void) {
     if (g_ml_metrics) {
-        ml_metrics_print_bad_char_breakdown(g_ml_metrics);
+        ml_metrics_print_bad_byte_breakdown(g_ml_metrics);
     }
 }
 

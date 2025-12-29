@@ -16,19 +16,19 @@ int can_handle_immediate_splitting_enhanced(cs_insn *insn) {
     }
 
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_bad_char_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         // Only use this strategy if other high-priority strategies can't handle it
         uint32_t neg_val, not_val, encoded_val;
         uint32_t val1, val2;
         int is_add;
         
         // Don't use if NEG strategy can handle it efficiently
-        if (find_neg_equivalent(imm, &neg_val) && is_bad_char_free(neg_val)) {
+        if (find_neg_equivalent(imm, &neg_val) && is_bad_byte_free(neg_val)) {
             return 0;
         }
         
         // Don't use if NOT strategy can handle it efficiently
-        if (find_not_equivalent(imm, &not_val) && is_bad_char_free(not_val)) {
+        if (find_not_equivalent(imm, &not_val) && is_bad_byte_free(not_val)) {
             return 0;
         }
         
@@ -38,7 +38,7 @@ int can_handle_immediate_splitting_enhanced(cs_insn *insn) {
         }
         
         // Don't use if ADD/SUB strategy can handle it efficiently
-        if (find_addsub_key(imm, &val1, &val2, &is_add) && is_bad_char_free(val1) && is_bad_char_free(val2)) {
+        if (find_addsub_key(imm, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
             return 0;
         }
         
@@ -116,7 +116,7 @@ int can_handle_small_immediate_enhanced(cs_insn *insn) {
     }
 
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_bad_char_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         // For small immediates with null bytes that other strategies can't handle
         return 1;
     }
@@ -173,7 +173,7 @@ int can_handle_large_immediate_enhanced(cs_insn *insn) {
 
     // Target large immediates (more than 16 bits) that contain null bytes
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_bad_char_free(imm) && imm > 0xFFFF) {
+    if (!is_bad_byte_free(imm) && imm > 0xFFFF) {
         return 1;
     }
     

@@ -7,7 +7,7 @@
 /*
  * JECXZ/JRCXZ Zero-Test Jump Transformation Strategy
  *
- * PURPOSE: Replace JECXZ/JRCXZ instructions that have bad characters in their
+ * PURPOSE: Replace JECXZ/JRCXZ instructions that have bad bytes in their
  * displacement bytes with equivalent TEST + JZ sequences.
  *
  * TECHNIQUE:
@@ -15,14 +15,14 @@
  * - JECXZ rel8 (E3 cb): Jump if ECX = 0 (x86/x64 compatibility mode)
  * - JRCXZ rel8 (E3 cb): Jump if RCX = 0 (x64 native mode)
  *
- * The displacement is 8-bit signed (-128 to +127) and may contain bad characters.
+ * The displacement is 8-bit signed (-128 to +127) and may contain bad bytes.
  *
  * Transformation:
  * JECXZ target (E3 XX) => TEST ECX, ECX; JZ target
  * JRCXZ target (E3 XX) => TEST RCX, RCX; JZ target
  *
  * Benefits:
- * - Eliminates bad characters in displacement byte
+ * - Eliminates bad bytes in displacement byte
  * - TEST instruction sets ZF based on bitwise AND (without modifying operands)
  * - JZ can use longer displacement if needed (or further transformations)
  *

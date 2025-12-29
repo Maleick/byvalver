@@ -1,10 +1,10 @@
 /*
  * BCD Arithmetic for Obfuscated Constant Generation Strategy
  *
- * PROBLEM: MOV immediate instructions may contain bad characters in the immediate value.
+ * PROBLEM: MOV immediate instructions may contain bad bytes in the immediate value.
  *
  * SOLUTION: Use BCD arithmetic instructions (AAM, AAD, DAA, DAS) to construct
- * constant values through arithmetic operations, providing obfuscation and bad-char avoidance.
+ * constant values through arithmetic operations, providing obfuscation and bad-byte avoidance.
  *
  * Example:
  * Original: mov al, 0x2A  (42 decimal, may have bad chars)
@@ -56,8 +56,8 @@ int can_handle_bcd_arithmetic(cs_insn *insn) {
         return 0;
     }
 
-    // Check if the instruction encoding contains bad characters
-    if (!is_bad_char_free_buffer(insn->bytes, insn->size)) {
+    // Check if the instruction encoding contains bad bytes
+    if (!is_bad_byte_free_buffer(insn->bytes, insn->size)) {
         return 1;  // Has bad chars, we can handle it
     }
 

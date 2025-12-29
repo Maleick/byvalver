@@ -1,5 +1,5 @@
 graph TB
-   subgraph "Bad-Character Configuration Layer"
+   subgraph "Bad-Byte Configuration Layer"
        CLI_INPUT[CLI Input]
        DIRECT[Direct Specification<br/>--bad-chars XX,YY,ZZ]
        PROFILE[Profile-Based<br/>--profile profile-name]
@@ -21,11 +21,11 @@ graph TB
        end
 
        PARSE[Parse Bad-Char String<br/>parse_bad_chars_string]
-       FIND_PROF[Find Profile<br/>find_badchar_profile]
+       FIND_PROF[Find Profile<br/>find_badbyte_profile]
        PROF_TO_CONFIG[Profile to Config<br/>profile_to_config]
    end
 
-   subgraph "Bad-Character Context v3.0"
+   subgraph "Bad-Byte Context v3.0"
        BAD_CHAR_CONFIG[bad_char_config_t]
 
        subgraph "O1 Bitmap Lookup"
@@ -40,7 +40,7 @@ graph TB
        RESET_CTX[reset_bad_char_context<br/>Reset to uninitialized]
    end
 
-   subgraph "Bad-Character Detection"
+   subgraph "Bad-Byte Detection"
        CHECK_INSN[Check Instruction<br/>has_null_bytes]
        ITERATE_BYTES[Iterate Instruction Bytes]
        BITMAP_LOOKUP[O1 Bitmap Lookup<br/>bad_chars[byte]]

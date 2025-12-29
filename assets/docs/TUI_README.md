@@ -2,7 +2,7 @@
 
 ## Overview
 
-byvalver includes a fully-featured interactive TUI mode with **complete CLI feature parity**. The TUI provides an intuitive, visual interface for all bad-character elimination operations, including advanced features like batch processing with live statistics, ML configuration, and comprehensive file browsing.
+byvalver includes a fully-featured interactive TUI mode with **complete CLI feature parity**. The TUI provides an intuitive, visual interface for all bad-byte elimination operations, including advanced features like batch processing with live statistics, ML configuration, and comprehensive file browsing.
 
 ## Recent Improvements (December 2025)
 
@@ -12,7 +12,7 @@ byvalver includes a fully-featured interactive TUI mode with **complete CLI feat
   - Right panel: Strategy usage statistics table
   - Vertical separator (ASCII `|`) divides the panels
   - Maximizes visible information without scrolling
-- ✅ **Arrow-Key Profile Navigation**: Improved bad-character profile selection
+- ✅ **Arrow-Key Profile Navigation**: Improved bad-byte profile selection
   - Navigate all 13 profiles with arrow keys or j/k (vi-style)
   - Fixes number input limitation (typing "10" was interpreted as "1")
   - Wrap-around navigation (top↔bottom)
@@ -52,7 +52,7 @@ byvalver includes a fully-featured interactive TUI mode with **complete CLI feat
 - ✅ **Graphical File Browser**: Restored file/directory browsing functionality
   - Available in both single file and batch processing screens
   - Browse input/output files and directories visually
-- ✅ **Bad-Character Profiles**: Restored profile selection interface
+- ✅ **Bad-Byte Profiles**: Restored profile selection interface
   - Access to all 13 pre-configured profiles (http-newline, sql-injection, etc.)
   - Arrow-key navigation with visual selection indicator
   - Load profile option in Bad Characters screen
@@ -140,8 +140,8 @@ Progress: [==========================                    ] 52/100
 
 **Live File Statistics** (Color-Coded)
 - **Completed**: Shows progress as "X / Y" (files attempted / total files)
-- ✅ **Successful**: Green text - files with zero bad characters remaining
-- ❌ **Failed**: Red text - files with errors or remaining bad characters
+- ✅ **Successful**: Green text - files with zero bad bytes remaining
+- ❌ **Failed**: Red text - files with errors or remaining bad bytes
 - **Success rate**: Percentage calculated from successful completions
 
 **Current File Display**
@@ -203,7 +203,7 @@ Choose from 5 supported formats with descriptions:
 ### 6. Advanced Options
 - **XOR Encoding** - Enable/disable XOR encoding with custom key (hex format)
 - **Show Statistics** - Display detailed statistics after processing
-- **Validate Output** - Verify output for bad characters
+- **Validate Output** - Verify output for bad bytes
 - **Set Strategy Limit** - Limit number of strategies (0 = unlimited)
 - **Set Timeout** - Configure timeout in seconds (0 = no timeout)
 - **Set Max File Size** - Maximum file size in bytes
@@ -326,7 +326,7 @@ The TUI integrates seamlessly with the core byvalver functionality:
 
 - **Same processing engine** as CLI mode
 - **All 165+ transformation strategies** available
-- **Full bad-character elimination** capabilities
+- **Full bad-byte elimination** capabilities
 - **Identical output** to CLI mode
 - **Supports all output formats** (raw, C, Python, PowerShell, hexstring)
 - **Configuration file compatibility** between TUI and CLI

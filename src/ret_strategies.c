@@ -55,7 +55,7 @@ size_t get_ret_immediate_size(cs_insn *insn) {
     } else if (imm <= 0x7F) {
         // If value is small but would be 0x00 as a byte, use byte-by-byte
         return (imm * 3) + 1;
-    } else if (is_bad_char_free(imm)) {
+    } else if (is_bad_byte_free(imm)) {
         // Use: ADD ESP, imm32 (0x81 0xC4 imm32) + RET (0xC3)
         return 6 + 1;  // 7 bytes total
     } else {
@@ -80,7 +80,7 @@ void generate_ret_immediate(struct buffer *b, cs_insn *insn) {
             uint8_t add_esp_1[] = {0x83, 0xC4, 0x01};
             buffer_append(b, add_esp_1, 3);
         }
-    } else if (is_bad_char_free(imm)) {
+    } else if (is_bad_byte_free(imm)) {
         // Generate: ADD ESP, imm32 (0x81 0xC4 imm32_le)
         uint8_t add_esp_imm32[] = {
             0x81, 0xC4,

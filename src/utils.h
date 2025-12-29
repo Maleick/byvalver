@@ -88,23 +88,23 @@ int find_arithmetic_equivalent(uint32_t target, uint32_t *base, uint32_t *offset
 // Generic Bad Character Checking Functions (v3.0)
 // ============================================================================
 
-// Check if a single byte is free of bad characters
-int is_bad_char_free_byte(uint8_t byte);
+// Check if a single byte is free of bad bytes
+int is_bad_byte_free_byte(uint8_t byte);
 
-// Check if a 32-bit value is free of bad characters
-int is_bad_char_free(uint32_t val);
+// Check if a 32-bit value is free of bad bytes
+int is_bad_byte_free(uint32_t val);
 
-// Check if a buffer is free of bad characters
-int is_bad_char_free_buffer(const uint8_t *data, size_t size);
+// Check if a buffer is free of bad bytes
+int is_bad_byte_free_buffer(const uint8_t *data, size_t size);
 
 // ============================================================================
 // Backward Compatibility Wrappers (DEPRECATED in v3.0)
 // ============================================================================
 
-// DEPRECATED: Use is_bad_char_free() instead
+// DEPRECATED: Use is_bad_byte_free() instead
 int is_null_free(uint32_t val);
 
-// DEPRECATED: Use is_bad_char_free_byte() instead
+// DEPRECATED: Use is_bad_byte_free_byte() instead
 int is_null_free_byte(uint8_t byte);
 
 // Create parent directories for a file path if they don't exist

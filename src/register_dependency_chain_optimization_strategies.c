@@ -5,7 +5,7 @@
  * Applicability: Universal (60% of shellcode has dependency chains)
  *
  * Implements multi-instruction pattern optimization by analyzing register
- * dependency chains and optimizing them together to avoid bad characters
+ * dependency chains and optimizing them together to avoid bad bytes
  * more efficiently than single-instruction strategies.
  *
  * This strategy recognizes common patterns like:
@@ -36,7 +36,7 @@ typedef struct {
     int length;                  // Number of instructions in chain
     uint32_t final_value;        // Final computed value (for accumulation)
     x86_reg target_reg;          // Target register
-    int has_bad_chars;           // Does original chain have bad chars?
+    int has_bad_bytes;           // Does original chain have bad chars?
 } chain_analysis_t;
 
 /**
@@ -59,11 +59,11 @@ static int analyze_chain(cs_insn *insn, chain_analysis_t *analysis) {
         insn->detail->x86.operands[1].type == X86_OP_IMM) {
 
         uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-        if (!is_bad_char_free(imm)) {
+        if (!is_bad_byte_free(imm)) {
             analysis->pattern = PATTERN_VALUE_ACCUMULATION;
             analysis->target_reg = insn->detail->x86.operands[0].reg;
             analysis->final_value = imm;
-            analysis->has_bad_chars = 1;
+            analysis->has_bad_bytes = 1;
             return 1;
         }
     }
@@ -78,7 +78,7 @@ static int analyze_chain(cs_insn *insn, chain_analysis_t *analysis) {
         analysis->pattern = PATTERN_ARITHMETIC_SEQ;
         analysis->target_reg = insn->detail->x86.operands[0].reg;
         analysis->final_value = 0;
-        analysis->has_bad_chars = 0;
+        analysis->has_bad_bytes = 0;
         return 1;
     }
 
@@ -101,7 +101,7 @@ int can_handle_value_accumulation_optimization(cs_insn *insn) {
     }
 
     return (analysis.pattern == PATTERN_VALUE_ACCUMULATION &&
-            analysis.has_bad_chars);
+            analysis.has_bad_bytes);
 }
 
 size_t get_size_value_accumulation_optimization(cs_insn *insn) {
@@ -134,7 +134,7 @@ void generate_value_accumulation_optimization(struct buffer *b, cs_insn *insn) {
     uint8_t xor_zero[] = {0x31, (uint8_t)(0xC0 + (reg_code << 3) + reg_code)};
     buffer_append(b, xor_zero, 2);
 
-    // Load bytes individually if they're bad-char-free
+    // Load bytes individually if they're bad-byte-free
     uint8_t bytes[4] = {
         target_value & 0xFF,
         (target_value >> 8) & 0xFF,
@@ -145,7 +145,7 @@ void generate_value_accumulation_optimization(struct buffer *b, cs_insn *insn) {
     // Check if byte-wise construction is viable
     int all_bytes_safe = 1;
     for (int i = 0; i < 4; i++) {
-        if (!is_bad_char_free_byte(bytes[i])) {
+        if (!is_bad_byte_free_byte(bytes[i])) {
             all_bytes_safe = 0;
             break;
         }
@@ -200,7 +200,7 @@ int can_handle_register_copy_chain(cs_insn *insn) {
  * Strategy: Arithmetic Sequence Recognition
  *
  * Handles: XOR eax, eax; INC eax; SHL eax, 12 (pattern: creates 0x1000)
- * Transform: MOV eax, 0x1000 (with bad-char-free encoding)
+ * Transform: MOV eax, 0x1000 (with bad-byte-free encoding)
  *
  * Priority: 88
  */
@@ -232,7 +232,7 @@ void generate_arithmetic_sequence_recognition(struct buffer *b, cs_insn *insn) {
 /**
  * Strategy: Instruction Reordering for Bad-Char Avoidance
  *
- * Handles: Sequences where reordering can eliminate bad characters
+ * Handles: Sequences where reordering can eliminate bad bytes
  * Example: MOV eax, [ebp+0x100]; ADD eax, 5
  *       -> MOV eax, 5; ADD eax, [ebp+0x100] (if reverse has fewer bad chars)
  *

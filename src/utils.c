@@ -619,7 +619,7 @@ void generate_mov_reg_imm_shift(struct buffer *b, cs_insn *insn) {
     // Try left shifts (SHL) - useful when low bytes are zero
     for (int shift_amount = 1; shift_amount <= 24; shift_amount++) {
         uint32_t shifted = target << shift_amount;
-        if (is_bad_char_free(shifted)) {
+        if (is_bad_byte_free(shifted)) {
             // MOV reg, shifted_value
             cs_insn temp_insn = *insn;
             temp_insn.detail->x86.operands[1].imm = shifted;
@@ -637,7 +637,7 @@ void generate_mov_reg_imm_shift(struct buffer *b, cs_insn *insn) {
     // Try right shifts (SHR) - useful when high bytes are zero
     for (int shift_amount = 1; shift_amount <= 24; shift_amount++) {
         uint32_t shifted = target >> shift_amount;
-        if (shifted != 0 && is_bad_char_free(shifted)) {
+        if (shifted != 0 && is_bad_byte_free(shifted)) {
             // MOV reg, shifted_value
             cs_insn temp_insn = *insn;
             temp_insn.detail->x86.operands[1].imm = shifted;
@@ -752,7 +752,7 @@ void generate_xor_encoded_mov(struct buffer *b, cs_insn *insn) {
 
     for (size_t i = 0; i < sizeof(xor_keys)/sizeof(xor_keys[0]); i++) {
         uint32_t encoded = target ^ xor_keys[i];
-        if (is_bad_char_free(encoded) && is_bad_char_free(xor_keys[i])) {
+        if (is_bad_byte_free(encoded) && is_bad_byte_free(xor_keys[i])) {
             // MOV reg, encoded_value
             cs_insn temp_insn = *insn;
             temp_insn.detail->x86.operands[1].imm = encoded;
@@ -804,7 +804,7 @@ int find_addsub_key(uint32_t target, uint32_t *val1, uint32_t *val2, int *is_add
     for (size_t i = 0; i < sizeof(offsets)/sizeof(offsets[0]); i++) {
         // Try SUB: val1 - offset = target  =>  val1 = target + offset
         uint32_t temp_val1 = target + offsets[i];
-        if (is_bad_char_free(temp_val1) && is_bad_char_free(offsets[i])) {
+        if (is_bad_byte_free(temp_val1) && is_bad_byte_free(offsets[i])) {
             *val1 = temp_val1;
             *val2 = offsets[i];
             *is_add = 0; // SUB
@@ -813,7 +813,7 @@ int find_addsub_key(uint32_t target, uint32_t *val1, uint32_t *val2, int *is_add
 
         // Try ADD: val1 + offset = target  =>  val1 = target - offset
         temp_val1 = target - offsets[i];
-        if (is_bad_char_free(temp_val1) && is_bad_char_free(offsets[i])) {
+        if (is_bad_byte_free(temp_val1) && is_bad_byte_free(offsets[i])) {
             *val1 = temp_val1;
             *val2 = offsets[i];
             *is_add = 1; // ADD
@@ -825,10 +825,10 @@ int find_addsub_key(uint32_t target, uint32_t *val1, uint32_t *val2, int *is_add
     for (int i = 0; i < 5000; i++) {  // Increased from 1000
         // Use a local random approach to avoid global state issues
         uint32_t temp_val2 = (uint32_t)rand() | 0x01010101; // Ensure no zero bytes by ORing with pattern
-        if (!is_bad_char_free(temp_val2)) continue;
+        if (!is_bad_byte_free(temp_val2)) continue;
 
         uint32_t temp_val1 = target + temp_val2;
-        if (is_bad_char_free(temp_val1)) {
+        if (is_bad_byte_free(temp_val1)) {
             *val1 = temp_val1;
             *val2 = temp_val2;
             *is_add = 0;
@@ -836,7 +836,7 @@ int find_addsub_key(uint32_t target, uint32_t *val1, uint32_t *val2, int *is_add
         }
 
         temp_val1 = target - temp_val2;
-        if (is_bad_char_free(temp_val1)) {
+        if (is_bad_byte_free(temp_val1)) {
             *val1 = temp_val1;
             *val2 = temp_val2;
             *is_add = 1;
@@ -1077,49 +1077,49 @@ void generate_op_reg_imm_not(struct buffer *b, cs_insn *insn) {
 // ============================================================================
 
 /**
- * Check if a single byte is free of bad characters
- * Uses global bad character context for O(1) lookup
+ * Check if a single byte is free of bad bytes
+ * Uses global bad byte context for O(1) lookup
  * @param byte: Byte to check
  * @return: 1 if ok, 0 if bad
  */
-int is_bad_char_free_byte(uint8_t byte) {
+int is_bad_byte_free_byte(uint8_t byte) {
     // If context uninitialized, default to null-byte checking only
-    if (!g_bad_char_context.initialized) {
+    if (!g_bad_byte_context.initialized) {
         return byte != 0x00;
     }
     // O(1) bitmap lookup
-    return g_bad_char_context.config.bad_chars[byte] == 0;
+    return g_bad_byte_context.config.bad_bytes[byte] == 0;
 }
 
 /**
- * Check if a 32-bit value is free of bad characters
+ * Check if a 32-bit value is free of bad bytes
  * @param val: 32-bit value to check
  * @return: 1 if all 4 bytes ok, 0 if any byte is bad
  */
-int is_bad_char_free(uint32_t val) {
+int is_bad_byte_free(uint32_t val) {
     // Check each byte
     for (int i = 0; i < 4; i++) {
         uint8_t byte = (val >> (i * 8)) & 0xFF;
-        if (!is_bad_char_free_byte(byte)) {
-            return 0;  // Found a bad character
+        if (!is_bad_byte_free_byte(byte)) {
+            return 0;  // Found a bad byte
         }
     }
     return 1;  // All bytes ok
 }
 
 /**
- * Check if a buffer is free of bad characters
+ * Check if a buffer is free of bad bytes
  * @param data: Buffer to check
  * @param size: Buffer size
  * @return: 1 if all bytes ok, 0 if any byte is bad
  */
-int is_bad_char_free_buffer(const uint8_t *data, size_t size) {
+int is_bad_byte_free_buffer(const uint8_t *data, size_t size) {
     if (!data) {
         return 1;  // NULL buffer is considered ok
     }
     for (size_t i = 0; i < size; i++) {
-        if (!is_bad_char_free_byte(data[i])) {
-            return 0;  // Found a bad character
+        if (!is_bad_byte_free_byte(data[i])) {
+            return 0;  // Found a bad byte
         }
     }
     return 1;  // All bytes ok
@@ -1130,19 +1130,19 @@ int is_bad_char_free_buffer(const uint8_t *data, size_t size) {
 // ============================================================================
 
 /**
- * DEPRECATED: Use is_bad_char_free_byte() instead
+ * DEPRECATED: Use is_bad_byte_free_byte() instead
  * Maintained for backward compatibility
  */
 int is_null_free_byte(uint8_t byte) {
-    return is_bad_char_free_byte(byte);
+    return is_bad_byte_free_byte(byte);
 }
 
 /**
- * DEPRECATED: Use is_bad_char_free() instead
+ * DEPRECATED: Use is_bad_byte_free() instead
  * Maintained for backward compatibility
  */
 int is_null_free(uint32_t val) {
-    return is_bad_char_free(val);
+    return is_bad_byte_free(val);
 }
 
 // Find a XOR key to construct the target value without null bytes
@@ -1153,7 +1153,7 @@ int find_xor_key(uint32_t target, uint32_t *xor_key) {
     
     for (int i = 0; i < num_keys; i++) {
         uint32_t encoded = target ^ test_keys[i];
-        if (is_bad_char_free(test_keys[i]) && is_bad_char_free(encoded)) {
+        if (is_bad_byte_free(test_keys[i]) && is_bad_byte_free(encoded)) {
             *xor_key = test_keys[i];
             return 1; // Found a valid key
         }
@@ -1178,7 +1178,7 @@ int find_arithmetic_equivalent(uint32_t target, uint32_t *base, uint32_t *offset
     for (int i = 0; i < num_offsets; i++) {
         if (target >= test_offsets[i]) {  // For addition, target must be >= offset
             uint32_t test_base = target - test_offsets[i];
-            if (is_bad_char_free(test_base) && is_bad_char_free(test_offsets[i])) {
+            if (is_bad_byte_free(test_base) && is_bad_byte_free(test_offsets[i])) {
                 *base = test_base;
                 *offset = test_offsets[i];
                 *operation = 0;  // Addition
@@ -1188,7 +1188,7 @@ int find_arithmetic_equivalent(uint32_t target, uint32_t *base, uint32_t *offset
 
         // Also try subtraction: base - offset = target
         uint32_t test_base = target + test_offsets[i];
-        if (is_bad_char_free(test_base) && is_bad_char_free(test_offsets[i])) {
+        if (is_bad_byte_free(test_base) && is_bad_byte_free(test_offsets[i])) {
             *base = test_base;
             *offset = test_offsets[i];
             *operation = 1;  // Subtraction

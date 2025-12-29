@@ -7,7 +7,7 @@
 /*
  * LAHF/SAHF Flag Preservation Strategy for Bad Character Elimination
  *
- * PURPOSE: Replace LAHF/SAHF instructions that may contain bad characters
+ * PURPOSE: Replace LAHF/SAHF instructions that may contain bad bytes
  * with equivalent flag manipulation using PUSHF/POPF or manual flag handling.
  */
 

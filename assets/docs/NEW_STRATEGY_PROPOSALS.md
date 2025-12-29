@@ -1,18 +1,18 @@
-# BYVALVER: New Bad-Character Elimination Strategy Proposals
+# BYVALVER: New Bad-Byte Elimination Strategy Proposals
 
 **Date:** 2025-12-19
 **Version:** 3.0+
 **Status:** Design Proposal
-**Target:** Generic bad-character elimination framework enhancement
+**Target:** Generic bad-byte elimination framework enhancement
 
 ## Executive Summary
 
-This document proposes **10 high-value new strategies** to expand BYVALVER's bad-character elimination capabilities beyond the current 122+ null-byte-optimized strategies. The proposals address identified gaps in instruction coverage, modern x64 patterns, and generic bad-character elimination effectiveness.
+This document proposes **10 high-value new strategies** to expand BYVALVER's bad-byte elimination capabilities beyond the current 122+ null-byte-optimized strategies. The proposals address identified gaps in instruction coverage, modern x64 patterns, and generic bad-byte elimination effectiveness.
 
 **Key Focus Areas:**
 1. Modern x64 instruction patterns (SIMD, RIP-relative, syscalls)
 2. Multi-instruction optimization patterns
-3. Non-null bad-character targeting
+3. Non-null bad-byte targeting
 4. Advanced obfuscation techniques
 5. Register dependency chain optimization
 
@@ -118,7 +118,7 @@ shl eax, 8            ; EAX = 0x100 (shift left by 8)
 **File:** `src/setcc_flag_accumulation_strategies.c`
 
 #### Problem Statement
-Conditional operations often require immediate values or jump offsets with bad characters. SETcc instructions can accumulate flag results without jumps, but current strategies don't explore this pattern.
+Conditional operations often require immediate values or jump offsets with bad bytes. SETcc instructions can accumulate flag results without jumps, but current strategies don't explore this pattern.
 
 #### Target Patterns
 ```asm
@@ -179,7 +179,7 @@ imul eax, 100       ; EAX = 0 or 100 (multiply by target value)
 #### Expected Benefits
 - **Jump elimination:** Removes problematic jump offsets
 - **Linear code:** Easier to analyze and optimize
-- **Generic bad-char**: Works for any bad character in offsets
+- **Generic bad-char**: Works for any bad byte in offsets
 
 ---
 
@@ -376,7 +376,7 @@ fst st(0)            ; DD D0 (2 bytes, store ST(0) to itself)
 
 #### Expected Benefits
 - **Evasion:** Less recognizable as NOPs
-- **Null-free:** Can construct without bad characters
+- **Null-free:** Can construct without bad bytes
 - **Flexibility:** Multiple encodings for same semantic effect
 
 ---
@@ -388,7 +388,7 @@ fst st(0)            ; DD D0 (2 bytes, store ST(0) to itself)
 **File:** `src/polymorphic_immediate_construction_strategies.c`
 
 #### Problem Statement
-Current MOV immediate strategies use fixed transformation techniques. Generating multiple equivalent encodings improves bad-character avoidance and obfuscation.
+Current MOV immediate strategies use fixed transformation techniques. Generating multiple equivalent encodings improves bad-byte avoidance and obfuscation.
 
 #### Target Patterns
 ```asm
@@ -457,16 +457,16 @@ lea eax, [eax*2]          ; Double (0x100)
 ```
 
 #### Implementation Considerations
-- **Bad-char analysis:** Check each encoding variant for bad characters
-- **Scoring:** Rank variants by size, obfuscation, and bad-char avoidance
+- **Bad-char analysis:** Check each encoding variant for bad bytes
+- **Scoring:** Rank variants by size, obfuscation, and bad-byte avoidance
 - **Context awareness:** Choose variant based on register availability
 - **Caching:** Remember successful encodings for common values
 
 #### Expected Benefits
 - **Flexibility:** 5+ encoding options per immediate value
-- **Optimization:** Choose smallest bad-char-free encoding
+- **Optimization:** Choose smallest bad-byte-free encoding
 - **Evasion:** Varied encodings resist signature detection
-- **Generic bad-char:** Works for any bad character set
+- **Generic bad-char:** Works for any bad byte set
 
 ---
 
@@ -477,7 +477,7 @@ lea eax, [eax*2]          ; Double (0x100)
 **File:** `src/register_dependency_chain_optimization_strategies.c`
 
 #### Problem Statement
-Current strategies operate on individual instructions. Sequential instructions with register dependencies can be optimized together to avoid bad characters more efficiently.
+Current strategies operate on individual instructions. Sequential instructions with register dependencies can be optimized together to avoid bad bytes more efficiently.
 
 #### Target Patterns
 ```asm
@@ -707,7 +707,7 @@ pext eax, eax, ecx        ; Extract bits: 0x0000ABCD
 **File:** `src/self_modifying_runtime_patch_strategies.c`
 
 #### Problem Statement
-Traditional static transformation may introduce bad characters during encoding. Self-modifying code can write bad characters at runtime after initial bad-char filtering.
+Traditional static transformation may introduce bad bytes during encoding. Self-modifying code can write bad bytes at runtime after initial bad-byte filtering.
 
 #### Target Patterns
 ```asm
@@ -724,7 +724,7 @@ decode_loop:
     loop decode_loop
     jmp encoded_payload
 
-; Self-modification for bad-char injection
+; Self-modification for bad-byte injection
 lea eax, [rip+target]
 mov byte [eax], 0x00           ; Write null byte at runtime
 target:
@@ -749,14 +749,14 @@ target:
 // Original shellcode with many bad chars
 // Transform to:
 //   1. XOR/ADD encode entire payload
-//   2. Generate decoder loop (must be bad-char-free)
+//   2. Generate decoder loop (must be bad-byte-free)
 //   3. Decoder writes decoded payload over itself at runtime
 ```
 
 **Technique 3: Progressive Decoding**
 ```c
 // Multi-stage decoder
-// Stage 1: Minimal decoder (bad-char-free)
+// Stage 1: Minimal decoder (bad-byte-free)
 //   - Decodes Stage 2
 // Stage 2: Intermediate decoder (may have some bad chars post-decode)
 //   - Decodes final payload
@@ -785,7 +785,7 @@ target:
 
 #### Expected Benefits
 - **Ultimate flexibility:** Can encode any payload
-- **Bad-char elimination:** Decoder is bad-char-free, payload can have any
+- **Bad-char elimination:** Decoder is bad-byte-free, payload can have any
 - **Obfuscation:** Multi-stage decoding confuses analysis
 - **Historical:** Classic shellcode technique
 
@@ -824,7 +824,7 @@ target:
 
 ### Phase 1: Unit Testing
 - Test each strategy with targeted instruction patterns
-- Verify bad-character elimination for null (0x00) and common profiles
+- Verify bad-byte elimination for null (0x00) and common profiles
 - Validate output correctness (semantic equivalence)
 
 ### Phase 2: Integration Testing
@@ -838,7 +838,7 @@ target:
 - Validate ML confidence scores and accuracy
 
 ### Phase 4: Production Validation
-- Test with diverse bad-character profiles
+- Test with diverse bad-byte profiles
 - Benchmark processing speed (target: <5% slowdown)
 - Document limitations and edge cases
 
@@ -898,14 +898,14 @@ target:
 
 ## Conclusion
 
-The proposed 10 new strategies address critical gaps in BYVALVER's bad-character elimination capabilities:
+The proposed 10 new strategies address critical gaps in BYVALVER's bad-byte elimination capabilities:
 
 - **Modern x64 support** (SIMD, RIP-relative, syscalls)
-- **Generic bad-character optimization** (beyond null bytes)
+- **Generic bad-byte optimization** (beyond null bytes)
 - **Multi-instruction analysis** (dependency chains)
 - **Advanced obfuscation** (polymorphic encoding, self-modification)
 
-**Recommended Action:** Implement Tier 1 strategies (1: Syscall Obfuscation, 2: SETcc Accumulation, 6: Polymorphic Immediate) for v3.1 release, targeting +10-15% improvement in bad-character elimination success rates for non-null profiles.
+**Recommended Action:** Implement Tier 1 strategies (1: Syscall Obfuscation, 2: SETcc Accumulation, 6: Polymorphic Immediate) for v3.1 release, targeting +10-15% improvement in bad-byte elimination success rates for non-null profiles.
 
 **Estimated Development Time:**
 - Tier 1 (3 strategies): 2-3 weeks

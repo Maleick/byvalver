@@ -2,10 +2,10 @@
  * LOOP Comprehensive Variants Strategy for Bad Character Elimination
  *
  * PROBLEM: LOOP family instructions (LOOP/LOOPE/LOOPNE) use 8-bit signed
- * displacement which may contain bad characters.
+ * displacement which may contain bad bytes.
  *
  * Example: LOOP offset  (E2 XX where XX is the displacement)
- * If XX contains a bad character, we need to transform it.
+ * If XX contains a bad byte, we need to transform it.
  *
  * SOLUTION: Replace LOOP instructions with equivalent sequences:
  *
@@ -47,8 +47,8 @@ int can_handle_loop_comprehensive(cs_insn *insn) {
         return 0;
     }
 
-    // Check if the instruction encoding contains bad characters
-    if (!is_bad_char_free_buffer(insn->bytes, insn->size)) {
+    // Check if the instruction encoding contains bad bytes
+    if (!is_bad_byte_free_buffer(insn->bytes, insn->size)) {
         return 1;  // Has bad chars, we can handle it
     }
 

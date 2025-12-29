@@ -4,12 +4,12 @@
  * Priority: 86 (Tier 1 - High Priority)
  * Applicability: Universal (70% of conditional logic)
  *
- * Implements SETcc-based jump elimination to avoid bad characters in jump offsets.
+ * Implements SETcc-based jump elimination to avoid bad bytes in jump offsets.
  * Converts conditional jumps into linear SETcc operations that don't require
  * problematic displacement bytes.
  *
  * This strategy eliminates conditional jump offsets which frequently contain
- * bad characters, especially in position-independent code.
+ * bad bytes, especially in position-independent code.
  */
 
 #include "strategy.h"
@@ -61,7 +61,7 @@ static uint8_t get_setcc_opcode(x86_insn jcc_id) {
 /**
  * Strategy: SETcc Jump Elimination - Simple Conditional
  *
- * Handles: Jcc offset (where offset contains bad characters)
+ * Handles: Jcc offset (where offset contains bad bytes)
  * Transform: SETcc AL; TEST AL, AL; Jcc +small_offset (to skip next instruction)
  *
  * Priority: 86
@@ -83,13 +83,13 @@ int can_handle_setcc_jump_elimination_simple(cs_insn *insn) {
         return 0;
     }
 
-    // Check if offset contains bad characters
+    // Check if offset contains bad bytes
     int64_t offset = insn->detail->x86.operands[0].imm;
 
     // For short jumps (8-bit offset)
     if (insn->size == 2) {
         int8_t short_offset = (int8_t)(offset);
-        if (!is_bad_char_free_byte((uint8_t)short_offset)) {
+        if (!is_bad_byte_free_byte((uint8_t)short_offset)) {
             return get_setcc_opcode(insn->id) != 0;
         }
     }
@@ -97,7 +97,7 @@ int can_handle_setcc_jump_elimination_simple(cs_insn *insn) {
     // For near jumps (32-bit offset)
     if (insn->size >= 6) {
         int32_t near_offset = (int32_t)(offset);
-        if (!is_bad_char_free((uint32_t)near_offset)) {
+        if (!is_bad_byte_free((uint32_t)near_offset)) {
             return get_setcc_opcode(insn->id) != 0;
         }
     }
@@ -140,7 +140,7 @@ void generate_setcc_jump_elimination_simple(struct buffer *b, cs_insn *insn) {
 /**
  * Strategy: SETcc Jump Elimination - Flag Accumulation
  *
- * Handles: Multiple conditional branches with bad-char offsets
+ * Handles: Multiple conditional branches with bad-byte offsets
  * Transform: Accumulates flag results using SETcc and combines them
  *
  * Priority: 85
@@ -165,7 +165,7 @@ int can_handle_setcc_to_cmov(cs_insn *insn) {
         return 0;
     }
 
-    // Check if offset has bad characters
+    // Check if offset has bad bytes
     if (insn->detail->x86.op_count != 1 ||
         insn->detail->x86.operands[0].type != X86_OP_IMM) {
         return 0;
@@ -174,11 +174,11 @@ int can_handle_setcc_to_cmov(cs_insn *insn) {
     int64_t offset = insn->detail->x86.operands[0].imm;
 
     if (insn->size == 2) {
-        return !is_bad_char_free_byte((uint8_t)offset);
+        return !is_bad_byte_free_byte((uint8_t)offset);
     }
 
     if (insn->size >= 6) {
-        return !is_bad_char_free((uint32_t)offset);
+        return !is_bad_byte_free((uint32_t)offset);
     }
 
     return 0;

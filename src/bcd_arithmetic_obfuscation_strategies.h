@@ -8,7 +8,7 @@
  * BCD Arithmetic for Obfuscated Constant Generation Strategy
  *
  * PURPOSE: Use Binary-Coded Decimal (BCD) arithmetic instructions to construct
- * constant values in an obfuscated manner, avoiding bad characters in MOV immediates.
+ * constant values in an obfuscated manner, avoiding bad bytes in MOV immediates.
  *
  * TECHNIQUE:
  * BCD instructions provide alternative arithmetic operations:

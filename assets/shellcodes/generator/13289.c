@@ -446,22 +446,22 @@ int main(int argc, char** argv, char** envp) {
 		buffer_length++;
 	}
 
-	// Check for bad characters ------------------------------------------------
+	// Check for bad bytes ------------------------------------------------
 	for (int i = 0; i < 256; i++) {
 		if (char_is_bad[i]) {
-			// For each bad character
-			bool this_bad_char_found = false;
+			// For each bad byte
+			bool this_bad_byte_found = false;
 			for (int j = 0; j < buffer_length; j++) {
 				if (buffer[j] == i) {
 					// Find all instances in the data
-					if (this_bad_char_found) printf(", %d", j);
+					if (this_bad_byte_found) printf(", %d", j);
 					else {
-						this_bad_char_found = true;
+						this_bad_byte_found = true;
 						printf("* Bad character %02X at _: %d", i, j);
 					}
 				}
 			}
-			if (this_bad_char_found) printf(".\n");
+			if (this_bad_byte_found) printf(".\n");
 			else if (switch_verbose)
 				printf("  Bad character %02X ____: Not found.\n", i);
 		}

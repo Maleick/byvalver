@@ -14,7 +14,7 @@
 /**
  * Register all polymorphic immediate construction strategies.
  * These strategies provide multiple encoding variants for immediate values
- * to avoid bad characters while maintaining semantic equivalence.
+ * to avoid bad bytes while maintaining semantic equivalence.
  *
  * Strategies included:
  * 1. XOR Chain Encoding (Priority 90)

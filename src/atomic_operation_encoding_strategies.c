@@ -1,12 +1,12 @@
 /*
  * Atomic Operation Encoding Chain Strategies
  *
- * PROBLEM: Atomic operations (XADD, CMPXCHG, LOCK prefix) may encode with bad characters in:
- * - LOCK prefix (F0h) which may combine with opcodes to form bad characters
+ * PROBLEM: Atomic operations (XADD, CMPXCHG, LOCK prefix) may encode with bad bytes in:
+ * - LOCK prefix (F0h) which may combine with opcodes to form bad bytes
  * - Complex ModR/M bytes
  * - Memory displacements containing nulls
  *
- * SOLUTION: Transform atomic operations to equivalent non-atomic operations that avoid bad characters.
+ * SOLUTION: Transform atomic operations to equivalent non-atomic operations that avoid bad bytes.
  * NOTE: This loses atomicity, only valid for single-threaded shellcode contexts.
  */
 
@@ -25,14 +25,14 @@ strategy_t atomic_operation_encoding_strategy = {
     .priority = 78
 };
 
-// Helper function to check if an instruction has bad characters in its encoding
-static int instruction_has_bad_chars(cs_insn *insn) {
+// Helper function to check if an instruction has bad bytes in its encoding
+static int instruction_has_bad_bytes(cs_insn *insn) {
     if (!insn || !insn->bytes) {
         return 0;
     }
     
     for (int i = 0; i < insn->size; i++) {
-        if (!is_bad_char_free_byte(insn->bytes[i])) {
+        if (!is_bad_byte_free_byte(insn->bytes[i])) {
             return 1;
         }
     }
@@ -45,7 +45,7 @@ int can_handle_atomic_operation_encoding(cs_insn *insn) {
         return 0;
     }
 
-    // Check if this is an atomic instruction that might have bad characters
+    // Check if this is an atomic instruction that might have bad bytes
     switch (insn->id) {
         case X86_INS_XADD:
         case X86_INS_CMPXCHG:
@@ -58,21 +58,21 @@ int can_handle_atomic_operation_encoding(cs_insn *insn) {
         case X86_INS_AND:
         case X86_INS_OR:
         case X86_INS_XOR:
-            // Check if the instruction has LOCK prefix and bad characters
+            // Check if the instruction has LOCK prefix and bad bytes
             for (int i = 0; i < 4; i++) {  // Capstone x86 prefix array has 4 elements
                 uint8_t prefix = insn->detail->x86.prefix[i];
                 if (prefix == 0xF0) {  // LOCK prefix
                     // If it has LOCK prefix and bad chars, we can handle it
-                    if (instruction_has_bad_chars(insn)) {
+                    if (instruction_has_bad_bytes(insn)) {
                         return 1;
                     }
                     // Also handle if the instruction itself has bad chars regardless of LOCK
-                    return instruction_has_bad_chars(insn);
+                    return instruction_has_bad_bytes(insn);
                 }
             }
             
             // Even without LOCK prefix, if the instruction has bad chars, we might handle it
-            if (instruction_has_bad_chars(insn)) {
+            if (instruction_has_bad_bytes(insn)) {
                 return 1;
             }
             break;

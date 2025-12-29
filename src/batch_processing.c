@@ -193,8 +193,8 @@ void batch_stats_init(batch_stats_t *stats) {
     stats->skipped_files = 0;
     stats->total_input_bytes = 0;
     stats->total_output_bytes = 0;
-    stats->bad_char_count = 0;
-    memset(stats->bad_char_set, 0, sizeof(stats->bad_char_set)); // Initialize bad character set
+    stats->bad_byte_count = 0;
+    memset(stats->bad_byte_set, 0, sizeof(stats->bad_byte_set)); // Initialize bad byte set
 
     // Initialize failed file list
     stats->failed_file_list = NULL;
@@ -357,7 +357,7 @@ int batch_stats_add_strategy_usage(batch_stats_t *stats, const char *strategy_na
 
 // Add file complexity statistics
 int batch_stats_add_file_stats(batch_stats_t *stats, const char *file_path, size_t input_size,
-                               size_t output_size, int instruction_count, int bad_char_count, int success) {
+                               size_t output_size, int instruction_count, int bad_byte_count, int success) {
     if (!stats || !file_path) {
         return -1;
     }
@@ -383,7 +383,7 @@ int batch_stats_add_file_stats(batch_stats_t *stats, const char *file_path, size
     file_stat->output_size = output_size;
     file_stat->size_ratio = (input_size > 0) ? (double)output_size / input_size : 0.0;
     file_stat->instruction_count = instruction_count;
-    file_stat->bad_char_count = bad_char_count;
+    file_stat->bad_byte_count = bad_byte_count;
     file_stat->success = success;
     stats->file_count++;
 
@@ -415,14 +415,14 @@ void batch_stats_print(const batch_stats_t *stats, int quiet) {
         printf("Average size ratio: %.2fx\n", ratio);
     }
 
-    // Add bad character information
+    // Add bad byte information
     printf("\n");
-    printf("Bad characters:    %d configured\n", stats->bad_char_count);
-    if (stats->bad_char_count > 0) {
+    printf("Bad characters:    %d configured\n", stats->bad_byte_count);
+    if (stats->bad_byte_count > 0) {
         printf("Configured set:    ");
         int printed = 0;
         for (int i = 0; i < 256; i++) {
-            if (stats->bad_char_set[i]) {
+            if (stats->bad_byte_set[i]) {
                 if (printed > 0) printf(", ");
                 printf("0x%02x", i);
                 printed++;

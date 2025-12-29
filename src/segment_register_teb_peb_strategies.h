@@ -8,7 +8,7 @@
  * Segment Register TEB/PEB Access Strategy for Bad Character Elimination
  *
  * PURPOSE: Replace FS/GS segment register access patterns that may contain
- * bad characters in displacement bytes with alternative memory access methods.
+ * bad bytes in displacement bytes with alternative memory access methods.
  */
 
 // Strategy interface functions

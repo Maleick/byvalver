@@ -10,7 +10,7 @@ byvalver \- SHELLCODE BAD-CHARACTER BANISHER
 
 .SH DESCRIPTION
 .B byvalver
-is an advanced C-based command-line tool designed for automated elimination of bad characters from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace bad-character-containing instructions with functionally equivalent alternatives. By default, byvalver eliminates null bytes (0x00). Version 3.0 introduces generic bad character elimination via the --bad-chars option, allowing you to specify any set of bytes to eliminate (e.g., newlines, spaces, CRLF sequences).
+is an advanced C-based command-line tool designed for automated elimination of bad bytes from shellcode while preserving functional equivalence. The tool leverages the Capstone disassembly framework to analyze x86/x64 assembly instructions and applies sophisticated transformation strategies to replace bad-byte-containing instructions with functionally equivalent alternatives. By default, byvalver eliminates null bytes (0x00). Version 3.0 introduces generic bad byte elimination via the --bad-bytes option, allowing you to specify any set of bytes to eliminate (e.g., newlines, spaces, CRLF sequences).
 
 .SH OPTIONS
 
@@ -37,7 +37,7 @@ Disable colored output
 .SS "Processing Options"
 .TP
 .BR \-\-biphasic
-Enable biphasic processing (obfuscation + bad-character-elimination)
+Enable biphasic processing (obfuscation + bad-byte-elimination)
 .TP
 .BR \-\-pic
 Generate position-independent code
@@ -60,10 +60,10 @@ Target architecture: x86, x64 (default: x64)
 Comma-separated hex bytes to eliminate (e.g., "00,0a,0d"). Default: "00" (null bytes only)
 .TP
 .BI \-\-profile\  NAME
-Use predefined bad-character profile. Examples: http-newline, url-safe, sql-injection, alphanumeric-only, printable-only
+Use predefined bad-byte profile. Examples: http-newline, url-safe, sql-injection, alphanumeric-only, printable-only
 .TP
 .BR \-\-list-profiles
-List all available bad-character profiles
+List all available bad-byte profiles
 
 .SS "ML Metrics Options (requires --ml)"
 .TP
@@ -122,7 +122,7 @@ Show detailed statistics after processing
 Output file (alternative to positional argument)
 .TP
 .BR \-\-validate
-Validate output is bad-character free
+Validate output is bad-byte free
 
 .SH EXAMPLES
 .B Basic usage (eliminate null bytes):
@@ -145,11 +145,11 @@ Validate output is bad-character free
        byvalver --pic shellcode.bin output.bin
 .br
 .PP
-.B Eliminate specific bad characters (v3.0+):
+.B Eliminate specific bad bytes (v3.0+):
 .br
        # Eliminate null, newline, and carriage return (for network protocols)
 .br
-       byvalver --bad-chars "00,0a,0d" shellcode.bin output.bin
+       byvalver --bad-bytes "00,0a,0d" shellcode.bin output.bin
 .br
 .PP
 .B Use predefined profiles (v3.0+):

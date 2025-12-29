@@ -177,7 +177,7 @@ int can_handle_lea_disp32(cs_insn *insn) {
 
     // Check if the memory displacement specifically contains null bytes
     uint32_t disp = (uint32_t)insn->detail->x86.operands[1].mem.disp;
-    if (is_bad_char_free(disp)) {
+    if (is_bad_byte_free(disp)) {
         return 0;  // No null bytes in displacement
     }
 

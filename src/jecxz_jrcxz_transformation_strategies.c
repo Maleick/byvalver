@@ -2,7 +2,7 @@
  * JECXZ/JRCXZ Zero-Test Jump Transformation Strategy
  *
  * PROBLEM: JECXZ/JRCXZ instructions use 8-bit signed displacement which may
- * contain bad characters.
+ * contain bad bytes.
  *
  * SOLUTION: Replace with TEST + JZ sequence that achieves the same result.
  *
@@ -30,8 +30,8 @@ int can_handle_jecxz_jrcxz(cs_insn *insn) {
         return 0;
     }
 
-    // Check if the instruction encoding contains bad characters
-    if (!is_bad_char_free_buffer(insn->bytes, insn->size)) {
+    // Check if the instruction encoding contains bad bytes
+    if (!is_bad_byte_free_buffer(insn->bytes, insn->size)) {
         return 1;  // Has bad chars, we can handle it
     }
 

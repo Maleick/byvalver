@@ -43,7 +43,7 @@ int can_handle_multi_stage_peb_traversal(cs_insn *insn) {
         // Check for CALL immediate that may have nulls (resolved PEB addresses)
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_bad_char_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 return 1;
             }
         }
@@ -68,7 +68,7 @@ int can_handle_multi_stage_peb_traversal(cs_insn *insn) {
 
         // Check for MOV with immediate that may contain nulls (part of API resolution)
         if (src_op->type == X86_OP_IMM) {
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -81,7 +81,7 @@ int can_handle_multi_stage_peb_traversal(cs_insn *insn) {
         
         if (op->type == X86_OP_IMM) {
             // This could be pushing a DLL name or API hash
-            if (!is_bad_char_free((uint32_t)op->imm)) {
+            if (!is_bad_byte_free((uint32_t)op->imm)) {
                 return 1;
             }
         }
@@ -114,7 +114,7 @@ void generate_multi_stage_peb_traversal_null_free(struct buffer *b, cs_insn *ins
         if (src_op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)src_op->imm;
 
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe MOV generation for immediate values containing nulls
                 uint8_t dst_reg = dst_op->reg;
 
@@ -165,7 +165,7 @@ void generate_multi_stage_peb_traversal_null_free(struct buffer *b, cs_insn *ins
             uint32_t disp = src_op->mem.disp;
             
             // Check if the displacement contains nulls
-            if (!is_bad_char_free(disp)) {
+            if (!is_bad_byte_free(disp)) {
                 // If the displacement has nulls, we need to load it differently
                 // Approach: MOV EAX, disp32; MOV reg, [EAX]
                 generate_mov_eax_imm(b, disp);  // Load displacement to EAX
@@ -189,7 +189,7 @@ void generate_multi_stage_peb_traversal_null_free(struct buffer *b, cs_insn *ins
         
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_bad_char_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 // Transform CALL immediate to CALL register to avoid nulls in immediate
                 // MOV EAX, target_address (null-free)
                 generate_mov_eax_imm(b, target);
@@ -213,7 +213,7 @@ void generate_multi_stage_peb_traversal_null_free(struct buffer *b, cs_insn *ins
         if (op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)op->imm;
             
-            if (!is_bad_char_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe approach: MOV EAX, imm; PUSH EAX
                 generate_mov_eax_imm(b, imm);
                 uint8_t push_eax[] = {0x50}; // PUSH EAX

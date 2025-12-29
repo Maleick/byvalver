@@ -1,7 +1,7 @@
 /*
  * POPCNT/LZCNT/TZCNT Bit Counting for Constant Generation Strategy
  *
- * PROBLEM: MOV immediate instructions may contain bad characters.
+ * PROBLEM: MOV immediate instructions may contain bad bytes.
  *
  * SOLUTION: Use bit-counting instructions (POPCNT, TZCNT, LZCNT) to generate
  * constants by counting bits in carefully chosen source values.
@@ -43,19 +43,19 @@ __attribute__((unused)) static int count_trailing_zeros(uint32_t val) {
 }
 
 /**
- * Check if a 32-bit value is bad-char-free when encoded in little-endian
+ * Check if a 32-bit value is bad-byte-free when encoded in little-endian
  */
-static int is_value_bad_char_free(uint32_t val) {
+static int is_value_bad_byte_free(uint32_t val) {
     uint8_t bytes[4];
     bytes[0] = (uint8_t)(val & 0xFF);
     bytes[1] = (uint8_t)((val >> 8) & 0xFF);
     bytes[2] = (uint8_t)((val >> 16) & 0xFF);
     bytes[3] = (uint8_t)((val >> 24) & 0xFF);
-    return is_bad_char_free_buffer(bytes, 4);
+    return is_bad_byte_free_buffer(bytes, 4);
 }
 
 /**
- * Find a value with exactly 'target' set bits that is bad-char-free
+ * Find a value with exactly 'target' set bits that is bad-byte-free
  */
 static uint32_t find_popcount_source(int target) {
     // Try simple patterns first
@@ -63,7 +63,7 @@ static uint32_t find_popcount_source(int target) {
 
     // Create a value with 'target' consecutive bits set
     uint32_t val = (1U << target) - 1;
-    if (is_value_bad_char_free(val)) {
+    if (is_value_bad_byte_free(val)) {
         return val;
     }
 
@@ -72,7 +72,7 @@ static uint32_t find_popcount_source(int target) {
     for (int i = 0; i < target && i < 32; i += 2) {
         val |= (1U << i);
     }
-    if (popcount(val) == target && is_value_bad_char_free(val)) {
+    if (popcount(val) == target && is_value_bad_byte_free(val)) {
         return val;
     }
 
@@ -86,7 +86,7 @@ static uint32_t find_tzcnt_source(int target) {
     if (target < 0 || target >= 32) return 0;
 
     uint32_t val = 1U << target;
-    if (is_value_bad_char_free(val)) {
+    if (is_value_bad_byte_free(val)) {
         return val;
     }
 
@@ -138,8 +138,8 @@ int can_handle_bit_counting(cs_insn *insn) {
         return 0;
     }
 
-    // Check if the instruction encoding contains bad characters
-    if (!is_bad_char_free_buffer(insn->bytes, insn->size)) {
+    // Check if the instruction encoding contains bad bytes
+    if (!is_bad_byte_free_buffer(insn->bytes, insn->size)) {
         return 1;  // Has bad chars, we can handle it
     }
 

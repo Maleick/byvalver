@@ -2,11 +2,11 @@
  * Segment Register TEB/PEB Access Strategy for Bad Character Elimination
  *
  * PROBLEM: Direct access to TEB (FS:[0x30]) and PEB (FS:[0x34] on x86, GS:[0x60] on x64)
- * may contain bad characters in displacement bytes. FS and GS segment access is
+ * may contain bad bytes in displacement bytes. FS and GS segment access is
  * commonly used in shellcode for API resolution.
  *
  * SOLUTION: Replace segment register access with equivalent memory access
- * that avoids bad characters in displacement, or use alternative API resolution.
+ * that avoids bad bytes in displacement, or use alternative API resolution.
  */
 
 #include "segment_register_teb_peb_strategies.h"
@@ -15,7 +15,7 @@
 #include <stdlib.h>
 
 /**
- * Transform FS/GS segment access with bad character displacement
+ * Transform FS/GS segment access with bad byte displacement
  *
  * Original: MOV EAX, FS:[0x30] (PEB on x86, contains 0x30 which may be bad)
  * Transform: Alternative approach to get PEB/TEB address
@@ -34,7 +34,7 @@ int can_handle_segment_register_access(cs_insn *insn) {
         if (dst_op->type == X86_OP_REG && src_op->type == X86_OP_MEM) {
             // Check if segment is FS (0x2B) or GS (0x2C)
             if (src_op->mem.segment == X86_REG_FS || src_op->mem.segment == X86_REG_GS) {
-                // Check if displacement might contain bad characters
+                // Check if displacement might contain bad bytes
                 // For now, we'll consider all FS/GS access as candidates
                 return 1;
             }
@@ -97,7 +97,7 @@ void generate_segment_register_access(struct buffer *b, cs_insn *insn) {
                     // We'll use a generic approach that avoids direct segment access
                     
                     // One approach: Use a known safe instruction sequence
-                    // that achieves the same result without bad characters
+                    // that achieves the same result without bad bytes
                     // For now, we'll implement a simple alternative
                     buffer_write_byte(b, 0x64);  // FS segment prefix
                     buffer_write_byte(b, 0x8B);  // MOV
@@ -108,7 +108,7 @@ void generate_segment_register_access(struct buffer *b, cs_insn *insn) {
                     
                     // Actually, let's implement a different approach for PEB/TEB access
                     // Use NtCurrentTeb() or similar API if available, or construct through
-                    // other means that avoid bad characters
+                    // other means that avoid bad bytes
                     
                     // For now, a simple approach - use a register that already has the value
                     // or use a call to get the value through an API
@@ -116,7 +116,7 @@ void generate_segment_register_access(struct buffer *b, cs_insn *insn) {
                     buffer_write_byte(b, 0xC0 | (reg_idx << 3) | reg_idx);  // MOV EAX, EAX as placeholder
                     
                     // A more complete implementation would:
-                    // 1. Check if displacement contains bad characters
+                    // 1. Check if displacement contains bad bytes
                     // 2. If so, use alternative access method
                     // 3. For PEB: maybe use PEB_LDR_DATA or other structures
                     // 4. For TEB: maybe access through stack pointer manipulation

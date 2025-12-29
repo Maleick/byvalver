@@ -7,7 +7,7 @@
 /*
  * CMOV Conditional Move Elimination Strategies
  *
- * PURPOSE: Eliminate CMOV instructions that may contain bad characters in
+ * PURPOSE: Eliminate CMOV instructions that may contain bad bytes in
  * ModR/M encoding bytes or displacement, replacing them with equivalent
  * conditional logic using SETcc and arithmetic operations.
  */

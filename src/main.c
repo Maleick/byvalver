@@ -253,26 +253,26 @@ int process_single_file(const char *input_file, const char *output_file,
         *output_size_out = final_shellcode.size;
     }
 
-    // Verify that the final shellcode has no bad characters
-    if (!is_bad_char_free_buffer(final_shellcode.data, final_shellcode.size)) {
+    // Verify that the final shellcode has no bad bytes
+    if (!is_bad_byte_free_buffer(final_shellcode.data, final_shellcode.size)) {
         if (!config->quiet) {
-            // Count and identify remaining bad characters
-            int bad_char_found[256] = {0};
-            int total_bad_chars = 0;
+            // Count and identify remaining bad bytes
+            int bad_byte_found[256] = {0};
+            int total_bad_bytes = 0;
             for (size_t i = 0; i < final_shellcode.size; i++) {
-                if (!is_bad_char_free_byte(final_shellcode.data[i])) {
-                    if (!bad_char_found[final_shellcode.data[i]]) {
-                        bad_char_found[final_shellcode.data[i]] = 1;
-                        total_bad_chars++;
+                if (!is_bad_byte_free_byte(final_shellcode.data[i])) {
+                    if (!bad_byte_found[final_shellcode.data[i]]) {
+                        bad_byte_found[final_shellcode.data[i]] = 1;
+                        total_bad_bytes++;
                     }
                 }
             }
 
-            fprintf(stderr, "Error: Shellcode processing completed but bad characters still remain in output\n");
-            fprintf(stderr, "       Found %d distinct bad character(s): ", total_bad_chars);
+            fprintf(stderr, "Error: Shellcode processing completed but bad bytes still remain in output\n");
+            fprintf(stderr, "       Found %d distinct bad byte(s): ", total_bad_bytes);
             int printed = 0;
             for (int i = 0; i < 256; i++) {
-                if (bad_char_found[i]) {
+                if (bad_byte_found[i]) {
                     if (printed > 0) fprintf(stderr, ", ");
                     fprintf(stderr, "0x%02x", i);
                     printed++;
@@ -283,7 +283,7 @@ int process_single_file(const char *input_file, const char *output_file,
         free(shellcode);
         buffer_free(&new_shellcode);
         buffer_free(&final_shellcode);
-        return EXIT_PROCESSING_FAILED;  // Return failure when bad characters remain
+        return EXIT_PROCESSING_FAILED;  // Return failure when bad bytes remain
     }
 
     // Write modified shellcode to output file
@@ -508,21 +508,21 @@ int main(int argc, char *argv[]) {
             printf("Found %zu file(s) to process\n\n", file_list.count);
         }
 
-        // Initialize bad character context for batch processing
-        init_bad_char_context(config->bad_chars);
+        // Initialize bad byte context for batch processing
+        init_bad_byte_context(config->bad_bytes);
 
         // Initialize batch statistics
         batch_stats_t stats;
         batch_stats_init(&stats);
         stats.total_files = file_list.count;
 
-        // Set bad character configuration in stats
-        bad_char_config_t* bad_char_config = get_bad_char_config();
-        if (bad_char_config) {
-            stats.bad_char_count = bad_char_config->bad_char_count;
+        // Set bad byte configuration in stats
+        bad_byte_config_t* bad_byte_config = get_bad_byte_config();
+        if (bad_byte_config) {
+            stats.bad_byte_count = bad_byte_config->bad_byte_count;
             // Convert uint8_t to int for the batch stats
             for (int i = 0; i < 256; i++) {
-                stats.bad_char_set[i] = bad_char_config->bad_chars[i];
+                stats.bad_byte_set[i] = bad_byte_config->bad_bytes[i];
             }
         }
 
@@ -570,12 +570,12 @@ int main(int argc, char *argv[]) {
                         uint8_t *input_data = malloc(input_size);
                         if (input_data) {
                             if (fread(input_data, 1, input_size, input_file) == input_size) {
-                                int instr_count, bad_char_count;
-                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_char_count);
+                                int instr_count, bad_byte_count;
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
 
                                 // Add file complexity stats to batch stats
                                 batch_stats_add_file_stats(&stats, input_path, input_size,
-                                                         output_size, instr_count, bad_char_count, 1);
+                                                         output_size, instr_count, bad_byte_count, 1);
                             }
                             free(input_data);
                         }
@@ -611,12 +611,12 @@ int main(int argc, char *argv[]) {
                         uint8_t *input_data = malloc(input_size);
                         if (input_data) {
                             if (fread(input_data, 1, input_size, input_file) == input_size) {
-                                int instr_count, bad_char_count;
-                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_char_count);
+                                int instr_count, bad_byte_count;
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
 
                                 // Add file complexity stats to batch stats (success = 0)
                                 batch_stats_add_file_stats(&stats, input_path, input_size,
-                                                         0, instr_count, bad_char_count, 0);
+                                                         0, instr_count, bad_byte_count, 0);
                             }
                             free(input_data);
                         }
@@ -674,7 +674,7 @@ int main(int argc, char *argv[]) {
             if (ml_initialized) {
                 ml_strategist_print_metrics_summary();
                 ml_strategist_print_strategy_breakdown();
-                ml_strategist_print_bad_char_breakdown();  // Added bad character breakdown (v3.0)
+                ml_strategist_print_bad_byte_breakdown();  // Added bad byte breakdown (v3.0)
                 ml_strategist_print_learning_progress();
             } else {
                 // Provide enhanced statistics for batch processing even without ML
@@ -691,12 +691,12 @@ int main(int argc, char *argv[]) {
                     printf("  - Average size ratio: %.2f\n", ratio);
                 }
 
-                // Add bad character information
+                // Add bad byte information
                 printf("  - Bad character elimination: ENABLED\n");
-                printf("  - Configured bad characters: ");
+                printf("  - Configured bad bytes: ");
                 int printed = 0;
                 for (int i = 0; i < 256; i++) {
-                    if (stats.bad_char_set[i]) {
+                    if (stats.bad_byte_set[i]) {
                         if (printed > 0) printf(", ");
                         printf("0x%02x", i);
                         printed++;
@@ -706,7 +706,7 @@ int main(int argc, char *argv[]) {
                     printf("0x00 (default null only)");
                 }
                 printf("\n");
-                printf("  - Total bad characters configured: %d\n", stats.bad_char_count);
+                printf("  - Total bad bytes configured: %d\n", stats.bad_byte_count);
             }
         }
 
@@ -727,8 +727,8 @@ int main(int argc, char *argv[]) {
         printf("Encoding shellcode with XOR key: 0x%08x\n", config->xor_key);
     }
 
-    // Initialize bad character context for single-file processing
-    init_bad_char_context(config->bad_chars);
+    // Initialize bad byte context for single-file processing
+    init_bad_byte_context(config->bad_bytes);
 
     // Process the single file
     size_t input_size = 0, output_size = 0;
@@ -776,10 +776,10 @@ int main(int argc, char *argv[]) {
         if (ml_initialized) {
             ml_strategist_print_metrics_summary();
             ml_strategist_print_strategy_breakdown();
-            ml_strategist_print_bad_char_breakdown();  // Added bad character breakdown (v3.0)
+            ml_strategist_print_bad_byte_breakdown();  // Added bad byte breakdown (v3.0)
             ml_strategist_print_learning_progress();
         } else {
-            // Provide enhanced statistics even without ML, including bad character info
+            // Provide enhanced statistics even without ML, including bad byte info
             printf("Statistics without ML Integration:\n");
             printf("  - Shellcode processing completed\n");
             printf("  - Input size: %zu bytes\n", input_size);
@@ -789,26 +789,26 @@ int main(int argc, char *argv[]) {
                 printf("  - Size ratio: %.2f\n", ratio);
             }
 
-            // Add bad character information
-            bad_char_config_t* bad_char_config = get_bad_char_config();
-            if (bad_char_config) {
+            // Add bad byte information
+            bad_byte_config_t* bad_byte_config = get_bad_byte_config();
+            if (bad_byte_config) {
                 printf("  - Bad character elimination: %s\n",
-                       config->bad_chars ? "ENABLED" : "DISABLED (default: nulls only)");
-                printf("  - Configured bad characters: ");
+                       config->bad_bytes ? "ENABLED" : "DISABLED (default: nulls only)");
+                printf("  - Configured bad bytes: ");
 
-                int bad_char_count = 0;
+                int bad_byte_count = 0;
                 for (int i = 0; i < 256; i++) {
-                    if (bad_char_config->bad_chars[i]) {
-                        if (bad_char_count > 0) printf(", ");
+                    if (bad_byte_config->bad_bytes[i]) {
+                        if (bad_byte_count > 0) printf(", ");
                         printf("0x%02x", i);
-                        bad_char_count++;
+                        bad_byte_count++;
                     }
                 }
-                if (bad_char_count == 0) {
+                if (bad_byte_count == 0) {
                     printf("0x00 (default null only)");
                 }
                 printf("\n");
-                printf("  - Total bad characters configured: %d\n", bad_char_config->bad_char_count);
+                printf("  - Total bad bytes configured: %d\n", bad_byte_config->bad_byte_count);
             }
         }
     }

@@ -294,7 +294,7 @@ static void generate_safe_sib_null(struct buffer *b, cs_insn *insn) {
     // Add displacement if present
     if (mem_op->mem.disp != 0) {
         uint32_t disp = (uint32_t)mem_op->mem.disp;
-        if (is_bad_char_free(disp)) {
+        if (is_bad_byte_free(disp)) {
             // Direct ADD if displacement is null-byte free
             if (disp <= 0x7F || (disp >= 0xFFFFFF80 && disp <= 0xFFFFFFFF)) {  // Can use 8-bit sign-extended disp
                 uint8_t add8_code[] = {0x83, 0x00, 0x00};

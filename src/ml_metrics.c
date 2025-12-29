@@ -91,11 +91,11 @@ void ml_metrics_record_strategy_attempt(ml_metrics_tracker_t* tracker,
     }
 }
 
-// Record strategy result (v3.0 with bad character support)
+// Record strategy result (v3.0 with bad byte support)
 void ml_metrics_record_strategy_result_v3(ml_metrics_tracker_t* tracker,
                                           const char* strategy_name,
                                           int success,
-                                          int bad_chars_eliminated,
+                                          int bad_bytes_eliminated,
                                           int size_increase,
                                           double processing_time_ms) {
     if (!tracker || !tracker->metrics_enabled) return;
@@ -105,10 +105,10 @@ void ml_metrics_record_strategy_result_v3(ml_metrics_tracker_t* tracker,
 
     if (success) {
         metric->times_succeeded++;
-        metric->nulls_eliminated += bad_chars_eliminated;  // Backward compatibility
-        metric->bad_chars_eliminated += bad_chars_eliminated;
-        tracker->session.total_nulls_eliminated += bad_chars_eliminated;  // Backward compatibility
-        tracker->session.total_bad_chars_eliminated += bad_chars_eliminated;
+        metric->nulls_eliminated += bad_bytes_eliminated;  // Backward compatibility
+        metric->bad_bytes_eliminated += bad_bytes_eliminated;
+        tracker->session.total_nulls_eliminated += bad_bytes_eliminated;  // Backward compatibility
+        tracker->session.total_bad_bytes_eliminated += bad_bytes_eliminated;
     } else {
         metric->times_failed++;
     }
@@ -123,28 +123,28 @@ void ml_metrics_record_strategy_result_v3(ml_metrics_tracker_t* tracker,
 void ml_metrics_record_strategy_result(ml_metrics_tracker_t* tracker,
                                       const char* strategy_name,
                                       int success,
-                                      int nulls_eliminated,           // DEPRECATED: Use bad_chars_eliminated
+                                      int nulls_eliminated,           // DEPRECATED: Use bad_bytes_eliminated
                                       int size_increase,
                                       double processing_time_ms) {
     // Call the new function with the same values for backward compatibility
     ml_metrics_record_strategy_result_v3(tracker, strategy_name, success, nulls_eliminated, size_increase, processing_time_ms);
 }
 
-// Record bad character configuration
-void ml_metrics_record_bad_char_config(ml_metrics_tracker_t* tracker,
-                                       uint8_t* bad_chars,
-                                       int bad_char_count) {
+// Record bad byte configuration
+void ml_metrics_record_bad_byte_config(ml_metrics_tracker_t* tracker,
+                                       uint8_t* bad_bytes,
+                                       int bad_byte_count) {
     if (!tracker || !tracker->metrics_enabled) return;
 
-    tracker->session.bad_char_count = bad_char_count;
+    tracker->session.bad_byte_count = bad_byte_count;
 
-    // Copy the bad character bitmap
+    // Copy the bad byte bitmap
     for (int i = 0; i < 256; i++) {
-        tracker->session.bad_char_set[i] = bad_chars ? bad_chars[i] : 0;
+        tracker->session.bad_byte_set[i] = bad_bytes ? bad_bytes[i] : 0;
     }
 }
 
-// Record instruction processed with bad character tracking (backward compatibility)
+// Record instruction processed with bad byte tracking (backward compatibility)
 void ml_metrics_record_instruction_processed(ml_metrics_tracker_t* tracker,
                                             int nulls_in_instruction) {
     if (!tracker || !tracker->metrics_enabled) return;
@@ -155,22 +155,22 @@ void ml_metrics_record_instruction_processed(ml_metrics_tracker_t* tracker,
     // For backward compatibility, we'll still record the nulls
 }
 
-// Record instruction processed with detailed bad character tracking (v3.0)
+// Record instruction processed with detailed bad byte tracking (v3.0)
 void ml_metrics_record_instruction_processed_v3(ml_metrics_tracker_t* tracker,
-                                                uint8_t* bad_chars_in_instruction,
-                                                int bad_char_count) {
+                                                uint8_t* bad_bytes_in_instruction,
+                                                int bad_byte_count) {
     if (!tracker || !tracker->metrics_enabled) return;
 
     tracker->session.total_instructions_processed++;
 
     // Count total bad chars in the instruction for the session
-    tracker->session.total_bad_chars_original += bad_char_count;
-    tracker->session.total_null_bytes_original += bad_chars_in_instruction ? bad_chars_in_instruction[0x00] : 0; // Backward compatibility
+    tracker->session.total_bad_bytes_original += bad_byte_count;
+    tracker->session.total_null_bytes_original += bad_bytes_in_instruction ? bad_bytes_in_instruction[0x00] : 0; // Backward compatibility
 
-    // Update the bad character breakdown in session
+    // Update the bad byte breakdown in session
     for (int i = 0; i < 256; i++) {
-        if (bad_chars_in_instruction && bad_chars_in_instruction[i]) {
-            tracker->session.bad_char_set[i] = 1;  // Mark this bad char as present in input
+        if (bad_bytes_in_instruction && bad_bytes_in_instruction[i]) {
+            tracker->session.bad_byte_set[i] = 1;  // Mark this bad char as present in input
         }
     }
 }
@@ -304,15 +304,15 @@ void ml_metrics_record_model_load(ml_metrics_tracker_t* tracker) {
     tracker->session.model_loads++;
 }
 
-// Record bad character elimination details
-void ml_metrics_record_bad_char_elimination_detail(ml_metrics_tracker_t* tracker,
+// Record bad byte elimination details
+void ml_metrics_record_bad_byte_elimination_detail(ml_metrics_tracker_t* tracker,
                                                    uint8_t* eliminated_chars,
                                                    int count) {
     if (!tracker || !tracker->metrics_enabled || !eliminated_chars) return;
 
     (void)count; // Unused parameter, avoid warning
 
-    // Update strategy-specific bad character breakdown
+    // Update strategy-specific bad byte breakdown
     // This would typically be called with specific strategy context
     // For now, we'll update the session-level tracking
     for (int i = 0; i < 256; i++) {
@@ -323,17 +323,17 @@ void ml_metrics_record_bad_char_elimination_detail(ml_metrics_tracker_t* tracker
     }
 }
 
-// Print bad character breakdown
-void ml_metrics_print_bad_char_breakdown(ml_metrics_tracker_t* tracker) {
+// Print bad byte breakdown
+void ml_metrics_print_bad_byte_breakdown(ml_metrics_tracker_t* tracker) {
     if (!tracker) return;
 
     printf("\n=== BAD CHARACTER ELIMINATION BREAKDOWN ===\n\n");
-    printf("Configured Bad Characters (%d total): ", tracker->session.bad_char_count);
+    printf("Configured Bad Characters (%d total): ", tracker->session.bad_byte_count);
 
-    // Print the bad character set
+    // Print the bad byte set
     int printed = 0;
     for (int i = 0; i < 256; i++) {
-        if (tracker->session.bad_char_set[i]) {
+        if (tracker->session.bad_byte_set[i]) {
             if (printed > 0) printf(", ");
             printf("0x%02x", i);
             printed++;
@@ -342,47 +342,47 @@ void ml_metrics_print_bad_char_breakdown(ml_metrics_tracker_t* tracker) {
     printf("\n");
 
     // Calculate elimination rates per character if possible
-    printf("\nPer-Bad-Character Statistics:\n");
+    printf("\nPer-Bad-Byte Statistics:\n");
     printf("%-8s %10s %10s %12s\n", "Char", "Orig", "Eliminated", "Elim Rate");
     printf("%-8s %10s %10s %12s\n", "----", "----", "----------", "---------");
 
-    // This would show actual breakdown per bad character
+    // This would show actual breakdown per bad byte
     // For now, showing total stats
     printf("%-8s %10d %10d %11.2f%%\n", "TOTAL",
-           tracker->session.total_bad_chars_original,
-           tracker->session.total_bad_chars_eliminated,
-           tracker->session.total_bad_chars_original > 0 ?
-               (double)tracker->session.total_bad_chars_eliminated / tracker->session.total_bad_chars_original * 100.0 : 0.0);
+           tracker->session.total_bad_bytes_original,
+           tracker->session.total_bad_bytes_eliminated,
+           tracker->session.total_bad_bytes_original > 0 ?
+               (double)tracker->session.total_bad_bytes_eliminated / tracker->session.total_bad_bytes_original * 100.0 : 0.0);
 
     printf("\n========================================\n");
 }
 
-// Get bad character elimination rate for specific character
-double ml_metrics_get_bad_char_elimination_rate(ml_metrics_tracker_t* tracker,
-                                               uint8_t bad_char) {
+// Get bad byte elimination rate for specific character
+double ml_metrics_get_bad_byte_elimination_rate(ml_metrics_tracker_t* tracker,
+                                               uint8_t bad_byte) {
     if (!tracker) return 0.0;
 
-    (void)bad_char; // Unused parameter, avoid warning
+    (void)bad_byte; // Unused parameter, avoid warning
 
-    // This would return specific rate for the bad character
+    // This would return specific rate for the bad byte
     // For now, return overall rate as placeholder
-    return tracker->session.total_bad_chars_original > 0 ?
-        (double)tracker->session.total_bad_chars_eliminated / tracker->session.total_bad_chars_original : 0.0;
+    return tracker->session.total_bad_bytes_original > 0 ?
+        (double)tracker->session.total_bad_bytes_eliminated / tracker->session.total_bad_bytes_original : 0.0;
 }
 
-// Get most difficult bad characters to eliminate
-int ml_metrics_get_most_difficult_bad_chars(ml_metrics_tracker_t* tracker,
-                                           uint8_t* bad_chars,
+// Get most difficult bad bytes to eliminate
+int ml_metrics_get_most_difficult_bad_bytes(ml_metrics_tracker_t* tracker,
+                                           uint8_t* bad_bytes,
                                            int count) {
-    if (!tracker || !bad_chars || count <= 0) return 0;
+    if (!tracker || !bad_bytes || count <= 0) return 0;
 
-    // For now, return all configured bad characters
+    // For now, return all configured bad bytes
     // In a more advanced implementation, this would analyze which chars
     // were eliminated with lower success rates
     int actual_count = 0;
     for (int i = 0; i < 256 && actual_count < count; i++) {
-        if (tracker->session.bad_char_set[i]) {
-            bad_chars[actual_count++] = i;
+        if (tracker->session.bad_byte_set[i]) {
+            bad_bytes[actual_count++] = i;
         }
     }
 
@@ -411,13 +411,13 @@ void ml_metrics_print_summary(ml_metrics_tracker_t* tracker) {
            null_elim_pct);
 
     // Bad character metrics (v3.0)
-    double bad_char_elim_pct = tracker->session.total_bad_chars_original > 0 ?
-        (double)tracker->session.total_bad_chars_eliminated / tracker->session.total_bad_chars_original * 100.0 : 0.0;
+    double bad_byte_elim_pct = tracker->session.total_bad_bytes_original > 0 ?
+        (double)tracker->session.total_bad_bytes_eliminated / tracker->session.total_bad_bytes_original * 100.0 : 0.0;
     printf("Bad Characters Eliminated: %d / %d (%.2f%%)\n",
-           tracker->session.total_bad_chars_eliminated,
-           tracker->session.total_bad_chars_original,
-           bad_char_elim_pct);
-    printf("Configured Bad Characters: %d\n", tracker->session.bad_char_count);
+           tracker->session.total_bad_bytes_eliminated,
+           tracker->session.total_bad_bytes_original,
+           bad_byte_elim_pct);
+    printf("Configured Bad Characters: %d\n", tracker->session.bad_byte_count);
 
     // Model performance
     printf("\n--- Model Performance ---\n");
@@ -469,7 +469,7 @@ void ml_metrics_print_strategy_breakdown(ml_metrics_tracker_t* tracker) {
                m->times_failed,
                success_rate,
                avg_conf,
-               m->bad_chars_eliminated);  // Added bad chars eliminated column
+               m->bad_bytes_eliminated);  // Added bad chars eliminated column
     }
 
     printf("\n======================================\n");
@@ -566,16 +566,16 @@ void ml_metrics_export_to_json(ml_metrics_tracker_t* tracker, const char* filepa
     fprintf(f, "    \"strategies_applied\": %d,\n", tracker->session.total_strategies_applied);
     fprintf(f, "    \"nulls_eliminated\": %d,\n", tracker->session.total_nulls_eliminated);
     fprintf(f, "    \"null_elimination_rate\": %.4f,\n", tracker->session.null_elimination_rate);
-    fprintf(f, "    \"bad_chars_eliminated\": %d,\n", tracker->session.total_bad_chars_eliminated);
-    fprintf(f, "    \"bad_chars_original\": %d,\n", tracker->session.total_bad_chars_original);
-    fprintf(f, "    \"bad_char_elimination_rate\": %.4f,\n", tracker->session.bad_char_elimination_rate);
-    fprintf(f, "    \"bad_char_count\": %d,\n", tracker->session.bad_char_count);
-    fprintf(f, "    \"bad_char_set\": [");
+    fprintf(f, "    \"bad_bytes_eliminated\": %d,\n", tracker->session.total_bad_bytes_eliminated);
+    fprintf(f, "    \"bad_chars_original\": %d,\n", tracker->session.total_bad_bytes_original);
+    fprintf(f, "    \"bad_byte_elimination_rate\": %.4f,\n", tracker->session.bad_byte_elimination_rate);
+    fprintf(f, "    \"bad_byte_count\": %d,\n", tracker->session.bad_byte_count);
+    fprintf(f, "    \"bad_byte_set\": [");
 
-    // Print the bad character set
+    // Print the bad byte set
     int first = 1;
     for (int i = 0; i < 256; i++) {
-        if (tracker->session.bad_char_set[i]) {
+        if (tracker->session.bad_byte_set[i]) {
             if (!first) fprintf(f, ",");
             fprintf(f, "%d", i);
             first = 0;
@@ -609,7 +609,7 @@ void ml_metrics_export_to_json(ml_metrics_tracker_t* tracker, const char* filepa
         fprintf(f, "      \"success\": %d,\n", m->times_succeeded);
         fprintf(f, "      \"failed\": %d,\n", m->times_failed);
         fprintf(f, "      \"nulls_eliminated\": %d,\n", m->nulls_eliminated);
-        fprintf(f, "      \"bad_chars_eliminated\": %d,\n", m->bad_chars_eliminated);
+        fprintf(f, "      \"bad_bytes_eliminated\": %d,\n", m->bad_bytes_eliminated);
         fprintf(f, "      \"avg_confidence\": %.4f\n",
                 m->times_attempted > 0 ? m->total_confidence / m->times_attempted : 0.0);
         fprintf(f, "    }%s\n", i < tracker->strategy_count - 1 ? "," : "");
@@ -648,7 +648,7 @@ void ml_metrics_export_to_csv(ml_metrics_tracker_t* tracker, const char* filepat
                 success_rate,
                 avg_conf,
                 m->nulls_eliminated,
-                m->bad_chars_eliminated);
+                m->bad_bytes_eliminated);
     }
 
     fclose(f);

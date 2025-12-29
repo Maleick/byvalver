@@ -2,10 +2,10 @@
  * XLAT Table Lookup Strategy for Bad Character Elimination
  *
  * PROBLEM: XLAT instruction is commonly used in shellcode for byte translation
- * but the table address may contain bad characters in displacement bytes.
+ * but the table address may contain bad bytes in displacement bytes.
  *
  * SOLUTION: Replace XLAT with equivalent logic using MOV from memory with
- * alternative addressing modes that avoid bad characters.
+ * alternative addressing modes that avoid bad bytes.
  */
 
 #include "xlat_table_lookup_strategies.h"
@@ -72,12 +72,12 @@ void generate_xlat_to_mov_substitution(struct buffer *b, cs_insn *insn) {
 }
 
 /**
- * Transform XLAT with table address that contains bad characters
+ * Transform XLAT with table address that contains bad bytes
  *
  * Original: XLATB with table at address containing bad chars
  * Transform: Create new table without bad chars or use alternative approach
  */
-int can_handle_xlat_bad_char_table(cs_insn *insn) {
+int can_handle_xlat_bad_byte_table(cs_insn *insn) {
     if (!insn) {
         return 0;
     }
@@ -92,12 +92,12 @@ int can_handle_xlat_bad_char_table(cs_insn *insn) {
     return 0;
 }
 
-size_t get_size_xlat_bad_char_table(__attribute__((unused)) cs_insn *insn) {
+size_t get_size_xlat_bad_byte_table(__attribute__((unused)) cs_insn *insn) {
     // Size for alternative implementation
     return 10;  // Conservative estimate
 }
 
-void generate_xlat_bad_char_table(struct buffer *b, cs_insn *insn) {
+void generate_xlat_bad_byte_table(struct buffer *b, cs_insn *insn) {
     // For this implementation, we'll use the same approach as above
     generate_xlat_to_mov_substitution(b, insn);
 }
@@ -105,8 +105,8 @@ void generate_xlat_bad_char_table(struct buffer *b, cs_insn *insn) {
 // Define the strategy structure
 strategy_t xlat_table_lookup_strategy = {
     .name = "XLAT Table Lookup Elimination",
-    .can_handle = can_handle_xlat_bad_char_table,
-    .get_size = get_size_xlat_bad_char_table,
-    .generate = generate_xlat_bad_char_table,
+    .can_handle = can_handle_xlat_bad_byte_table,
+    .get_size = get_size_xlat_bad_byte_table,
+    .generate = generate_xlat_bad_byte_table,
     .priority = 72  // As specified in documentation
 };

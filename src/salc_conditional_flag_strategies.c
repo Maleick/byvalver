@@ -67,7 +67,7 @@ int can_handle_salc_conditional_flag(cs_insn *insn) {
         if (dst_op->type == X86_OP_REG && dst_op->reg == X86_REG_ECX && src_op->type == X86_OP_IMM) {
             // This is MOV ECX, imm - potentially for REP STOSB count
             // Check if immediate contains nulls
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -81,7 +81,7 @@ int can_handle_salc_conditional_flag(cs_insn *insn) {
         if (dst_op->type == X86_OP_REG && dst_op->reg == X86_REG_EDI && src_op->type == X86_OP_IMM) {
             // This is MOV EDI, imm - potentially for REP STOSB destination address
             // Check if immediate contains nulls
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -109,7 +109,7 @@ size_t get_size_salc_conditional_flag(cs_insn *insn) {
 
         if ((dst_op->type == X86_OP_REG && (dst_op->reg == X86_REG_ECX || dst_op->reg == X86_REG_EDI)) &&
             src_op->type == X86_OP_IMM) {
-            if (!is_bad_char_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 // Would require null-safe approach: MOV EAX, imm; MOV ECX/EDI, EAX
                 return 6; // Estimate for MOV EAX, imm32 + MOV reg, EAX
             }
@@ -158,7 +158,7 @@ void generate_salc_conditional_flag(struct buffer *b, cs_insn *insn) {
             if (dst_op->reg == X86_REG_ECX || dst_op->reg == X86_REG_EDI) {
                 uint32_t imm = (uint32_t)src_op->imm;
 
-                if (!is_bad_char_free(imm)) {
+                if (!is_bad_byte_free(imm)) {
                     // Use null-safe approach: MOV EAX, imm; MOV target_reg, EAX
                     generate_mov_eax_imm(b, imm);
 

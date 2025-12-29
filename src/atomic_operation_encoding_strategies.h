@@ -9,8 +9,8 @@
  * Atomic Operation Encoding Chain Strategies
  *
  * PURPOSE: Transform atomic operations (XADD, CMPXCHG, LOCK prefix) that may 
- * encode with bad characters in:
- * - LOCK prefix (F0h) which may combine with opcodes to form bad characters
+ * encode with bad bytes in:
+ * - LOCK prefix (F0h) which may combine with opcodes to form bad bytes
  * - Complex ModR/M bytes
  * - Memory displacements containing nulls
  *

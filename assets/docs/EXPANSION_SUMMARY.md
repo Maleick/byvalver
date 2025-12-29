@@ -1,19 +1,19 @@
-# Non-Null Bad-Character Elimination Expansion Summary
+# Non-Null Bad-Byte Elimination Expansion Summary
 
 **Date**: 2025-12-17
 **Version**: 3.0+
 
 ## Overview
 
-Successfully expanded byvalver's bad-character elimination capabilities beyond null bytes by implementing a comprehensive profile system and creating specialized analysis agents.
+Successfully expanded byvalver's bad-byte elimination capabilities beyond null bytes by implementing a comprehensive profile system and creating specialized analysis agents.
 
 ---
 
 ## What Was Implemented
 
-### 1. Bad-Character Profile System
+### 1. Bad-Byte Profile System
 
-**File**: `src/badchar_profiles.h`
+**File**: `src/badbyte_profiles.h`
 
 - **13 Pre-configured Profiles** for common exploit scenarios:
   - `null-only` - Classic denullification (default)
@@ -36,9 +36,9 @@ Successfully expanded byvalver's bad-character elimination capabilities beyond n
   - Success rate guidance
 
 - **Profile API**:
-  - `find_badchar_profile(name)` - Lookup by name
-  - `list_badchar_profiles()` - Display all profiles
-  - `profile_to_config()` - Convert to bad_char_config_t
+  - `find_badbyte_profile(name)` - Lookup by name
+  - `list_badbyte_profiles()` - Display all profiles
+  - `profile_to_config()` - Convert to bad_byte_config_t
   - `show_profile_details()` - Detailed profile info
 
 ### 2. CLI Integration
@@ -56,7 +56,7 @@ Successfully expanded byvalver's bad-character elimination capabilities beyond n
   byvalver --profile sql-injection --biphasic input.bin output.bin
   ```
 
-- **Profile Priority**: `--profile` overrides `--bad-chars` when both specified
+- **Profile Priority**: `--profile` overrides `--bad-bytes` when both specified
 
 ### 3. Specialized Claude Agents
 
@@ -64,14 +64,14 @@ Successfully expanded byvalver's bad-character elimination capabilities beyond n
 
 Created three high-priority analysis agents:
 
-#### A. `badchar-profiler.md`
-- **Purpose**: Profile bad-character requirements for exploit contexts
+#### A. `badbyte-profiler.md`
+- **Purpose**: Profile bad-byte requirements for exploit contexts
 - **Capabilities**:
-  - Analyze 12 standard bad-character profiles
+  - Analyze 12 standard bad-byte profiles
   - Context profiling (HTTP, SQL, XML, etc.)
   - Strategy recommendations per context
   - Profile database management
-- **When to use**: Analyzing bad-char requirements, suggesting optimal approaches
+- **When to use**: Analyzing bad-byte requirements, suggesting optimal approaches
 
 #### B. `charset-optimizer.md`
 - **Purpose**: Minimize character sets and achieve strict encoding requirements
@@ -95,7 +95,7 @@ Created three high-priority analysis agents:
 
 ### 4. Comprehensive Documentation
 
-#### A. `docs/BAD_CHAR_PROFILES.md` (45KB)
+#### A. `docs/BAD_BYTE_PROFILES.md` (45KB)
 - Complete profile reference guide
 - Usage examples for each profile
 - Performance considerations and size overhead estimates
@@ -112,7 +112,7 @@ Created three high-priority analysis agents:
 
 ### 5. Validation Suite
 
-**File**: `test_bad_chars.sh`
+**File**: `test_bad_bytes.sh`
 
 Comprehensive test suite with **32 tests** covering:
 
@@ -137,7 +137,7 @@ Comprehensive test suite with **32 tests** covering:
 - Profile + biphasic
 - Profile + verbose/quiet
 - Profile + format
-- Profile priority over --bad-chars
+- Profile priority over --bad-bytes
 
 **Section 6: Output Formats** (4 tests)
 - Raw, C, Python, hexstring formats
@@ -151,11 +151,11 @@ Comprehensive test suite with **32 tests** covering:
 ### Existing Foundation (Already in Place)
 
 The v3.0 framework already had:
-- ✅ `bad_char_config_t` structure with bitmap storage
+- ✅ `bad_byte_config_t` structure with bitmap storage
 - ✅ Global `g_bad_char_context` for runtime configuration
 - ✅ Generic checking functions (`is_bad_char_free_byte()`, etc.)
-- ✅ `--bad-chars` CLI option with hex parsing
-- ✅ All 122+ strategies using generic bad-char checks
+- ✅ `--bad-bytes` CLI option with hex parsing
+- ✅ All 122+ strategies using generic bad-byte checks
 
 ### New Additions
 
@@ -165,7 +165,7 @@ The v3.0 framework already had:
         ↓
    Profile Database → Character Set + Metadata
         ↓
-   Conversion → bad_char_config_t
+   Conversion → bad_byte_config_t
         ↓
    Processing Pipeline → Elimination
    ```
@@ -189,7 +189,7 @@ The v3.0 framework already had:
 ### Before (Manual Specification)
 ```bash
 # User must remember exact hex values
-byvalver --bad-chars "00,0a,0d" input.bin output.bin
+byvalver --bad-bytes "00,0a,0d" input.bin output.bin
 ```
 
 ### After (Profile-Based)
@@ -233,10 +233,10 @@ byvalver --profile url-safe --biphasic --ml --format c payload.bin output.c
 ## Files Created/Modified
 
 ### New Files
-- ✅ `src/badchar_profiles.h` - Profile database (446 lines)
-- ✅ `docs/BAD_CHAR_PROFILES.md` - Comprehensive guide (1,200+ lines)
-- ✅ `test_bad_chars.sh` - Test suite (400+ lines)
-- ✅ `.claude/agents/badchar-profiler.md` - Analysis agent (465 lines)
+- ✅ `src/badbyte_profiles.h` - Profile database (446 lines)
+- ✅ `docs/BAD_BYTE_PROFILES.md` - Comprehensive guide (1,200+ lines)
+- ✅ `test_bad_bytes.sh` - Test suite (400+ lines)
+- ✅ `.claude/agents/badbyte-profiler.md` - Analysis agent (465 lines)
 - ✅ `.claude/agents/charset-optimizer.md` - Optimization agent (600+ lines)
 - ✅ `.claude/agents/strategy-compatibility-analyzer.md` - Compatibility agent (800+ lines)
 - ✅ `docs/EXPANSION_SUMMARY.md` - This document
@@ -366,7 +366,7 @@ byvalver --profile url-safe --biphasic --ml --format c payload.bin output.c
 ### Backward Compatibility
 - ✅ All existing functionality preserved
 - ✅ Default behavior unchanged (null-only)
-- ✅ Existing `--bad-chars` option works as before
+- ✅ Existing `--bad-bytes` option works as before
 - ✅ No breaking changes to API or CLI
 
 ### Forward Compatibility
@@ -379,13 +379,13 @@ byvalver --profile url-safe --biphasic --ml --format c payload.bin output.c
 ## References
 
 ### Documentation
-- [BAD_CHAR_PROFILES.md](./BAD_CHAR_PROFILES.md) - Complete profile guide
+- [BAD_BYTE_PROFILES.md](./BAD_BYTE_PROFILES.md) - Complete profile guide
 - [README.md](../README.md) - Main project documentation
 - [DENULL_STRATS.md](./DENULL_STRATS.md) - Denullification strategies
 - [OBFUSCATION_STRATS.md](./OBFUSCATION_STRATS.md) - Obfuscation techniques
 
 ### Agent Definitions
-- [badchar-profiler.md](../.claude/agents/badchar-profiler.md)
+- [badbyte-profiler.md](../.claude/agents/badbyte-profiler.md)
 - [charset-optimizer.md](../.claude/agents/charset-optimizer.md)
 - [strategy-compatibility-analyzer.md](../.claude/agents/strategy-compatibility-analyzer.md)
 
@@ -399,7 +399,7 @@ byvalver --profile url-safe --biphasic --ml --format c payload.bin output.c
 
 ## Conclusion
 
-Successfully expanded byvalver's capabilities from null-byte-focused to a comprehensive bad-character elimination framework with:
+Successfully expanded byvalver's capabilities from null-byte-focused to a comprehensive bad-byte elimination framework with:
 
 - ✅ **13 pre-configured profiles** for common exploit scenarios
 - ✅ **3 specialized analysis agents** for intelligent recommendations
@@ -409,7 +409,7 @@ Successfully expanded byvalver's capabilities from null-byte-focused to a compre
 - ✅ **Backward compatible** with existing functionality
 - ✅ **Extensible architecture** for future enhancements
 
-The expansion maintains byvalver's core strengths (high success rate, performance, reliability) while adding powerful new capabilities for handling diverse bad-character requirements across different exploit contexts.
+The expansion maintains byvalver's core strengths (high success rate, performance, reliability) while adding powerful new capabilities for handling diverse bad-byte requirements across different exploit contexts.
 
 ---
 

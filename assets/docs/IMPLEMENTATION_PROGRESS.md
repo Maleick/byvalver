@@ -1,4 +1,4 @@
-# Bad-Character Framework Implementation Progress
+# Bad-Byte Framework Implementation Progress
 
 **Version:** 3.0.0
 **Date Started:** 2025-12-16
@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document tracks the implementation of the generic bad-character elimination framework for byvalver. The goal is to extend byvalver from null-byte-only elimination to support arbitrary bad characters (e.g., `0x00, 0x0a, 0x0d` for network protocols).
+This document tracks the implementation of the generic bad-byte elimination framework for byvalver. The goal is to extend byvalver from null-byte-only elimination to support arbitrary bad bytes (e.g., `0x00, 0x0a, 0x0d` for network protocols).
 
 ---
 
@@ -17,10 +17,10 @@ This document tracks the implementation of the generic bad-character elimination
 
 ### ✅ Phase 1: Infrastructure (COMPLETED)
 
-**Objective:** Build the foundational data structures and API for bad character checking.
+**Objective:** Build the foundational data structures and API for bad byte checking.
 
 **Files Modified:**
-1. `src/cli.h` - Added bad character configuration structures
+1. `src/cli.h` - Added bad byte configuration structures
 2. `src/core.h` - Added global context declarations
 3. `src/core.c` - Implemented context management functions
 4. `src/utils.h` - Added generic checking function prototypes
@@ -44,9 +44,9 @@ This document tracks the implementation of the generic bad-character elimination
 // Uses bitmap for O(1) lookup performance
 typedef struct {
     uint8_t bad_chars[256];      // Bitmap: bad_chars[byte] = 1 if bad, 0 if ok
-    int bad_char_count;           // Number of distinct bad characters
-    uint8_t bad_char_list[256];   // Ordered list of bad character values
-} bad_char_config_t;
+    int bad_char_count;           // Number of distinct bad bytes
+    uint8_t bad_char_list[256];   // Ordered list of bad byte values
+} bad_byte_config_t;
 ```
 
 **Configuration Extension:**
@@ -55,7 +55,7 @@ typedef struct {
     // ... existing fields ...
 
     // Bad character configuration (NEW in v3.0)
-    bad_char_config_t *bad_chars;  // Dynamically allocated bad character configuration
+    bad_byte_config_t *bad_chars;  // Dynamically allocated bad byte configuration
 
     // ... rest of fields ...
 } byvalver_config_t;
@@ -64,7 +64,7 @@ typedef struct {
 **New Function Declaration:**
 ```c
 // Bad character configuration functions
-bad_char_config_t* parse_bad_chars_string(const char *input);
+bad_byte_config_t* parse_bad_chars_string(const char *input);
 ```
 
 **Design Rationale:**
@@ -79,25 +79,25 @@ bad_char_config_t* parse_bad_chars_string(const char *input);
 
 **Added Include:**
 ```c
-#include "cli.h"  // For bad_char_config_t
+#include "cli.h"  // For bad_byte_config_t
 ```
 
 **New Context Structure:**
 ```c
-// Global bad character context (v3.0)
+// Global bad byte context (v3.0)
 // Thread-local in multi-threaded scenarios (future enhancement)
 typedef struct {
-    bad_char_config_t config;     // Active configuration
+    bad_byte_config_t config;     // Active configuration
     int initialized;               // 0 = uninitialized, 1 = ready
 } bad_char_context_t;
 
-// Global bad character context instance
+// Global bad byte context instance
 extern bad_char_context_t g_bad_char_context;
 
 // Bad character context management functions
-void init_bad_char_context(bad_char_config_t *config);
+void init_bad_char_context(bad_byte_config_t *config);
 void reset_bad_char_context(void);
-bad_char_config_t* get_bad_char_config(void);
+bad_byte_config_t* get_bad_char_config(void);
 ```
 
 **Design Rationale:**
@@ -111,7 +111,7 @@ bad_char_config_t* get_bad_char_config(void);
 
 **Global Instance:**
 ```c
-// Global bad character context instance (v3.0)
+// Global bad byte context instance (v3.0)
 bad_char_context_t g_bad_char_context = {0};
 ```
 
@@ -119,13 +119,13 @@ bad_char_context_t g_bad_char_context = {0};
 
 ```c
 /**
- * Initialize global bad character context
+ * Initialize global bad byte context
  * @param config: Configuration to copy (NULL = default to null-byte only)
  */
-void init_bad_char_context(bad_char_config_t *config) {
+void init_bad_char_context(bad_byte_config_t *config) {
     if (config) {
         // Copy user configuration
-        memcpy(&g_bad_char_context.config, config, sizeof(bad_char_config_t));
+        memcpy(&g_bad_char_context.config, config, sizeof(bad_byte_config_t));
         g_bad_char_context.initialized = 1;
     } else {
         // Default configuration: null byte only (for backward compatibility)
@@ -146,9 +146,9 @@ void reset_bad_char_context(void) {
 
 /**
  * Get pointer to current configuration (read-only)
- * @return: Pointer to active bad character configuration
+ * @return: Pointer to active bad byte configuration
  */
-bad_char_config_t* get_bad_char_config(void) {
+bad_byte_config_t* get_bad_char_config(void) {
     return &g_bad_char_context.config;
 }
 ```
@@ -169,13 +169,13 @@ bad_char_config_t* get_bad_char_config(void) {
 // Generic Bad Character Checking Functions (v3.0)
 // ============================================================================
 
-// Check if a single byte is free of bad characters
+// Check if a single byte is free of bad bytes
 int is_bad_char_free_byte(uint8_t byte);
 
-// Check if a 32-bit value is free of bad characters
+// Check if a 32-bit value is free of bad bytes
 int is_bad_char_free(uint32_t val);
 
-// Check if a buffer is free of bad characters
+// Check if a buffer is free of bad bytes
 int is_bad_char_free_buffer(const uint8_t *data, size_t size);
 
 // ============================================================================
@@ -197,8 +197,8 @@ int is_null_free_byte(uint8_t byte);
 
 ```c
 /**
- * Check if a single byte is free of bad characters
- * Uses global bad character context for O(1) lookup
+ * Check if a single byte is free of bad bytes
+ * Uses global bad byte context for O(1) lookup
  * @param byte: Byte to check
  * @return: 1 if ok, 0 if bad
  */
@@ -212,7 +212,7 @@ int is_bad_char_free_byte(uint8_t byte) {
 }
 
 /**
- * Check if a 32-bit value is free of bad characters
+ * Check if a 32-bit value is free of bad bytes
  * @param val: 32-bit value to check
  * @return: 1 if all 4 bytes ok, 0 if any byte is bad
  */
@@ -221,14 +221,14 @@ int is_bad_char_free(uint32_t val) {
     for (int i = 0; i < 4; i++) {
         uint8_t byte = (val >> (i * 8)) & 0xFF;
         if (!is_bad_char_free_byte(byte)) {
-            return 0;  // Found a bad character
+            return 0;  // Found a bad byte
         }
     }
     return 1;  // All bytes ok
 }
 
 /**
- * Check if a buffer is free of bad characters
+ * Check if a buffer is free of bad bytes
  * @param data: Buffer to check
  * @param size: Buffer size
  * @return: 1 if all bytes ok, 0 if any byte is bad
@@ -239,7 +239,7 @@ int is_bad_char_free_buffer(const uint8_t *data, size_t size) {
     }
     for (size_t i = 0; i < size; i++) {
         if (!is_bad_char_free_byte(data[i])) {
-            return 0;  // Found a bad character
+            return 0;  // Found a bad byte
         }
     }
     return 1;  // All bytes ok
@@ -283,7 +283,7 @@ int is_null_free(uint32_t val) {
 
 ### ✅ Phase 2: CLI Integration (COMPLETED)
 
-**Objective:** Add `--bad-chars` CLI option and parsing logic.
+**Objective:** Add `--bad-bytes` CLI option and parsing logic.
 
 **Status:** Completed 2025-12-16
 
@@ -304,7 +304,7 @@ Comprehensive parsing function with:
 
 **Example Usage:**
 ```c
-bad_char_config_t *config = parse_bad_chars_string("00,0a,0d");
+bad_byte_config_t *config = parse_bad_chars_string("00,0a,0d");
 // Result: bad_chars[0x00] = 1, bad_chars[0x0a] = 1, bad_chars[0x0d] = 1
 ```
 
@@ -315,10 +315,10 @@ bad_char_config_t *config = parse_bad_chars_string("00,0a,0d");
 
 #### 2. `config_create_default()` Update (Lines 52-59)
 
-Added default bad character configuration:
+Added default bad byte configuration:
 ```c
 // Bad character configuration defaults (v3.0)
-config->bad_chars = calloc(1, sizeof(bad_char_config_t));
+config->bad_chars = calloc(1, sizeof(bad_byte_config_t));
 if (config->bad_chars) {
     config->bad_chars->bad_chars[0x00] = 1;      // Mark null byte as bad
     config->bad_chars->bad_char_list[0] = 0x00;  // Add to list
@@ -332,7 +332,7 @@ if (config->bad_chars) {
 
 Added cleanup for dynamically allocated bad_chars:
 ```c
-// Free bad character configuration (v3.0)
+// Free bad byte configuration (v3.0)
 if (config->bad_chars) {
     free(config->bad_chars);
     config->bad_chars = NULL;
@@ -343,21 +343,21 @@ if (config->bad_chars) {
 
 Added option definition:
 ```c
-{"bad-chars", required_argument, 0, 0},  // NEW in v3.0: Generic bad character elimination
+{"bad-bytes", required_argument, 0, 0},  // NEW in v3.0: Generic bad byte elimination
 ```
 
 #### 5. Parsing Logic (Lines 400-411)
 
 Added case in `parse_arguments()`:
 ```c
-else if (strcmp(opt_name, "bad-chars") == 0) {
-    // Parse bad characters (v3.0)
+else if (strcmp(opt_name, "bad-bytes") == 0) {
+    // Parse bad bytes (v3.0)
     if (config->bad_chars) {
         free(config->bad_chars);  // Free default config
     }
     config->bad_chars = parse_bad_chars_string(optarg);
     if (!config->bad_chars) {
-        fprintf(stderr, "Error: Invalid --bad-chars format: %s\n", optarg);
+        fprintf(stderr, "Error: Invalid --bad-bytes format: %s\n", optarg);
         fprintf(stderr, "Expected: comma-separated hex bytes (e.g., \"00,0a,0d\")\n");
         return EXIT_INVALID_ARGUMENTS;
     }
@@ -370,25 +370,25 @@ else if (strcmp(opt_name, "bad-chars") == 0) {
 
 **Title Update (Line 174):**
 ```c
-fprintf(stream, "byvalver v3.0 - Generic Bad-Character Elimination Framework\n\n");
+fprintf(stream, "byvalver v3.0 - Generic Bad-Byte Elimination Framework\n\n");
 ```
 
 **Description Update (Lines 179-188):**
-Added explanation of generic bad character elimination and v3.0 features.
+Added explanation of generic bad byte elimination and v3.0 features.
 
 **Option Documentation (Lines 201-202):**
 ```c
-fprintf(stream, "      --bad-chars BYTES             Comma-separated hex bytes to eliminate (e.g., \"00,0a,0d\")\n");
+fprintf(stream, "      --bad-bytes BYTES             Comma-separated hex bytes to eliminate (e.g., \"00,0a,0d\")\n");
 fprintf(stream, "                                    Default: \"00\" (null bytes only)\n\n");
 ```
 
 **Usage Examples (Lines 242-246):**
 ```c
-fprintf(stream, "    Eliminate specific bad characters (v3.0+):\n");
+fprintf(stream, "    Eliminate specific bad bytes (v3.0+):\n");
 fprintf(stream, "      # Eliminate null, newline, and carriage return (for network protocols)\n");
-fprintf(stream, "      %s --bad-chars \"00,0a,0d\" shellcode.bin output.bin\n\n", program_name);
+fprintf(stream, "      %s --bad-bytes \"00,0a,0d\" shellcode.bin output.bin\n\n", program_name);
 fprintf(stream, "      # Avoid space character (for command injection)\n");
-fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", program_name);
+fprintf(stream, "      %s --bad-bytes \"00,20\" shellcode.bin output.bin\n\n", program_name);
 ```
 
 **Supported CLI Usage:**
@@ -397,13 +397,13 @@ fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", p
 ./byvalver input.bin output.bin
 
 # Custom bad chars: null + LF + CR
-./byvalver --bad-chars "00,0a,0d" input.bin output.bin
+./byvalver --bad-bytes "00,0a,0d" input.bin output.bin
 
 # Space avoidance
-./byvalver --bad-chars "00,20" input.bin output.bin
+./byvalver --bad-bytes "00,20" input.bin output.bin
 
 # Whitespace elimination
-./byvalver --bad-chars "00,09,0a,0d,20" input.bin output.bin
+./byvalver --bad-bytes "00,09,0a,0d,20" input.bin output.bin
 ```
 
 **Edge Cases Handled:**
@@ -451,7 +451,7 @@ fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", p
 **Python Verification:**
 - Update `verify_denulled.py`
 - Add `analyze_shellcode_for_bad_chars()` function
-- Add `--bad-chars` CLI argument
+- Add `--bad-bytes` CLI argument
 
 ---
 
@@ -477,7 +477,7 @@ fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", p
 - Performance benchmarks
 
 **Documentation:**
-- Update README.md with `--bad-chars` usage
+- Update README.md with `--bad-bytes` usage
 - Create migration guide
 - Update man page
 
@@ -486,14 +486,14 @@ fprintf(stream, "      %s --bad-chars \"00,20\" shellcode.bin output.bin\n\n", p
 ## Backward Compatibility
 
 **Guarantees:**
-✅ No `--bad-chars` flag = identical to v2.x (null-only)
+✅ No `--bad-bytes` flag = identical to v2.x (null-only)
 ✅ Old function names remain available (wrappers)
-✅ Same input + `--bad-chars "00"` = identical output
+✅ Same input + `--bad-bytes "00"` = identical output
 ✅ No breaking changes to public API
 
 **Default Behavior:**
 ```c
-// When --bad-chars not specified or context uninitialized:
+// When --bad-bytes not specified or context uninitialized:
 bad_chars[0x00] = 1;  // Only null byte marked as bad
 bad_char_count = 1;
 ```
@@ -527,7 +527,7 @@ bad_char_count = 1;
 
 ### Unit Tests (Planned)
 
-**Test File:** `tests/test_bad_chars.c`
+**Test File:** `tests/test_bad_bytes.c`
 
 **Test Cases:**
 1. Default behavior (null-only when uninitialized)
@@ -540,9 +540,9 @@ bad_char_count = 1;
 ### Integration Tests (Planned)
 
 **Scenarios:**
-1. Default mode (no --bad-chars)
-2. Network protocols (--bad-chars "00,0a,0d")
-3. Space avoidance (--bad-chars "00,20")
+1. Default mode (no --bad-bytes)
+2. Network protocols (--bad-bytes "00,0a,0d")
+3. Space avoidance (--bad-bytes "00,20")
 4. Batch processing compatibility
 5. ML mode compatibility
 
@@ -583,7 +583,7 @@ bad_char_count = 1;
 **Next Steps:**
 1. Implement CLI parsing (`parse_bad_chars_string()`)
 2. Update `config_create_default()` with default bad_chars
-3. Add `--bad-chars` option to `parse_arguments()`
+3. Add `--bad-bytes` option to `parse_arguments()`
 4. Test compilation after Phase 2 complete
 
 ---
@@ -610,14 +610,14 @@ bad_char_count = 1;
 ## Contributors
 
 **Implementation:** Claude Code (Anthropic)
-**Design:** Based on user requirements for newline/bad-char elimination
+**Design:** Based on user requirements for newline/bad-byte elimination
 **Project:** byvalver v3.0 (formerly v2.1)
 
 ---
 
 ## References
 
-- **Design Document:** `/docs/BAD_CHAR_FRAMEWORK_DESIGN.md`
+- **Design Document:** `/docs/BAD_BYTE_FRAMEWORK_DESIGN.md`
 - **Implementation Plan:** `/.claude/plans/federated-crunching-reddy.md`
 - **Original README:** `/README.md`
 
@@ -636,18 +636,18 @@ bad_char_count = 1;
 
 #### Phase Completion:
 1. ✅ **Phase 1: Infrastructure** - Bad character config structures, global context, generic checking functions
-2. ✅ **Phase 2: CLI Integration** - `--bad-chars` option, parsing, validation  
+2. ✅ **Phase 2: CLI Integration** - `--bad-bytes` option, parsing, validation  
 3. ✅ **Phase 3: Core System** - All inline checks updated, `has_null_bytes()` refactored, `init_bad_char_context()` integrated
 4. ✅ **Phase 4: Strategy Updates** - All 51 C source files updated to use `is_bad_char_free()`
-5. ✅ **Phase 5: Verification** - Python script with full `--bad-chars` support
-6. ✅ **Phase 6: ML Integration** - Feature extraction updated for bad character awareness
+5. ✅ **Phase 5: Verification** - Python script with full `--bad-bytes` support
+6. ✅ **Phase 6: ML Integration** - Feature extraction updated for bad byte awareness
 7. ✅ **Phase 7: Testing & Documentation** - Integration test created, README updated
 
 ### Key Achievements
 
 **Core Functionality:**
-- ✅ Generic bad character elimination framework fully implemented
-- ✅ Backward compatible - no `--bad-chars` = null-only mode (identical to v2.x)
+- ✅ Generic bad byte elimination framework fully implemented
+- ✅ Backward compatible - no `--bad-bytes` = null-only mode (identical to v2.x)
 - ✅ O(1) bitmap lookup for performance
 - ✅ Clean build with zero warnings/errors
 
@@ -671,20 +671,20 @@ bad_char_count = 1;
 ./bin/byvalver input.bin output.bin
 
 # Eliminate newlines (network protocols)
-./bin/byvalver --bad-chars "00,0a,0d" input.bin output.bin
+./bin/byvalver --bad-bytes "00,0a,0d" input.bin output.bin
 
-# Eliminate multiple bad characters
-./bin/byvalver --bad-chars "00,0a,0d,20" input.bin output.bin
+# Eliminate multiple bad bytes
+./bin/byvalver --bad-bytes "00,0a,0d,20" input.bin output.bin
 
 # Verify with Python script
-python3 verify_denulled.py output.bin --bad-chars "00,0a,0d"
+python3 verify_denulled.py output.bin --bad-bytes "00,0a,0d"
 ```
 
 ### Testing
 
 **Integration Tests:**
-- ✅ `--bad-chars` option present in help
-- ✅ Python script supports `--bad-chars`
+- ✅ `--bad-bytes` option present in help
+- ✅ Python script supports `--bad-bytes`
 - ✅ Basic processing works
 - ✅ Real shellcode processing (calc.bin)
 
@@ -706,14 +706,14 @@ These are NOT required for v3.0 release, but could be added later:
 
 **For users upgrading from v2.x:**
 
-No changes required! The default behavior is identical to v2.x when `--bad-chars` is not specified.
+No changes required! The default behavior is identical to v2.x when `--bad-bytes` is not specified.
 
 **To use new features:**
 
-Simply add `--bad-chars "XX,YY,ZZ"` to eliminate specific bytes. For example:
-- Newlines: `--bad-chars "00,0a,0d"`
-- Spaces: `--bad-chars "00,20"`  
-- Alphanumeric: `--bad-chars "30-39,41-5a,61-7a"`  (Note: range syntax not yet implemented, use individual bytes)
+Simply add `--bad-bytes "XX,YY,ZZ"` to eliminate specific bytes. For example:
+- Newlines: `--bad-bytes "00,0a,0d"`
+- Spaces: `--bad-bytes "00,20"`  
+- Alphanumeric: `--bad-bytes "30-39,41-5a,61-7a"`  (Note: range syntax not yet implemented, use individual bytes)
 
 ### Contributors
 

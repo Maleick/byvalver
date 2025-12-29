@@ -35,7 +35,7 @@ int show_options_screen(byvalver_config_t *config, int *current_selection);
 int show_processing_screen(byvalver_config_t *config);
 int show_results_screen(byvalver_config_t *config, int *current_selection);
 int show_config_screen(byvalver_config_t *config, int *current_selection);
-int show_bad_chars_screen(byvalver_config_t *config, int *current_selection);
+int show_bad_bytes_screen(byvalver_config_t *config, int *current_selection);
 int show_about_screen();
 int show_batch_screen(byvalver_config_t *config, int *current_selection);
 int show_ml_metrics_screen(byvalver_config_t *config, int *current_selection);

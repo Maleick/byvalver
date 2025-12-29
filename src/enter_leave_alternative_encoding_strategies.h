@@ -7,7 +7,7 @@
 /*
  * ENTER/LEAVE Stack Frame Alternative Encoding Strategy
  *
- * PURPOSE: Replace ENTER/LEAVE instructions that contain bad characters with
+ * PURPOSE: Replace ENTER/LEAVE instructions that contain bad bytes with
  * equivalent manual stack frame operations.
  *
  * TECHNIQUE:

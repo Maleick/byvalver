@@ -13,7 +13,7 @@ shellcode = ("\x31\xc0\x50\x89\xe2\x68\x62\x61\x73\x68\x68\x62\x69\x6e\x2f\x68\x
 # Parse Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("-e", "--entropy", help="Entropy of random byted to be inserted after each shellcode byte (use a value between 1 & 10)", type=int)
-parser.add_argument("-b", "--badchars", help="Badchars to removed from inserted bytes", type=str)
+parser.add_argument("-b", "--badbytes", help="Badchars to removed from inserted bytes", type=str)
 args = parser.parse_args()
 
 
@@ -22,7 +22,7 @@ encoded2 = ""
 
 
 entropy = args.entropy
-bad_chars = args.badchars
+bad_chars = args.badbytes
 #print len(sys.argv)
 #if len(sys.argv) > 1:
 #	entropy = int(sys.argv[1])

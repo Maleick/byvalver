@@ -8,7 +8,7 @@
  * SIMD XMM Register Immediate Loading Strategy
  *
  * PURPOSE: Use SIMD XMM registers as alternative data path for loading
- * immediate values, avoiding bad characters in standard MOV instructions.
+ * immediate values, avoiding bad bytes in standard MOV instructions.
  *
  * TECHNIQUE:
  * XMM registers (128-bit SIMD) can be used to load and transfer data:
@@ -19,7 +19,7 @@
  *
  * Use cases:
  * 1. Zero initialization: PXOR xmm0, xmm0; MOVD eax, xmm0 => EAX = 0
- * 2. Alternative data path when MOV has bad characters
+ * 2. Alternative data path when MOV has bad bytes
  * 3. SIMD-based arithmetic for constant construction
  *
  * Transformations:

@@ -1,7 +1,7 @@
 /*
  * PUSHF/POPF Bit Manipulation Strategy for Bad Character Elimination
  *
- * PROBLEM: Flag-setting instructions may encode with bad characters, particularly:
+ * PROBLEM: Flag-setting instructions may encode with bad bytes, particularly:
  * - STC (Set Carry) = F9 (may be bad char)
  * - CLC (Clear Carry) = F8 (may be bad char)
  * - STD (Set Direction) = FD (may be bad char)
@@ -77,8 +77,8 @@ int can_handle_pushf_popf_flag_manipulation(cs_insn *insn) {
         return 0;
     }
 
-    // Check if the original instruction encoding contains bad characters
-    if (!is_bad_char_free_buffer(insn->bytes, insn->size)) {
+    // Check if the original instruction encoding contains bad bytes
+    if (!is_bad_byte_free_buffer(insn->bytes, insn->size)) {
         return 1;  // Has bad chars, we can handle it
     }
 

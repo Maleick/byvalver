@@ -33,14 +33,14 @@ BYVALVER includes an optional machine learning-enhanced component called the "ML
 The ML model extracts the following features from x86/x64 instructions:
 - Instruction type (MOV, ADD, etc.) - using Capstone instruction ID
 - Instruction size in bytes
-- Presence of bad characters in the instruction (v3.0: generic, v2.x: null bytes only)
+- Presence of bad bytes in the instruction (v3.0: generic, v2.x: null bytes only)
 - Bad character count and types (v3.0: tracks which specific bad chars present)
 - Operand count and types (register, immediate, memory)
 - Register indices for register operands
 - Immediate values for immediate operands
 - Additional instruction characteristics encoded as numerical values
 
-**Note (v3.0):** The ML model now tracks generic bad character patterns, not just null bytes. However, the model was trained exclusively on null-byte elimination data and has not been retrained for other bad character sets.
+**Note (v3.0):** The ML model now tracks generic bad byte patterns, not just null bytes. However, the model was trained exclusively on null-byte elimination data and has not been retrained for other bad byte sets.
 
 ### Forward Pass Processing
 1. **Input to Hidden Layer**: 
@@ -60,10 +60,10 @@ The ML model extracts the following features from x86/x64 instructions:
 The ML component receives disassembled x86/x64 instructions via Capstone engine and performs:
 
 1. **Feature Vector Creation**: Transforms the instruction into a standardized numerical feature vector
-2. **Bad Character Detection (v3.0)**: Identifies if the instruction contains bad characters that need elimination (v2.x: null bytes only, v3.0: configurable via --bad-chars)
+2. **Bad Character Detection (v3.0)**: Identifies if the instruction contains bad bytes that need elimination (v2.x: null bytes only, v3.0: configurable via --bad-bytes)
 3. **Operand Analysis**: Examines instruction operands to determine complexity and transformation requirements
 
-**Note (v3.0):** Bad character detection now uses the global bad_char_context to check against user-specified bad characters. The ML model still processes instructions the same way but the detection has been generalized.
+**Note (v3.0):** Bad character detection now uses the global bad_char_context to check against user-specified bad bytes. The ML model still processes instructions the same way but the detection has been generalized.
 
 ### Feature Vector Composition (v2.0)
 
@@ -122,12 +122,12 @@ Once the neural network processes the instruction features:
 ### Feedback Mechanism
 After a strategy is applied (or fails to be applied):
 
-1. **Success Recording**: Logs whether the transformation was successful (v3.0: checks for any bad characters in output, not just nulls)
+1. **Success Recording**: Logs whether the transformation was successful (v3.0: checks for any bad bytes in output, not just nulls)
 2. **Weight Updates**: Adjusts neural network weights using simple gradient descent
 3. **Learning Iteration**: Updates the model based on outcome to improve future predictions
 4. **Metrics Tracking**: Records performance metrics for analysis
 
-**Important (v3.0):** While the feedback mechanism now validates against generic bad characters, the ML model's learned patterns are specific to null-byte elimination. The model may not perform optimally for other bad character sets without retraining.
+**Important (v3.0):** While the feedback mechanism now validates against generic bad bytes, the ML model's learned patterns are specific to null-byte elimination. The model may not perform optimally for other bad byte sets without retraining.
 
 ## Integration Architecture
 
@@ -270,11 +270,11 @@ training_data/
 
 ### Evaluation Metrics
 - **Prediction Accuracy**: Percentage of correct strategy recommendations
-- **Bad Character Elimination Rate (v3.0)**: Effectiveness at removing bad characters (v2.x: null bytes only)
+- **Bad Character Elimination Rate (v3.0)**: Effectiveness at removing bad bytes (v2.x: null bytes only)
 - **Success Rate**: Overall transformation success percentage
 - **Confidence Calibration**: Correlation between confidence scores and actual success
 
-**Note (v3.0):** Metrics track generic bad character elimination, but model accuracy is based on null-byte training data.
+**Note (v3.0):** Metrics track generic bad byte elimination, but model accuracy is based on null-byte training data.
 
 ### Training Configuration
 
@@ -361,11 +361,11 @@ The system tracks:
 
 - **Instruction Processing Rates**: How many instructions processed per second
 - **Strategy Success Rates**: Individual strategy effectiveness
-- **Bad Character Elimination Statistics (v3.0)**: Total bad characters eliminated vs. original count (v2.x: null bytes only)
+- **Bad Character Elimination Statistics (v3.0)**: Total bad bytes eliminated vs. original count (v2.x: null bytes only)
 - **Learning Progress**: Model improvement over processing time
 - **Feedback Cycles**: Total learning iterations performed
 
-**Important (v3.0):** Statistics reflect generic bad character elimination, but ML performance characteristics are based on null-byte elimination training.
+**Important (v3.0):** Statistics reflect generic bad byte elimination, but ML performance characteristics are based on null-byte elimination training.
 
 ### Export Formats
 - **JSON Export**: Structured metrics for external analysis

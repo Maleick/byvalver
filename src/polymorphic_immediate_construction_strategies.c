@@ -6,10 +6,10 @@
  *
  * Implements polymorphic immediate value construction with multiple encoding
  * variants. Generates 5+ alternative encodings for immediate values and selects
- * the optimal one based on bad-character avoidance and size.
+ * the optimal one based on bad-byte avoidance and size.
  *
- * This strategy is the foundation for bad-character elimination as immediate
- * values appear in ~90% of shellcode and frequently contain bad characters.
+ * This strategy is the foundation for bad-byte elimination as immediate
+ * values appear in ~90% of shellcode and frequently contain bad bytes.
  */
 
 #include "strategy.h"
@@ -35,7 +35,7 @@ static int try_shift_or_construction(uint32_t target, uint8_t bytes[4]);
 /**
  * Strategy: Polymorphic Immediate Construction - XOR Encoding
  *
- * Handles: MOV reg, imm where imm contains bad characters
+ * Handles: MOV reg, imm where imm contains bad bytes
  * Transform: MOV reg, key1; XOR reg, key2 (where key1 XOR key2 = target)
  * Priority: 90
  */
@@ -53,7 +53,7 @@ int can_handle_polymorphic_immediate_xor(cs_insn *insn) {
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
 
     // If target already has no bad chars, let simpler strategies handle it
-    if (is_bad_char_free(target)) {
+    if (is_bad_byte_free(target)) {
         return 0;
     }
 
@@ -110,7 +110,7 @@ void generate_polymorphic_immediate_xor(struct buffer *b, cs_insn *insn) {
 /**
  * Strategy: Polymorphic Immediate Construction - ADD/SUB Decomposition
  *
- * Handles: MOV reg, imm where imm contains bad characters
+ * Handles: MOV reg, imm where imm contains bad bytes
  * Transform: MOV reg, part1; ADD reg, part2 (where part1 + part2 = target)
  * Priority: 89
  */
@@ -126,7 +126,7 @@ int can_handle_polymorphic_immediate_add_sub(cs_insn *insn) {
 
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
 
-    if (is_bad_char_free(target)) {
+    if (is_bad_byte_free(target)) {
         return 0;
     }
 
@@ -178,7 +178,7 @@ void generate_polymorphic_immediate_add_sub(struct buffer *b, cs_insn *insn) {
 /**
  * Strategy: Polymorphic Immediate Construction - Shift/OR Byte Construction
  *
- * Handles: MOV reg, imm where imm contains bad characters
+ * Handles: MOV reg, imm where imm contains bad bytes
  * Transform: Zero reg; MOV AL, byte0; SHL EAX, 8; OR AL, byte1; ... (byte-by-byte)
  * Priority: 88
  */
@@ -194,7 +194,7 @@ int can_handle_polymorphic_immediate_shift_or(cs_insn *insn) {
 
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
 
-    if (is_bad_char_free(target)) {
+    if (is_bad_byte_free(target)) {
         return 0;
     }
 
@@ -262,17 +262,17 @@ static int try_xor_encoding(uint32_t target, uint32_t *key1, uint32_t *key2) {
         *key1 = candidate_keys[i];
         *key2 = target ^ *key1;
 
-        // Check if both keys are bad-char-free
-        if (is_bad_char_free(*key1) && is_bad_char_free(*key2)) {
+        // Check if both keys are bad-byte-free
+        if (is_bad_byte_free(*key1) && is_bad_byte_free(*key2)) {
             return 1;
         }
     }
 
-    // Try computed key: invert all bad-char bytes
+    // Try computed key: invert all bad-byte bytes
     *key1 = ~target;
     *key2 = 0xFFFFFFFF;
 
-    if (is_bad_char_free(*key1) && is_bad_char_free(*key2)) {
+    if (is_bad_byte_free(*key1) && is_bad_byte_free(*key2)) {
         return 1;
     }
 
@@ -286,7 +286,7 @@ static int try_add_sub_decomposition(uint32_t target, uint32_t *part1, uint32_t 
     *part2 = target & 0x0000FFFF;
     *use_sub = 0;
 
-    if (is_bad_char_free(*part1) && is_bad_char_free(*part2)) {
+    if (is_bad_byte_free(*part1) && is_bad_byte_free(*part2)) {
         return 1;
     }
 
@@ -295,7 +295,7 @@ static int try_add_sub_decomposition(uint32_t target, uint32_t *part1, uint32_t 
     *part2 = 0x01010101;
     *use_sub = 1;
 
-    if (is_bad_char_free(*part1) && is_bad_char_free(*part2)) {
+    if (is_bad_byte_free(*part1) && is_bad_byte_free(*part2)) {
         return 1;
     }
 
@@ -305,7 +305,7 @@ static int try_add_sub_decomposition(uint32_t target, uint32_t *part1, uint32_t 
         *part2 = target - split;
         *use_sub = 0;
 
-        if (is_bad_char_free(*part1) && is_bad_char_free(*part2)) {
+        if (is_bad_byte_free(*part1) && is_bad_byte_free(*part2)) {
             return 1;
         }
     }
@@ -320,9 +320,9 @@ static int try_shift_or_construction(uint32_t target, uint8_t bytes[4]) {
     bytes[2] = (target >> 16) & 0xFF;
     bytes[3] = (target >> 24) & 0xFF;
 
-    // Check if all individual bytes are bad-char-free
+    // Check if all individual bytes are bad-byte-free
     for (int i = 0; i < 4; i++) {
-        if (!is_bad_char_free_byte(bytes[i])) {
+        if (!is_bad_byte_free_byte(bytes[i])) {
             return 0;
         }
     }

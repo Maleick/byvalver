@@ -2,7 +2,7 @@
   
 # byvalver (·𐑚𐑲𐑝𐑨𐑤𐑝𐑼)
 
-## THE SHELLCODE BAD-CHARACTER BANISHER
+## THE SHELLCODE BAD-BYTE BANISHER
 
 <div align="center">
   <img src="./assets/images/byvalver_logo.png" alt="byvalver logo" width="750">
@@ -19,8 +19,10 @@
 
 <p align="center">
   <a href="#overview">Overview</a> •
-  <a href="#bad-character-profiles-v30">Bad-Character Profiles</a> •
-  <a href="#generic-bad-character-elimination-v30">Generic Bad-Character Elimination</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#interactive-tui">Interactive TUI</a> •
+  <a href="#targeted-bad-byte-elimination">Targeted Bad-Byte Elimination</a> •
+  <a href="#bad-byte-profiles">Bad-Byte Profiles</a> •
   <a href="#features">Features</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#system-requirements">System Requirements</a> •
@@ -30,7 +32,7 @@
   <a href="#usage">Usage</a> •
   <a href="#obfuscation-strategies">Obfuscation Strategies</a> •
   <a href="#denullification-strategies">Denullification Strategies</a> •
-  <a href="#ml-training">ML Training</a> •
+  <a href="#ml-training--validation">ML Training</a> •
   <a href="#development">Development</a> •
   <a href="#troubleshooting">Troubleshooting</a> •
   <a href="#license">License</a>
@@ -40,20 +42,20 @@
 
 ## Overview
 
-`**byvalver**` is a CLI tool built in `C` for automatically eliminating null-bytes (`\x00`) from x86/x64 shellcode while maintaining complete functional equivalence
+`**byvalver**` is a CLI tool built in `C` for automatically eliminating `bad-bytes` from x86/x64 shellcode while maintaining complete functional equivalence
 
-The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 153+ ranked transformation strategies to replace null-containing code with equivalent alternatives. It has been extensively tested on null-byte elimination and achieves a high success rate across diverse, real-world shellcode test suites, including complex Windows payloads.
+The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 153+ ranked transformation strategies to replace `bad-byte`-containing code with equivalent alternatives. It has been extensively tested on `null-byte` elimination and achieves a high success rate across diverse, real-world shellcode test suites, including complex Windows payloads.
 
-**NEW in v3.0:** Generic bad character elimination framework with two usage modes:
+it has also been extended to a generic `bad-byte` elimination framework with two usage modes:
 
-1. **Direct specification**: The `--bad-chars` option allows specification of arbitrary bytes to eliminate (e.g., `--bad-chars "00,0a,0d"` for newline-safe shellcode)
-2. **Profile-based**: The `--profile` option uses pre-configured bad-character sets for common exploit scenarios (e.g., `--profile http-newline`, `--profile sql-injection`, `--profile alphanumeric-only`)
+1. **Direct specification**: The `--bad-bytes` option allows specification of arbitrary bytes to eliminate (e.g., `--bad-bytes "00,0a,0d"` for newline-safe shellcode)
+2. **Profile-based**: The `--profile` option uses pre-configured bad-byte sets for common exploit scenarios (e.g., `--profile http-newline`, `--profile sql-injection`, `--profile alphanumeric-only`)
 
-**This feature is functional but newly implemented** - the 153+ transformation strategies were originally designed and optimized specifically for null-byte elimination. While they apply to other bad characters, they have not been extensively tested or optimized for non-null byte scenarios.
+**This feature is functional but newly implemented** - the 153+ transformation strategies were originally designed and optimized specifically for null-byte elimination. While they apply to other bad bytes, they have not been extensively tested or optimized for non-null byte scenarios.
 
 Supports Windows, Linux, and macOS
 
-**Core Technologies:**
+**CORE TECHNOLOGIES:**
 - Pure `C` implementation for efficiency and low-level control
 - `Capstone` for precise disassembly
 - `NASM` for generating decoder stubs
@@ -62,26 +64,26 @@ Supports Windows, Linux, and macOS
 - Biphasic processing: Obfuscation followed by denullification
 
 > [!NOTE]
-> **Null-byte elimination** (`--bad-chars "00"` or default): Well-tested with 100% success rate on diverse test corpus
+> **Null-byte elimination** (`--bad-bytes "00"` or default): Well-tested with 100% success rate on diverse test corpus
 >
-> **Generic bad-character elimination** (`--bad-chars "00,0a,0d"` etc.): Newly implemented in v3.0. The framework is functional and strategies apply generically, but effectiveness for non-null characters has not been comprehensively validated. Success rates may vary depending on the specific bad characters and shellcode complexity.
+> **Generic bad-byte elimination** (`--bad-bytes "00,0a,0d"` etc.): Newly implemented in v3.0. The framework is functional and strategies apply generically, but effectiveness for non-null characters has not been comprehensively validated. Success rates may vary depending on the specific bad bytes and shellcode complexity.
 
 ### BAD-BYTE BANISHMENT IN ACTION
 
 ![byvalver batch processing](./assets/images/denulling.gif)
 
-## Quick-Start
+## QUICK-START
 
 Get started with `byvalver` in minutes:
 
-### Installation
+### INSTALLATION
 
-**Option 1: From GitHub (Recommended)**
+**OPTION 1: FROM GITHUB (RECOMMENDED)**
 ```bash
 curl -sSL https://raw.githubusercontent.com/umpolungfish/byvalver/main/install.sh | bash
 ```
 
-**Option 2: Build from Source**
+**OPTION 2: BUILD FROM SOURCE**
 ```bash
 git clone https://github.com/umpolungfish/byvalver.git
 cd byvalver
@@ -92,12 +94,12 @@ sudo make install-man  # Install man page
 
 ### Basic Usage
 
-**Eliminate null bytes (default behavior):**
+**ELIMINATE NULL BYTES (DEFAULT):**
 ```bash
 byvalver input.bin output.bin
 ```
 
-**Using bad-character profiles (v3.0+):**
+**USING BAD-BYTE PROFILES:**
 ```bash
 # HTTP contexts (removes null, newline, carriage return)
 byvalver --profile http-newline input.bin output.bin
@@ -109,13 +111,13 @@ byvalver --profile sql-injection input.bin output.bin
 byvalver --profile alphanumeric-only input.bin output.bin
 ```
 
-**Manual bad-character specification:**
+**MANUAL BAD-BYTE SPECIFICATION:**
 ```bash
 # Eliminate null bytes and newlines
-byvalver --bad-chars "00,0a,0d" input.bin output.bin
+byvalver --bad-bytes "00,0a,0d" input.bin output.bin
 ```
 
-**Advanced features:**
+**ADVANCED FEATURES:**
 ```bash
 # Add obfuscation layer before denullification
 byvalver --biphasic input.bin output.bin
@@ -132,18 +134,18 @@ byvalver --format python input.bin output.py # Python bytes
 byvalver --format hexstring input.bin output.hex # Hex string
 ```
 
-### Verification
+### VERIFICATION
 
 Always verify your transformed shellcode:
 ```bash
-# Check for remaining bad characters
-python3 verify_denulled.py --bad-chars "00,0a,0d" output.bin
+# Check for remaining bad bytes
+python3 verify_denulled.py --bad-bytes "00,0a,0d" output.bin
 
 # Verify functional equivalence
 python3 verify_functionality.py input.bin output.bin
 ```
 
-### Batch Processing
+### BATCH PROCESSING
 
 Process entire directories:
 ```bash
@@ -154,7 +156,7 @@ byvalver -r --pattern "*.bin" input_dir/ output_dir/
 byvalver -r --profile http-newline input_dir/ output_dir/
 ```
 
-## Interactive TUI
+## INTERACTIVE TUI
 
 <div align="center">
   <img src="./assets/images/menu_main.png" alt="Main TUI Menu" width="750">
@@ -170,7 +172,7 @@ byvalver -r --profile http-newline input_dir/ output_dir/
 
 `byvalver` includes an **interactive TUI** (Text User Interface) with **complete CLI feature parity**.  
 
-The TUI provides an intuitive, visual interface for all bad-character elimination operations, including:  
+The TUI provides an intuitive, visual interface for all bad-byte elimination operations, including:  
 
 + batch processing with live statistics
 + ML configuration &
@@ -182,21 +184,21 @@ Launch the interactive mode with the `--menu` flag:
 byvalver --menu
 ```
 
-### Main Features:
+### MAIN FEATURES:
 
-The TUI provides 9 main menu options covering all CLI functionality:
+The TUI provides 9x main menu options covering all CLI functionality:
 
 1. **Process Single File** - Process individual shellcode files with visual feedback
 2. **Batch Process Directory** - Process entire directories with live progress tracking
 3. **Configure Processing Options** - Toggle biphasic mode, PIC generation, ML, verbose, dry-run
-4. **Set Bad Characters** - Manual entry or select from 13 predefined profiles
+4. **Set Bad Bytes** - Manual entry or select from 13 predefined profiles
 5. **Output Format Settings** - Choose from 5 output formats (raw, C, Python, PowerShell, hexstring)
 6. **ML Metrics Configuration** - Configure ML strategy selection and metrics tracking
 7. **Advanced Options** - XOR encoding, timeouts, limits, validation settings
 8. **Load/Save Configuration** - INI-style configuration file management
 9. **About byvalver** - Version and help information
 
-### Visual File Browser:
+### VISUAL FILE BROWSER:
 
 - **Directory navigation** with arrow keys or vi-style j/k keys
 - **File/directory distinction** with [FILE] and [DIR] indicators
@@ -209,19 +211,19 @@ The TUI provides 9 main menu options covering all CLI functionality:
   - Directory selection mode: Select directories for batch processing
   - Both mode: Select either files or directories
 
-### Batch Processing with Live Updates:
+### BATCH PROCESSING WITH LIVE UPDATES:
 
-The batch processing screen provides **real-time visual feedback**:
+The batch processing screen provides **real-time feedback**:
 
 - **Progress bar** showing files processed (e.g., `[==============        ] 52/100 files`)
 - **Configuration display** showing active settings:
-  - Bad characters count and profile used
-  - Processing options (Biphasic, PIC, XOR, ML)
+  - Bad bytes count and profile used
+  - Processing options (`Biphasic`, `PIC`, `XOR`, ML)
   - Output format
 - **Live file statistics** with color-coded status:
   - Completed: X / Y (files attempted / total)
-  - ✅ Successful (green) - zero bad characters remaining
-  - ❌ Failed (red) - errors or remaining bad characters
+  - ✅ Successful (GREEN) - zero bad bytes remaining
+  - ❌ Failed (RED) - errors or remaining bad bytes
   - Success rate percentage
 - **Current file display** in bold text
 - **Next file preview** in yellow/dim text
@@ -233,7 +235,7 @@ The batch processing screen provides **real-time visual feedback**:
   - Color-coded by performance (green ≥80%, yellow 50-79%, red <50%)
   - Real-time updates every 50ms
 
-### Configuration Management:
+### CONFIGURATION MANAGEMENT:
 
 Load and save configurations in **INI-style format**:
 
@@ -252,8 +254,8 @@ xor_key = 0xDEADBEEF
 [output]
 output_format = raw
 
-[bad_characters]
-bad_chars = 00
+[bad_bytes]
+bad_bytes = 00
 
 [ml]
 use_ml_strategist = 0
@@ -267,19 +269,19 @@ preserve_structure = 1
 
 See `example.conf` for a complete configuration template.
 
-### Bad Character Configuration:
+### BAD BYTE CONFIGURATION:
 
 2x input methods available:
 
-1. **Manual Entry** - Comma-separated hex values (e.g., `00,0a,0d`)
-2. **Predefined Profiles** - 13 profiles for common scenarios:
+1. **MANUAL ENTRY** - Comma-separated hex values (e.g., `00,0a,0d`)
+2. **PREDEFINED PROFILES** - 13 profiles for common scenarios:
    - null-only, http-newline, http-whitespace
    - url-safe, sql-injection, xml-html
    - json-string, format-string, buffer-overflow
    - command-injection, ldap-injection
    - printable-only, alphanumeric-only
 
-### Navigation:
+### NAVIGATION:
 
 - **Arrow Keys** (↑↓) or **j/k** (vi-style): Navigate between menu options
 - **Enter**: Select highlighted option
@@ -287,7 +289,7 @@ See `example.conf` for a complete configuration template.
 - **0-9**: Quick select menu option by number
 - **Space**: Select current directory (in file browser directory mode)
 
-### Requirements:
+### REQUIREMENTS:
 
 Interactive mode requires the `ncurses` library to be installed on your system:
 
@@ -304,7 +306,7 @@ brew install ncurses
 
 The application will automatically detect if ncurses is available and enable TUI support accordingly.
 
-### Build Options:
+### BUILD OPTIONS:
 
 The TUI support is conditionally compiled based on ncurses availability:
 
@@ -312,16 +314,16 @@ The TUI support is conditionally compiled based on ncurses availability:
 - Force TUI build: `make with-tui` - Builds with TUI support (fails if ncurses not available)
 - Exclude TUI: `make no-tui` - Builds without TUI support for smaller binary
 
-### Example Workflows:
+### EXAMPLE WORKFLOWS:
 
-**Single File Processing:**
+**SINGLE FILE PROCESSING:**
 1. Launch TUI: `byvalver --menu`
 2. Select "1. Process Single File"
 3. Browse for input file using visual file browser
 4. Browse for output file location
 5. Start processing and view results
 
-**Batch Processing:**
+**BATCH PROCESSING:**
 1. Launch TUI: `byvalver --menu`
 2. Select "2. Batch Process Directory"
 3. Browse for input directory containing shellcode files
@@ -329,20 +331,20 @@ The TUI support is conditionally compiled based on ncurses availability:
 5. Configure file pattern (default: <file>.bin) and recursive option
 6. Start batch processing and watch live progress with strategy statistics
 
-**Configuration Management:**
-1. Configure all options in the TUI (bad chars, output format, ML, etc.)
+**CONFIGURATION MANAGEMENT:**
+1. Configure all options in the TUI (bad bytes, output format, ML, etc.)
 2. Select "8. Load/Save Configuration"
 3. Save current configuration to a file (e.g., `my_config.conf`)
 4. Later: Load the configuration file to restore all settings
 
-### Performance Notes:
+### PERFORMANCE NOTES:
 
 - **Single file processing**: Instant visual feedback, <1 second for typical shellcode
 - **Batch processing**: 50ms delay between files for visual updates
 - **Large directories (100+ files)**: Scanning may take 1-2 seconds
 - **Strategy initialization**: 2-5 seconds on first run (one-time cost per session)
 
-### Terminal Compatibility:
+### TERMINAL COMPATIBILITY:
 
 The TUI has been tested with:
 - GNOME Terminal
@@ -356,65 +358,56 @@ The TUI has been tested with:
 
 For complete TUI documentation, troubleshooting, and advanced usage, see [TUI_README.md](TUI_README.md).
 
-## Targeted Bad-Character Elimination
+## TARGETED BAD-BYTE ELIMINATION
 
-### Overview
+### OVERVIEW
 
-The `--bad-chars` option allows you to specify any set of bytes to eliminate from your shellcode.
+The `--bad-bytes` option allows you to specify any set of bytes to eliminate from your shellcode.
 
-### Implementation Details
+### IMPLEMENTATION DETAILS
 
 `byvalver` operates by:
 1. Parsing the comma-separated hex byte list (e.g., `"00,0a,0d"`)
-2. Using an O(1) bitmap lookup to identify bad characters in instructions
+2. Using an O(1) bitmap lookup to identify bad bytes in instructions
 3. Applying the same 153+ transformation strategies used for null-byte elimination
-4. Verifying that the output does not contain the specified bad characters
+4. Verifying that the output does not contain the specified bad bytes
 
-### Current Status
+### EXPECTED BEHAVIOR
 
-**Functional:** The framework is fully implemented and operational. All transformation strategies can detect and avoid any specified bad characters.
-
-**Experimental:** The strategies were originally designed, tested, and optimized specifically for null-byte elimination. While they now support generic bad characters at the implementation level, they have not been:
-- Extensively tested with non-null bad character sets
-- Optimized for specific bad character combinations
-- Validated against diverse real-world scenarios with arbitrary bad characters
-
-### Expected Behavior
-
-- **Null bytes only** (`--bad-chars "00"` or default): High success rate (100% on test corpus)
-- **Multiple bad characters** (`--bad-chars "00,0a,0d"`): Success rate may vary significantly depending on:
+- **Null bytes only** (`--bad-bytes "00"` or default): High success rate (100% on test corpus)
+- **Multiple bad bytes** (`--bad-bytes "00,0a,0d"`): Success rate may vary significantly depending on:
   - Which specific bytes are marked as bad
   - Complexity of the input shellcode
-  - Frequency of bad characters in the original shellcode
-  - Whether effective alternative encodings exist for the specific bad character set
+  - Frequency of bad bytes in the original shellcode
+  - Whether effective alternative encodings exist for the specific bad byte set
 
-### Recommendations
+### RECOMMENDATIONS
 
 1. **For production use:** Stick with default null-byte elimination mode
-2. **For experimentation:** Test the `--bad-chars` feature with your specific use case and validate the output
-3. **Always verify:** Use `verify_denulled.py --bad-chars "XX,YY"` to confirm all bad characters were eliminated
-4. **Expect variability:** Some shellcode may not be fully cleanable with certain bad character sets
+2. **For experimentation:** Test the `--bad-bytes` feature with your specific use case and validate the output
+3. **Always verify:** Use `verify_denulled.py --bad-bytes "XX,YY"` to confirm all bad bytes were eliminated
+4. **Expect variability:** Some shellcode may not be fully cleanable with certain bad byte sets
 
-### Future Improvements
+### FUTURE IMPROVEMENTS
 
-The generic bad-character feature provides a foundation for:
-- Strategy optimization for specific bad character patterns
-- Automated discovery of new strategies targeting common bad character combinations
-- ML model retraining with diverse bad character training data
+The generic bad-byte feature provides a foundation for:
+- Strategy optimization for specific bad byte patterns
+- Automated discovery of new strategies targeting common bad byte combinations
+- ML model retraining with diverse bad byte training data
 - Extended testing and validation
 
 > [!CAUTION]
-> Using `--bad-chars` with multiple bad characters significantly increases the complexity of the transformation task. Some shellcode may become impossible to transform if too many bytes are marked as bad, as the tool may run out of alternative encodings. Start with small bad character sets (e.g., `"00,0a"`) and expand gradually while testing the output. Always verify the result with `verify_denulled.py` before deployment.
+> Using `--bad-bytes` with multiple bad bytes significantly increases the complexity of the transformation task. Some shellcode may become impossible to transform if too many bytes are marked as bad, as the tool may run out of alternative encodings. Start with small bad byte sets (e.g., `"00,0a"`) and expand gradually while testing the output. Always verify the result with `verify_denulled.py` before deployment.
 
-## Bad-Character Profiles
+## BAD-BYTE PROFILES
 
-### Overview
+### OVERVIEW
 
-Users can also choose **bad-character profiles** - pre-configured sets of bytes for common exploit scenarios. Instead of manually specifying hex values, use profile names that match your context.
+Users can also choose **bad-byte profiles** - pre-configured sets of bytes for common exploit scenarios. Instead of manually specifying hex values, use profile names that match your context.
 
-### Available Profiles
+### AVAILABLE PROFILES
 
-| Profile | Difficulty | Bad Chars | Use Case |
+| Profile | Difficulty | Bad Bytes | Use Case |
 |---------|-----------|-----------|----------|
 | `null-only` | ░░░░░ Trivial | 1 | Classic buffer overflows (default) |
 | `http-newline` | █░░░░ Low | 3 | `HTTP` headers, line-based protocols |
@@ -430,7 +423,7 @@ Users can also choose **bad-character profiles** - pre-configured sets of bytes 
 | `printable-only` | ████░ High | 161 | Text-based protocols (printable ASCII only) |
 | `alphanumeric-only` | █████ Extreme | 194 | Alphanumeric-only shellcode (0-9, A-Z, a-z) |
 
-### Usage
+### USAGE
 
 ```bash
 # List all available profiles
@@ -443,7 +436,7 @@ byvalver --profile http-newline input.bin output.bin
 byvalver --profile sql-injection --biphasic --format c input.bin output.c
 ```
 
-### Profile Examples
+### PROFILE EXAMPLES
 
 **HTTP Contexts** (eliminates NULL, LF, CR):
 ```bash
@@ -460,19 +453,19 @@ byvalver --profile sql-injection payload.bin sql_safe.bin
 byvalver --profile alphanumeric-only payload.bin alphanum.bin
 ```
 
-For detailed profile documentation, see [docs/BAD_CHAR_PROFILES.md](docs/BAD_CHAR_PROFILES.md).
+For detailed profile documentation, see [docs/BAD_BYTE_PROFILES.md](docs/BAD_BYTE_PROFILES.md).
 
 
-## Features
+## FEATURES
 
-### High Null-Byte Elimination Success Rate
+### HIGH NULL-BYTE ELIMINATION SUCCESS RATE
 <div align="center">
   <strong>Achieved 100% null-byte elimination on a diverse test corpus representing common and complex null sources.</strong>
 </div>
 
 > This success rate applies specifically to null-byte (`\x00`) elimination, which has been extensively tested and optimized.
 
-### Advanced Transformation Engine
+### ADVANCED TRANSFORMATION ENGINE
 153+ strategy implementations covering virtually all common null-byte sources (multiple new strategy families added in v3.0 and v3.6):
 - `CALL/POP` and stack-based immediate loading
 - `PEB` traversal with hashed API resolution
@@ -502,7 +495,7 @@ For detailed profile documentation, see [docs/BAD_CHAR_PROFILES.md](docs/BAD_CHA
 
 The engine employs multi-pass processing (obfuscation → denulling) with robust fallback mechanisms for edge cases
 
-### Performance Metrics
+### PERFORMANCE METRICS
 
 Real-world performance data from processing 184 diverse shellcode samples:
 
@@ -571,7 +564,7 @@ Strategies Activated:    117                 ███████████�
 Zero-Attempt:            5                   █░░░░░░░░░░░░░░░░░░░░░░░░   04.10%
 ```
 
-### Obfuscation Layer
+### OBFUSCATION LAYER
 `--biphasic` mode adds anti-analysis obfuscation prior to denulling:
 - Control flow flattening
 - Dispatcher patterns
@@ -588,8 +581,8 @@ Zero-Attempt:            5                   █░░░░░░░░░░�
 - Anti-debugging
 - VM detection techniques
 
-### ML-Powered Strategy Selection (Experimental)
-**Architecture v2.0** (December 17, 2025):
+### ML-POWERED STRATEGY SELECTION
+**Architecture**:
 - **One-hot instruction encoding** (51 dims) replaces scalar instruction IDs
 - **Context window** with sliding buffer of 4 instructions (current + 3 previous)
 - **Fixed feature extraction** with stable 84-dimensional layout per instruction
@@ -603,34 +596,23 @@ Zero-Attempt:            5                   █░░░░░░░░░░�
 - Tracks predictions, accuracy, and confidence
 - Graceful fallback to deterministic ordering
 
-**What Changed in v2.0**:
-- Input expanded: 128 → 336 features (4 instructions × 84 features)
-- Hidden layer: 256 → 512 neurons (increased for accuracy)
-- Parameters: ~84K → ~204K (~2.4× increase)
-- Memory: ~660 KB → ~1.66 MB (~2.5× increase)
-- Proper categorical encoding (no more false ordinal relationships)
-- Sequential pattern learning (context-aware predictions)
-
-> [!NOTE]
-> **ML Architecture v2.0**: The ML system has been enhanced with one-hot instruction encoding and context window support, completing all 7 critical issues identified in technical review. Issues 1-5 were fixed in v3.0.1, and issues 6-7 are now fixed in v2.0. See `docs/ML_FIXES_2025.md` for complete details.
-
 > [!WARNING]
-> ML mode is experimental and requires further training/validation with the new v2.0 architecture. Use the `--ml` flag to enable (disabled by default). Old v1.0 models are incompatible and must be retrained. Current model requires retraining with diverse datasets.
+> ML mode is experimental and requires further training/validation with the new architecture.
 
-### Batch Processing
+### BATCH PROCESSING
 - Recursive directory traversal (`-r`)
 - Custom file patterns (`--pattern "*.bin"`)
 - Structure preservation or flattening
 - Continue-on-error or strict modes
 - Compatible with all options (biphasic, PIC, `XOR`, etc.)
-- **Enhanced output** (v3.0.2):
+- **Enhanced output**:
   - Per-file size transformations with ratios
-  - Detailed bad character identification on failures
+  - Detailed bad byte identification on failures
   - Success/failure percentages in summary
   - Failed files list (first 10 shown inline)
-  - Strict success definition: files with remaining bad characters marked as failed
+  - Strict success definition: files with remaining bad bytes marked as failed
 
-**Batch Processing Output Example:**
+**BATCH PROCESSING OUTPUT EXAMPLE:**
 ```
 ===== BATCH PROCESSING SUMMARY =====
 Total files:       8
@@ -642,7 +624,7 @@ Total input size:  650 bytes
 Total output size: 764 bytes
 Average size ratio: 1.18x
 
-Bad characters:    5 configured
+Bad bytes:    5 configured
 Configured set:    0x00, 0x09, 0x0a, 0x0d, 0x20
 
 FAILED FILES (7):
@@ -652,34 +634,34 @@ FAILED FILES (7):
 ```
 
 > [!TIP]
-> For batch processing large shellcode collections, use `--no-continue-on-error` to identify problematic files early, then process successfully with `--pattern` to exclude failures. The `--verbose` flag helps track progress and identify which strategies work best for your specific shellcode corpus. Files are only counted as successful when they contain **zero remaining bad characters** - partial success is treated as failure.
+> For batch processing large shellcode collections, use `--no-continue-on-error` to identify problematic files early, then process successfully with `--pattern` to exclude failures. The `--verbose` flag helps track progress and identify which strategies work best for your specific shellcode corpus. Files are only counted as successful when they contain **zero remaining bad bytes** - partial success is treated as failure.
 
-### Output Options
+### OUTPUT OPTIONS
 - Formats: raw binary, `C` array, Python bytes, hex string
 - `XOR` encoding with decoder stub (`--xor-encode 0xDEADBEEF`)
 - Position-independent code (`--pic`)
 - Automatic output directory creation
 
-### Enhanced Statistics (v3.0.2+)
-When using `--stats` flag, `byvalver` now provides detailed analytics:
+### STATISTICS
+When using `--stats` flag, `byvalver` provides detailed analytics:
 
-**Strategy Usage Statistics:**
+**STRATEGY USAGE STATISTICS:**
 - Shows which transformation strategies were applied
 - Success/failure rates for each strategy
 - Applications count and average output size per strategy
 
-**File Complexity Analysis:**
+**FILE COMPLEXITY ANALYSIS:**
 - Most complex files (by instruction count)
 - Largest/smallest files by input size
 - Files with largest expansion ratios
-- Bad character elimination statistics per file
+- Bad byte elimination statistics per file
 
-**Batch Processing Summary:**
+**BATCH PROCESSING SUMMARY:**
 - Success/failure percentages
-- Detailed bad character configuration
+- Detailed bad byte configuration
 - Failed files list with options to save full list
 
-**Example Enhanced Output:**
+**EXAMPLE OUTPUT:**
 ```
 ===== BATCH PROCESSING SUMMARY =====
 Total files:       162
@@ -691,7 +673,7 @@ Total input size:  35772920 bytes
 Total output size: 81609 bytes
 Average size ratio: 0.00x
 
-Bad characters:    3 configured
+Bad bytes:    3 configured
 Configured set:    0x00, 0x0a, 0x0d
 ====================================
 
@@ -725,16 +707,13 @@ Largest Expansion (by size ratio):
   - ./expanded.bin: 512 -> 1024 bytes (2.00x expansion)
 ```
 
-### Verification Suite
+### VERIFICATION SUITE
 Python tools for validation:
-- `verify_denulled.py`: Ensures zero bad characters (supports `--bad-chars` for custom verification)
+- `verify_denulled.py`: Ensures zero bad bytes (supports `--bad-bytes` for custom verification)
 - `verify_functionality.py`: Checks execution patterns
 - `verify_semantic.py`: Validates equivalence
 
-> [!IMPORTANT]
-> **v3.0.2 Verification:** `byvalver` now performs strict verification during processing. Files with any remaining bad characters are automatically marked as failed and reported with detailed character information
-
-## Architecture
+## ARCHITECTURE
 
 `byvalver` employs a modular strategy-pattern design:
 - Pass 1: (Optional) Obfuscation for anti-analysis
@@ -746,7 +725,7 @@ Python tools for validation:
   <img src="./assets/images/Strategy_Categories_Taxonomy_Compact.png" alt="Strategy Categories Taxonomy" width="700">
 </div>
 
-## System Requirements
+## SYSTEM REQUIREMENTS
 
 - **OS**: Linux (Ubuntu/Debian/Fedora), macOS (with Homebrew), Windows (via WSL/MSYS2)
 - **CPU**: x86/x64 with modern instructions
@@ -754,13 +733,13 @@ Python tools for validation:
 - **Disk**: 50MB free
 - **Tools**: `C` compiler, Make, Git (recommended)
 
-## Dependencies
+## DEPENDENCIES
 
 - **Core**: GCC/Clang, GNU Make, `Capstone` (v4.0+), `NASM` (v2.13+), xxd
 - **Optional**: Clang-Format, Cppcheck, Valgrind
 - **ML Training**: Math libraries (included)
 
-### Installation Commands
+### INSTALLATION COMMANDS
 
 **Ubuntu/Debian:**
 ```bash
@@ -768,7 +747,7 @@ sudo apt update
 sudo apt install build-essential nasm xxd pkg-config libcapstone-dev clang-format cppcheck valgrind
 ```
 
-**macOS (Homebrew) — macOS Tahoe 26 (and newer):**
+**macOS (Homebrew) — macOS Tahoe 26 (AND NEWER):**
 ```bash
 # Core build deps
 brew install capstone nasm pkg-config
@@ -778,7 +757,7 @@ brew install capstone nasm pkg-config
 brew install vim
 ```
 
-### macOS/Homebrew build fixes (repo changes)
+### macOS/Homebrew BUILD FIXES (REPO CHANGES)
 Recent changes were made to improve macOS/Homebrew compatibility (notably on Apple silicon + Homebrew prefix `/opt/homebrew`):
 - Updated `Makefile` and `makefile` to **use `CPPFLAGS` during compilation** and **`LDLIBS` during linking**, so `pkg-config`-discovered Capstone flags are honored.
 - Normalized the Capstone include path emitted by Homebrew’s `pkg-config` from `.../include/capstone` to `.../include` so the project’s `#include <capstone/capstone.h>` resolves correctly.
@@ -788,7 +767,7 @@ Diff summary (high level):
 - `$(CC) $(CFLAGS) -o ... $(LDFLAGS)` → `$(CC) $(CFLAGS) $(CPPFLAGS) -o ... $(LDFLAGS) $(LDLIBS)`
 - `CAPSTONE_CFLAGS := pkg-config --cflags capstone` → normalized to an include path compatible with `<capstone/capstone.h>`
 
-### Troubleshooting (macOS)
+### TROUBLESHOOTING (macOS)
 ```bash
 # Verify xxd is available (macOS usually ships /usr/bin/xxd)
 command -v xxd
@@ -805,7 +784,7 @@ make
 **Windows (WSL):**
 Same as Ubuntu/Debian.
 
-## Building
+## BUILDING
 
 Use the Makefile for builds:
 
@@ -823,7 +802,7 @@ make CC=clang CFLAGS="-O3 -march=native" CPPFLAGS="$(pkg-config --cflags capston
 
 View config: `make info`
 
-## Installation
+## INSTALLATION
 
 Global install:
 ```bash
@@ -841,7 +820,7 @@ From GitHub:
 curl -sSL https://raw.githubusercontent.com/umpolungfish/byvalver/main/install.sh | bash
 ```
 
-## Usage
+## USAGE
 
 ```bash
 byvalver [OPTIONS] <input> [output]
@@ -849,14 +828,14 @@ byvalver [OPTIONS] <input> [output]
 
 - Input/output can be files or directories (auto-batch)
 
-**Key Options:**
+**KEY OPTIONS:**
 - `-h, --help`: Help
 - `-v, --version`: Version
 - `-V, --verbose`: Verbose
 - `-q, --quiet`: Quiet
-- `--bad-chars BYTES`: Comma-separated hex bytes to eliminate (default: "00")
-- `--profile NAME`: Use predefined bad-character profile (e.g., http-newline, sql-injection)
-- `--list-profiles`: List all available bad-character profiles
+- `--bad-bytes BYTES`: Comma-separated hex bytes to eliminate (default: "00")
+- `--profile NAME`: Use predefined bad-byte profile (e.g., http-newline, sql-injection)
+- `--list-profiles`: List all available bad-byte profiles
 - `--biphasic`: Obfuscate + denull
 - `--pic`: Position-independent
 - `--ml`: ML strategy selection
@@ -868,12 +847,12 @@ byvalver [OPTIONS] <input> [output]
 - `--no-continue-on-error`: Stop on error
 - `--menu`: Launch interactive TUI menu
 
-**Examples:**
+**EXAMPLES:**
 ```bash
 # Default: eliminate null bytes only (well-tested, recommended)
 byvalver shellcode.bin clean.bin
 
-# v3.0 NEW: List available bad-character profiles
+# v3.0 NEW: List available bad-byte profiles
 byvalver --list-profiles
 
 # v3.0 NEW: Use predefined profile for HTTP contexts (eliminates 0x00, 0x0A, 0x0D)
@@ -885,8 +864,8 @@ byvalver --profile sql-injection shellcode.bin clean.bin
 # v3.0 NEW: Use profile for URL-safe shellcode
 byvalver --profile url-safe shellcode.bin clean.bin
 
-# v3.0 NEW: Manual bad-char specification (experimental - not extensively tested)
-byvalver --bad-chars "00,0a,0d" shellcode.bin clean.bin
+# v3.0 NEW: Manual bad-byte specification (experimental - not extensively tested)
+byvalver --bad-bytes "00,0a,0d" shellcode.bin clean.bin
 
 # Combined with other features
 byvalver --profile http-newline --biphasic --ml input.bin output.bin
@@ -898,11 +877,11 @@ byvalver -r --profile http-whitespace --pattern "*.bin" shellcodes/ output/
 byvalver --menu
 ```
 
-## Obfuscation Strategies
+## OBFUSCATION STRATEGIES
 
 The obfuscation pass of `byvalver` (enabled via `--biphasic`) applies anti-analysis techniques:
 
-### Core Obfuscation Techniques
+### CORE OBFUSCATION TECHNIQUES
 
 - **`MOV Register Exchange`**: `XCHG`/push-pop patterns
 - **`MOV Immediate`**: Arithmetic decomposition
@@ -936,30 +915,30 @@ Priorities favor anti-analysis (high) over simple substitutions (low).
 
 See [OBFUSCATION_STRATS](docs/OBFUSCATION_STRATS.md) for detailed strategy documentation.
 
-## Denullification Strategies
+## DENULLIFICATION STRATEGIES
 
 The core denull pass uses over 153 strategies:
 
-### `MOV` Strategies
+### `MOV` STRATEGIES
 - Original pass-through
 - `NEG`, `NOT`, `XOR`, `Shift`, `ADD/SUB` decompositions
 
-### Arithmetic
+### ARITHMETIC
 - Original, `NEG`, `XOR`, `ADD/SUB`
 
-### Jumps/Control
+### JUMPS/CONTROL
 - `CALL/JMP` indirects
 - Generic memory displacement
 - Conditional offset elimination
 
-### Advanced
+### ADVANCED
 - ModR/M bypass
 - Flag-preserving `TEST`
 - `SIB` addressing
 - `PUSH` optimizations
 - Windows-specific: `CALL/POP`, `PEB` hashing, `SALC`, `LEA` arithmetic, `shifts`, stack strings, etc.
 
-### Memory/Displacement
+### MEMORY/DISPLACEMENT
 - Displacement null handling
 - `LEA` alternatives
 
@@ -969,26 +948,9 @@ The modular registry allows easy addition of new strategies to handle emerging s
 
 See [DENULL_STRATS](docs/DENULL_STRATS.md) for detailed strategy documentation.
 
-## ML Training and Validation
+## ML TRAINING & VALIDATION
 
-### Comprehensive Fixes (DEC 2025)
-
-The ML system has been completely overhauled to address critical architectural issues:
-
-**What Was Fixed:**
-1. ✅ **Feature Vector Stability** - Fixed-layout features (no sliding indices based on operand count)
-2. ✅ **Index Consistency** - Stable strategy registry ensuring forward/backward pass alignment
-3. ✅ **Full Backpropagation** - Complete gradient updates through all layers
-4. ✅ **Correct Gradients** - Fixed softmax + cross-entropy derivative (was using sigmoid derivative)
-5. ✅ **Output Masking** - Invalid strategies filtered before softmax to focus gradients
-
-**New Components:**
-- `src/ml_strategy_registry.h/c` - Stable bidirectional strategy-to-index mapping
-- `docs/ML_FIXES_2025.md` - Complete documentation of all fixes
-
-**Status:** Builds without errors/warnings. Theoretically sound but requires empirical validation.
-
-### Training
+### TRAINING
 
 Build trainer: `make train`
 
@@ -1000,7 +962,7 @@ Run: `./bin/train_model`
 
 Model auto-loaded at runtime with path resolution.
 
-### Testing ML Mode
+### TESTING ML MODE
 
 ```bash
 # Smoke test
@@ -1017,16 +979,16 @@ Model auto-loaded at runtime with path resolution.
 cat ml_metrics.log
 ```
 
-**Recommendation:** ML mode needs retraining with diverse bad-character datasets before production use. Currently optimized for null-byte elimination only.
+**RECOMMENDATION:** ML mode needs retraining with diverse bad-byte datasets before production use. Currently optimized for null-byte elimination only.
 
-## Development
+## DEVELOPMENT
 
 - Modern `C` with modularity
 - Test suite: `python3 test_all_bins.py`
 - Code style: Clang-Format
 - Analysis: Cppcheck, Valgrind
 
-## Troubleshooting
+## TROUBLESHOOTING
 
 - Dependencies: Verify `Capstone`/`NASM`/xxd
 - Builds: Check PATH_MAX, headers
@@ -1035,10 +997,10 @@ cat ml_metrics.log
 
 For persistent issues, use verbose mode and check logs  
 
-If bad-char elimination fails on specific shellcode, consider adding targeted strategies to the registry.
+If bad-byte elimination fails on specific shellcode, consider adding targeted strategies to the registry.
 
-## License
+## LICENSE
 
-byvalver is sicced freely upon the Earth under the [UNLICENSE](./UNLICENSE).
+`byvalver` is sicced freely upon the Earth under the [UNLICENSE](./UNLICENSE).
 
 </DOCUMENT>

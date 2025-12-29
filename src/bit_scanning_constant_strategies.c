@@ -2,7 +2,7 @@
  * BSF/BSR Bit Scanning Strategy for Bad Character Elimination
  *
  * PROBLEM: MOV instructions with power-of-2 immediate values often contain
- * null bytes or other bad characters.
+ * null bytes or other bad bytes.
  * Example: MOV EAX, 0x00010000 (0x66536 = 65536, bit 16)
  *          Bytes: B8 00 00 01 00 (contains multiple nulls)
  *
@@ -93,8 +93,8 @@ int can_handle_bit_scanning_constant(cs_insn *insn) {
         return 0;
     }
 
-    // Original value must contain bad characters
-    if (is_bad_char_free(imm)) {
+    // Original value must contain bad bytes
+    if (is_bad_byte_free(imm)) {
         return 0;
     }
 
@@ -104,8 +104,8 @@ int can_handle_bit_scanning_constant(cs_insn *insn) {
         return 0;
     }
 
-    // Check if bit position itself is bad-char-free
-    if (!is_bad_char_free_byte((uint8_t)bit_pos)) {
+    // Check if bit position itself is bad-byte-free
+    if (!is_bad_byte_free_byte((uint8_t)bit_pos)) {
         return 0;  // Can't use this strategy if bit position is a bad char
     }
 

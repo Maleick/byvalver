@@ -14,7 +14,7 @@
 /**
  * Register all syscall number obfuscation strategies.
  * These strategies specifically target MOV EAX/RAX, syscall_number
- * patterns to eliminate bad characters in syscall immediates.
+ * patterns to eliminate bad bytes in syscall immediates.
  *
  * Strategies included:
  * 1. AL Loading (XOR + MOV AL) - Priority 88

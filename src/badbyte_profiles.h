@@ -1,32 +1,32 @@
 /**
- * badchar_profiles.h
+ * badbyte_profiles.h
  *
- * Bad-Character Profile Database
- * Provides pre-configured bad-character sets for common exploit scenarios.
+ * Bad-Byte Profile Database
+ * Provides pre-configured bad-byte sets for common exploit scenarios.
  *
- * Part of the byvalver v3.0+ generic bad-character elimination framework.
+ * Part of the byvalver v3.0+ generic bad-byte elimination framework.
  */
 
-#ifndef BADCHAR_PROFILES_H
-#define BADCHAR_PROFILES_H
+#ifndef BADBYTE_PROFILES_H
+#define BADBYTE_PROFILES_H
 
 #include <stdint.h>
 #include <stddef.h>
 #include "cli.h"
 
 /**
- * Bad-character profile structure
- * Defines a named collection of bad characters for specific exploit contexts
+ * Bad-byte profile structure
+ * Defines a named collection of bad bytes for specific exploit contexts
  */
 typedef struct {
     const char *name;                  // Profile name (e.g., "http-newline")
     const char *description;           // Human-readable description
     const char *context;               // When to use this profile
-    const uint8_t *bad_chars;          // Array of bad character values
-    size_t bad_char_count;             // Number of bad characters
+    const uint8_t *bad_bytes;          // Array of bad byte values
+    size_t bad_byte_count;             // Number of bad bytes
     const char *examples;              // Usage examples
     int difficulty;                    // Elimination difficulty (1-5)
-} badchar_profile_t;
+} badbyte_profile_t;
 
 // Profile difficulty levels
 #define DIFFICULTY_TRIVIAL    1  // Very easy (e.g., null-only)
@@ -264,13 +264,13 @@ static const uint8_t PROFILE_LDAP_INJECTION_CHARS[] = {
 // PROFILE REGISTRY
 // =============================================================================
 
-static const badchar_profile_t BADCHAR_PROFILES[] = {
+static const badbyte_profile_t BADBYTE_PROFILES[] = {
     {
         .name = "null-only",
         .description = "Eliminate NULL bytes only (classic denullification)",
         .context = "Most buffer overflows, string-based exploits",
-        .bad_chars = PROFILE_NULL_ONLY_CHARS,
-        .bad_char_count = sizeof(PROFILE_NULL_ONLY_CHARS),
+        .bad_bytes = PROFILE_NULL_ONLY_CHARS,
+        .bad_byte_count = sizeof(PROFILE_NULL_ONLY_CHARS),
         .examples = "byvalver --profile null-only input.bin output.bin",
         .difficulty = DIFFICULTY_TRIVIAL
     },
@@ -278,8 +278,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "http-newline",
         .description = "Eliminate NULL, LF, and CR (line terminators)",
         .context = "HTTP headers, FTP, SMTP, line-based protocols",
-        .bad_chars = PROFILE_HTTP_NEWLINE_CHARS,
-        .bad_char_count = sizeof(PROFILE_HTTP_NEWLINE_CHARS),
+        .bad_bytes = PROFILE_HTTP_NEWLINE_CHARS,
+        .bad_byte_count = sizeof(PROFILE_HTTP_NEWLINE_CHARS),
         .examples = "byvalver --profile http-newline input.bin output.bin",
         .difficulty = DIFFICULTY_LOW
     },
@@ -287,8 +287,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "http-whitespace",
         .description = "Eliminate NULL and all whitespace characters",
         .context = "HTTP parameters, command injection contexts",
-        .bad_chars = PROFILE_HTTP_WHITESPACE_CHARS,
-        .bad_char_count = sizeof(PROFILE_HTTP_WHITESPACE_CHARS),
+        .bad_bytes = PROFILE_HTTP_WHITESPACE_CHARS,
+        .bad_byte_count = sizeof(PROFILE_HTTP_WHITESPACE_CHARS),
         .examples = "byvalver --profile http-whitespace input.bin output.bin",
         .difficulty = DIFFICULTY_LOW
     },
@@ -296,8 +296,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "url-safe",
         .description = "Eliminate URL-unsafe characters",
         .context = "URL parameters, GET requests, query strings",
-        .bad_chars = PROFILE_URL_SAFE_CHARS,
-        .bad_char_count = sizeof(PROFILE_URL_SAFE_CHARS),
+        .bad_bytes = PROFILE_URL_SAFE_CHARS,
+        .bad_byte_count = sizeof(PROFILE_URL_SAFE_CHARS),
         .examples = "byvalver --profile url-safe input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -305,8 +305,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "sql-injection",
         .description = "Eliminate SQL metacharacters",
         .context = "SQL injection via string literals",
-        .bad_chars = PROFILE_SQL_INJECTION_CHARS,
-        .bad_char_count = sizeof(PROFILE_SQL_INJECTION_CHARS),
+        .bad_bytes = PROFILE_SQL_INJECTION_CHARS,
+        .bad_byte_count = sizeof(PROFILE_SQL_INJECTION_CHARS),
         .examples = "byvalver --profile sql-injection input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -314,8 +314,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "xml-html",
         .description = "Eliminate XML/HTML special characters",
         .context = "XML/HTML injection, XSS payloads",
-        .bad_chars = PROFILE_XML_HTML_CHARS,
-        .bad_char_count = sizeof(PROFILE_XML_HTML_CHARS),
+        .bad_bytes = PROFILE_XML_HTML_CHARS,
+        .bad_byte_count = sizeof(PROFILE_XML_HTML_CHARS),
         .examples = "byvalver --profile xml-html input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -323,8 +323,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "json-string",
         .description = "Eliminate JSON-unsafe characters",
         .context = "JSON API injection, JavaScript contexts",
-        .bad_chars = PROFILE_JSON_STRING_CHARS,
-        .bad_char_count = sizeof(PROFILE_JSON_STRING_CHARS),
+        .bad_bytes = PROFILE_JSON_STRING_CHARS,
+        .bad_byte_count = sizeof(PROFILE_JSON_STRING_CHARS),
         .examples = "byvalver --profile json-string input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -332,17 +332,17 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "format-string",
         .description = "Eliminate format string specifiers",
         .context = "Format string vulnerabilities (printf, etc.)",
-        .bad_chars = PROFILE_FORMAT_STRING_CHARS,
-        .bad_char_count = sizeof(PROFILE_FORMAT_STRING_CHARS),
+        .bad_bytes = PROFILE_FORMAT_STRING_CHARS,
+        .bad_byte_count = sizeof(PROFILE_FORMAT_STRING_CHARS),
         .examples = "byvalver --profile format-string input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
     {
         .name = "buffer-overflow",
-        .description = "Common buffer overflow bad characters",
+        .description = "Common buffer overflow bad bytes",
         .context = "Stack/heap overflows with character filtering",
-        .bad_chars = PROFILE_BUFFER_OVERFLOW_CHARS,
-        .bad_char_count = sizeof(PROFILE_BUFFER_OVERFLOW_CHARS),
+        .bad_bytes = PROFILE_BUFFER_OVERFLOW_CHARS,
+        .bad_byte_count = sizeof(PROFILE_BUFFER_OVERFLOW_CHARS),
         .examples = "byvalver --profile buffer-overflow input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -350,8 +350,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "command-injection",
         .description = "Eliminate shell metacharacters",
         .context = "Shell command injection, system() calls",
-        .bad_chars = PROFILE_COMMAND_INJECTION_CHARS,
-        .bad_char_count = sizeof(PROFILE_COMMAND_INJECTION_CHARS),
+        .bad_bytes = PROFILE_COMMAND_INJECTION_CHARS,
+        .bad_byte_count = sizeof(PROFILE_COMMAND_INJECTION_CHARS),
         .examples = "byvalver --profile command-injection input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -359,8 +359,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "ldap-injection",
         .description = "Eliminate LDAP special characters",
         .context = "LDAP injection attacks",
-        .bad_chars = PROFILE_LDAP_INJECTION_CHARS,
-        .bad_char_count = sizeof(PROFILE_LDAP_INJECTION_CHARS),
+        .bad_bytes = PROFILE_LDAP_INJECTION_CHARS,
+        .bad_byte_count = sizeof(PROFILE_LDAP_INJECTION_CHARS),
         .examples = "byvalver --profile ldap-injection input.bin output.bin",
         .difficulty = DIFFICULTY_MEDIUM
     },
@@ -368,8 +368,8 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "printable-only",
         .description = "Allow only printable ASCII (0x20-0x7E)",
         .context = "Text-based protocols, printable character requirements",
-        .bad_chars = PROFILE_PRINTABLE_ONLY_CHARS,
-        .bad_char_count = 161,  // Will be initialized
+        .bad_bytes = PROFILE_PRINTABLE_ONLY_CHARS,
+        .bad_byte_count = 161,  // Will be initialized
         .examples = "byvalver --profile printable-only input.bin output.bin",
         .difficulty = DIFFICULTY_HIGH
     },
@@ -377,15 +377,15 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
         .name = "alphanumeric-only",
         .description = "Allow only alphanumeric chars (0-9, A-Z, a-z)",
         .context = "Strict input filters, alphanumeric-only shellcode",
-        .bad_chars = PROFILE_ALPHANUMERIC_ONLY_CHARS,
-        .bad_char_count = 194,  // Will be initialized
+        .bad_bytes = PROFILE_ALPHANUMERIC_ONLY_CHARS,
+        .bad_byte_count = 194,  // Will be initialized
         .examples = "byvalver --profile alphanumeric-only input.bin output.bin\n"
                    "       # Warning: Extremely difficult, may require encoding",
         .difficulty = DIFFICULTY_EXTREME
     }
 };
 
-#define NUM_PROFILES (sizeof(BADCHAR_PROFILES) / sizeof(badchar_profile_t))
+#define NUM_PROFILES (sizeof(BADBYTE_PROFILES) / sizeof(badbyte_profile_t))
 
 // =============================================================================
 // PROFILE API
@@ -394,7 +394,7 @@ static const badchar_profile_t BADCHAR_PROFILES[] = {
 /**
  * Initialize dynamic profiles (printable-only, alphanumeric-only)
  */
-static inline void init_badchar_profiles(void) {
+static inline void init_badbyte_profiles(void) {
     init_printable_profile();
     init_alphanumeric_profile();
 }
@@ -405,14 +405,14 @@ static inline void init_badchar_profiles(void) {
  * @param name Profile name
  * @return Pointer to profile, or NULL if not found
  */
-static inline const badchar_profile_t* find_badchar_profile(const char *name) {
+static inline const badbyte_profile_t* find_badbyte_profile(const char *name) {
     if (!name) return NULL;
 
-    init_badchar_profiles();  // Ensure dynamic profiles initialized
+    init_badbyte_profiles();  // Ensure dynamic profiles initialized
 
     for (size_t i = 0; i < NUM_PROFILES; i++) {
-        if (strcmp(BADCHAR_PROFILES[i].name, name) == 0) {
-            return &BADCHAR_PROFILES[i];
+        if (strcmp(BADBYTE_PROFILES[i].name, name) == 0) {
+            return &BADBYTE_PROFILES[i];
         }
     }
 
@@ -424,13 +424,13 @@ static inline const badchar_profile_t* find_badchar_profile(const char *name) {
  *
  * @param stream Output stream (stdout/stderr)
  */
-static inline void list_badchar_profiles(FILE *stream) {
-    init_badchar_profiles();
+static inline void list_badbyte_profiles(FILE *stream) {
+    init_badbyte_profiles();
 
-    fprintf(stream, "Available Bad-Character Profiles:\n\n");
+    fprintf(stream, "Available Bad-Byte Profiles:\n\n");
 
     for (size_t i = 0; i < NUM_PROFILES; i++) {
-        const badchar_profile_t *profile = &BADCHAR_PROFILES[i];
+        const badbyte_profile_t *profile = &BADBYTE_PROFILES[i];
 
         fprintf(stream, "  %-20s  ", profile->name);
 
@@ -445,8 +445,8 @@ static inline void list_badchar_profiles(FILE *stream) {
         }
         fprintf(stream, "]  ");
 
-        // Character count
-        fprintf(stream, "(%zu bad chars)\n", profile->bad_char_count);
+        // Byte count
+        fprintf(stream, "(%zu bad bytes)\n", profile->bad_byte_count);
 
         fprintf(stream, "      %s\n", profile->description);
         fprintf(stream, "      Context: %s\n\n", profile->context);
@@ -458,22 +458,22 @@ static inline void list_badchar_profiles(FILE *stream) {
 }
 
 /**
- * Convert profile to bad_char_config_t
+ * Convert profile to bad_byte_config_t
  *
  * @param profile Profile to convert
  * @return Allocated config structure (caller must free)
  */
-static inline bad_char_config_t* profile_to_config(const badchar_profile_t *profile) {
+static inline bad_byte_config_t* profile_to_config(const badbyte_profile_t *profile) {
     if (!profile) return NULL;
 
-    bad_char_config_t *config = (bad_char_config_t*)calloc(1, sizeof(bad_char_config_t));
+    bad_byte_config_t *config = (bad_byte_config_t*)calloc(1, sizeof(bad_byte_config_t));
     if (!config) return NULL;
 
-    // Set bad_chars bitmap
-    for (size_t i = 0; i < profile->bad_char_count; i++) {
-        uint8_t bad_char = profile->bad_chars[i];
-        config->bad_chars[bad_char] = 1;
-        config->bad_char_list[config->bad_char_count++] = bad_char;
+    // Set bad_bytes bitmap
+    for (size_t i = 0; i < profile->bad_byte_count; i++) {
+        uint8_t bad_byte = profile->bad_bytes[i];
+        config->bad_bytes[bad_byte] = 1;
+        config->bad_byte_list[config->bad_byte_count++] = bad_byte;
     }
 
     return config;
@@ -485,7 +485,7 @@ static inline bad_char_config_t* profile_to_config(const badchar_profile_t *prof
  * @param profile Profile to display
  * @param stream Output stream
  */
-static inline void show_profile_details(const badchar_profile_t *profile, FILE *stream) {
+static inline void show_profile_details(const badbyte_profile_t *profile, FILE *stream) {
     if (!profile) return;
 
     fprintf(stream, "Profile: %s\n", profile->name);
@@ -499,13 +499,13 @@ static inline void show_profile_details(const badchar_profile_t *profile, FILE *
     }
     fprintf(stream, " (%d/5)\n\n", profile->difficulty);
 
-    fprintf(stream, "Bad Characters (%zu total):\n", profile->bad_char_count);
+    fprintf(stream, "Bad Bytes (%zu total):\n", profile->bad_byte_count);
     fprintf(stream, "  Hex: ");
-    for (size_t i = 0; i < profile->bad_char_count && i < 20; i++) {
-        fprintf(stream, "0x%02X ", profile->bad_chars[i]);
+    for (size_t i = 0; i < profile->bad_byte_count && i < 20; i++) {
+        fprintf(stream, "0x%02X ", profile->bad_bytes[i]);
     }
-    if (profile->bad_char_count > 20) {
-        fprintf(stream, "... (%zu more)", profile->bad_char_count - 20);
+    if (profile->bad_byte_count > 20) {
+        fprintf(stream, "... (%zu more)", profile->bad_byte_count - 20);
     }
     fprintf(stream, "\n\n");
 
@@ -513,4 +513,4 @@ static inline void show_profile_details(const badchar_profile_t *profile, FILE *
     fprintf(stream, "  %s\n\n", profile->examples);
 }
 
-#endif // BADCHAR_PROFILES_H
+#endif // BADBYTE_PROFILES_H

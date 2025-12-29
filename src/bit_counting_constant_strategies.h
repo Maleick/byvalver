@@ -8,7 +8,7 @@
  * POPCNT/LZCNT/TZCNT Bit Counting for Constant Generation Strategy
  *
  * PURPOSE: Use modern CPU bit-counting instructions to generate constant values
- * as an alternative to direct MOV immediates, avoiding bad characters.
+ * as an alternative to direct MOV immediates, avoiding bad bytes.
  *
  * TECHNIQUE:
  * Modern CPUs (SSE4.2+, BMI1+) provide bit-counting instructions:
@@ -27,13 +27,13 @@
  *    Example: lzcnt eax, 0x100 => EAX = 23 (32 - 23 = 9, close to log2(256))
  *
  * Transformations:
- * mov eax, 5 => mov ebx, 0x1F; popcnt eax, ebx (if 0x1F is bad-char-free)
+ * mov eax, 5 => mov ebx, 0x1F; popcnt eax, ebx (if 0x1F is bad-byte-free)
  * mov eax, 16 => mov ebx, 0x10000; tzcnt eax, ebx
  *
  * LIMITATIONS:
  * - Requires SSE4.2+ (POPCNT) or BMI1+ (LZCNT/TZCNT) CPUs
  * - Only practical for specific constant patterns
- * - Requires source value to be bad-char-free
+ * - Requires source value to be bad-byte-free
  *
  * PRIORITY: 77 (Low-Medium - modern CPUs only, limited applicability)
  */

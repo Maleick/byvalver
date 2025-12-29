@@ -8,7 +8,7 @@
  * FPU Stack Immediate Encoding Strategy for Bad Character Elimination
  *
  * PURPOSE: Use FPU stack operations to load immediate values that contain
- * bad characters, or use FPU arithmetic to construct values indirectly.
+ * bad bytes, or use FPU arithmetic to construct values indirectly.
  */
 
 // Strategy interface functions

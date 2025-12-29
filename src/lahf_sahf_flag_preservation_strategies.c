@@ -2,11 +2,11 @@
  * LAHF/SAHF Flag Preservation Strategy for Bad Character Elimination
  *
  * PROBLEM: LAHF/SAHF instructions (Load/Store AH from/to flags) may contain
- * bad characters in their opcodes or may need to be replaced when working
- * with shellcode that has bad character restrictions.
+ * bad bytes in their opcodes or may need to be replaced when working
+ * with shellcode that has bad byte restrictions.
  *
  * SOLUTION: Replace LAHF/SAHF with PUSHF/POPF or manual flag manipulation
- * that avoids bad characters.
+ * that avoids bad bytes.
  */
 
 #include "lahf_sahf_flag_preservation_strategies.h"

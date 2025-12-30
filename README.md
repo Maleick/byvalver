@@ -42,7 +42,7 @@
 
 ## Overview
 
-`**byvalver**` is a CLI tool built in `C` for automatically eliminating `bad-bytes` from x86/x64 shellcode while maintaining complete functional equivalence
+`byvalver` is a CLI tool built in `C` for automatically eliminating `bad-bytes` from x86/x64 shellcode while maintaining complete functional equivalence
 
 The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 153+ ranked transformation strategies to replace `bad-byte`-containing code with equivalent alternatives. It has been extensively tested on `null-byte` elimination and achieves a high success rate across diverse, real-world shellcode test suites, including complex Windows payloads.
 

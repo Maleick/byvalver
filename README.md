@@ -2,13 +2,13 @@
   <h1>byvalver (·𐑚𐑲𐑝𐑨𐑤𐑝𐑼)</h1>
   <p><b>THE SHELLCODE BAD-BYTE BANISHER</b></p>
 
-![byvalver banishes bad-bytes with extreme prejudice](https://imgur.com/4cPDzhM)
+<img src="https://imgur.com/4cPDzhM" alt="byvalver banishes bad-bytes with extreme prejudice">
 
 </div>
 
 <div align="center">
   <img src="https://img.shields.io/badge/C-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white" alt="C">
-  <img src="https://img.shields.io/badge/build-clean-pink?style=flat&logo=%20pterodactyl&logoColor=FFFFFF&labelColor=000000&color=FF69B4" alt="Static Badge">
+  <img src="https://img.shields.io/badge/Build-Clean-Pink?style=for-the-badge&color=FF69B4" alt="Static Badge">
   <img src="https://img.shields.io/badge/shellcode-scrubbing-%238300FF.svg?style=for-the-badge" alt="shellcode scrubbing">
   <img src="https://img.shields.io/badge/cross--platform-windows%20%7C%20linux%20%7C%20macOS-%230071C5.svg?style=for-the-badge" alt="cross-platform">
   <img src="https://img.shields.io/badge/build-clean-%23000000.svg?style=for-the-badge" alt="build clean">
@@ -65,7 +65,7 @@ Supports `Windows`, `Linux`, and `macOS`
 
 ### BAD-BYTE BANISHMENT IN ACTION
 
-![bad-byte banishment in action](https://i.imgur.com/b17ejae.gif)
+<img src="https://i.imgur.com/b17ejae.gif" alt="bad-byte banishment in action">
 
 ## QUICK-START
 
@@ -154,13 +154,13 @@ byvalver -r --profile http-newline input_dir/ output_dir/
 ## INTERACTIVE TUI
 
 <div align="center">
-![TUI main menu](https://imgur.com/Ozh0y3N)
+<img src="https://imgur.com/Ozh0y3N" alt="TUI main menu">
 </div>
 
 ---
 
 <div align="center">
-![TUI batch processing](https://imgur.com/Ozh0y3N)
+<img src="https://imgur.com/Gj3pjdd" alt="TUI batch processing">
 </div>
 
 ---

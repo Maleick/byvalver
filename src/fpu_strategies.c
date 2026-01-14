@@ -104,7 +104,8 @@ strategy_t fpu_modrm_null_bypass_strategy = {
     .can_handle = can_handle_fpu_modrm_null,
     .get_size = get_size_fpu_modrm_null,
     .generate = generate_fpu_modrm_null,
-    .priority = 60
+    .priority = 60,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

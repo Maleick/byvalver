@@ -25,10 +25,10 @@ static int find_sub_construction(uint32_t target, uint32_t *base, uint32_t *offs
     // For small targets (0-1000), try base values from 1000-2000
     if (target < 1000) {
         for (uint32_t b = 1000; b < 2000; b++) {
-            if (!is_null_free(b)) continue;
+            if (!is_bad_byte_free(b)) continue;
 
             uint32_t o = b - target;
-            if (o > 0 && o < 2000 && is_null_free(o)) {
+            if (o > 0 && o < 2000 && is_bad_byte_free(o)) {
                 *base = b;
                 *offset = o;
                 return 1;
@@ -39,10 +39,10 @@ static int find_sub_construction(uint32_t target, uint32_t *base, uint32_t *offs
     // For larger targets, try different ranges
     if (target < 100000) {
         for (uint32_t b = target + 1000; b < target + 5000; b++) {
-            if (!is_null_free(b)) continue;
+            if (!is_bad_byte_free(b)) continue;
 
             uint32_t o = b - target;
-            if (o > 0 && is_null_free(o)) {
+            if (o > 0 && is_bad_byte_free(o)) {
                 *base = b;
                 *offset = o;
                 return 1;
@@ -76,7 +76,7 @@ int can_handle_arithmetic_constant_construction_sub(cs_insn *insn) {
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
 
     // Only handle if immediate has null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_byte_free(imm)) {
         return 0;
     }
 

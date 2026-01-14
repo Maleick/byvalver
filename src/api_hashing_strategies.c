@@ -46,14 +46,14 @@ void generate_hash_verification_adjustment(struct buffer *b, cs_insn *insn) {
     // Try adding small values to avoid null bytes
     for (int attempt = 1; attempt < 256; attempt++) {
         uint32_t test_hash = original_hash + attempt;
-        if (is_null_free(test_hash)) {
+        if (is_bad_byte_free(test_hash)) {
             adjusted_hash = test_hash;
             adjustment = attempt;
             break;
         }
         
         test_hash = original_hash - attempt;
-        if (is_null_free(test_hash)) {
+        if (is_bad_byte_free(test_hash)) {
             adjusted_hash = test_hash;
             adjustment = -attempt;
             break;
@@ -134,7 +134,7 @@ void generate_null_safe_hash_storage(struct buffer *b, cs_insn *insn) {
     uint32_t safe_xor_key = 0x43434343; // Non-null byte pattern
     uint32_t encoded_hash = original_hash ^ safe_xor_key;
 
-    if (is_null_free(encoded_hash)) {
+    if (is_bad_byte_free(encoded_hash)) {
         // Load the encoded hash (which has no nulls)
         generate_mov_eax_imm(b, encoded_hash);
 

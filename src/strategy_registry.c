@@ -1,4 +1,5 @@
 #include "strategy.h"
+#include "utils.h"
 #include "new_strategies.h"
 #include "enhanced_mov_mem_strategies.h"
 #include "enhanced_register_chaining_strategies.h"
@@ -8,6 +9,7 @@
 #include "improved_arithmetic_strategies.h"
 #include "remaining_null_elimination_strategies.h"
 #include "ml_strategist.h"
+#include "ml_strategy_registry.h"
 #include "call_pop_immediate_strategies.h"
 #include "peb_api_hashing_strategies.h"
 #include "shift_value_construction_strategies.h"
@@ -33,12 +35,39 @@
 #include "stack_based_structure_construction.h"
 #include "pushw_word_immediate_strategies.h"
 #include "cltd_zero_extension_strategies.h"
+#include "polymorphic_immediate_construction_strategies.h"
+#include "setcc_jump_elimination_strategies.h"
+#include "register_dependency_chain_optimization_strategies.h"
+#include "syscall_number_obfuscation_strategies.h"
+#include "partial_register_optimization_strategies.h"
+#include "segment_register_teb_peb_strategies.h"
+#include "cmov_conditional_elimination_strategies.h"
+#include "bswap_endianness_transformation_strategies.h"
+#include "pushf_popf_bit_manipulation_strategies.h"
+#include "bit_scanning_constant_strategies.h"
+#include "loop_comprehensive_strategies.h"
+#include "atomic_operation_encoding_strategies.h"
+#include "bcd_arithmetic_obfuscation_strategies.h"
+#include "enter_leave_alternative_encoding_strategies.h"
+#include "bit_counting_constant_strategies.h"
+#include "simd_xmm_register_strategies.h"
+#include "jecxz_jrcxz_transformation_strategies.h"
+#include "modrm_sib_badbyte_strategies.h"
+#include "reg_to_reg_badbyte_strategies.h"
+#include "conditional_jump_opcode_badbyte_strategies.h"
+#include "one_byte_opcode_sub_strategies.h"
+#include "partial_immediate_badbyte_strategies.h"
+#include "stack_frame_badbyte_strategies.h"
+#include "string_prefix_badbyte_strategies.h"
+#include "bitwise_immediate_badbyte_strategies.h"
+#include "segment_prefix_badbyte_strategies.h"
+#include "operand_size_prefix_badbyte_strategies.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // Added for debug prints
 // #include <stdio.h> // Removed for printf
 
-#define MAX_STRATEGIES 200
+#define MAX_STRATEGIES 400
 
 // Global ML strategist instance for this module
 static ml_strategist_t g_ml_strategist;
@@ -156,6 +185,41 @@ void register_syscall_number_strategies(); // Forward declaration - Linux syscal
 void register_pushw_word_immediate_strategies(); // Forward declaration - PUSHW 16-bit immediate for port numbers - Priority 87
 void register_cltd_zero_extension_strategies(); // Forward declaration - CLTD zero extension optimization - Priority 82
 
+// NEW: High-Priority Additional Strategies (2025-12-19)
+void register_partial_register_optimization_strategies();  // Register partial register optimization strategies (priority 89)
+void register_segment_register_teb_peb_strategies();  // Register segment register TEB/PEB access strategies (priority 94)
+void register_cmov_conditional_elimination_strategies();  // Register CMOV conditional move elimination strategies (priority 92)
+void register_advanced_string_operation_strategies();  // Register advanced string operation strategies (priority 85)
+void register_atomic_operation_encoding_strategies();  // Register atomic operation encoding strategies (priority 78)
+void register_fpu_stack_immediate_encoding_strategies();  // Register FPU stack immediate encoding strategies (priority 76)
+void register_xlat_table_lookup_strategies();  // Register XLAT table lookup strategies (priority 72)
+void register_lahf_sahf_flag_preservation_strategies();  // Register LAHF/SAHF flag preservation strategies (priority 83)
+
+// NEW: 5 Additional Denulling Strategies (v3.5 - 2025-12-22)
+void register_bswap_endianness_transformation_strategies();  // Register BSWAP endianness transformation strategies (priority 85)
+void register_pushf_popf_bit_manipulation_strategies();  // Register PUSHF/POPF bit manipulation strategies (priority 81)
+void register_bit_scanning_constant_strategies();  // Register BSF/BSR bit scanning strategies (priority 80)
+void register_loop_comprehensive_strategies();  // Register LOOP comprehensive variants strategies (priority 79)
+
+// NEW: 5 Additional Denulling Strategies (v3.6 - 2025-12-28)
+void register_bcd_arithmetic_obfuscation_strategies();  // Register BCD arithmetic obfuscation strategies (priority 68)
+void register_enter_leave_alternative_encoding_strategies();  // Register ENTER/LEAVE alternative encoding strategies (priority 74)
+void register_bit_counting_constant_strategies();  // Register POPCNT/LZCNT/TZCNT bit counting strategies (priority 77)
+void register_simd_xmm_register_strategies();  // Register SIMD XMM register strategies (priority 89)
+void register_jecxz_jrcxz_transformation_strategies();  // Register JECXZ/JRCXZ transformation strategies (priority 85)
+
+// NEW: 10 High-Priority General Bad-Byte Elimination Strategies (v4.0 - 2026-01-03)
+void register_modrm_sib_badbyte_strategies();  // Register ModR/M and SIB bad-byte elimination strategies (priority 88)
+void register_reg_to_reg_badbyte_strategies();  // Register register-to-register transfer bad-byte elimination strategies (priority 90)
+void register_conditional_jump_opcode_badbyte_strategies();  // Register conditional jump opcode bad-byte elimination strategies (priority 92)
+void register_one_byte_opcode_sub_strategies();  // Register one-byte opcode substitution strategies (priority 85)
+void register_partial_immediate_badbyte_strategies();  // Register partial immediate bad-byte optimization strategies (priority 87)
+void register_stack_frame_badbyte_strategies();  // Register stack frame pointer bad-byte elimination strategies (priority 89)
+void register_string_prefix_badbyte_strategies();  // Register string instruction prefix bad-byte elimination strategies (priority 84)
+void register_bitwise_immediate_badbyte_strategies();  // Register bitwise immediate bad-byte elimination strategies (priority 86)
+void register_segment_prefix_badbyte_strategies();  // Register segment prefix bad-byte detection strategies (priority 81)
+void register_operand_size_prefix_badbyte_strategies();  // Register operand size prefix bad-byte elimination strategies (priority 83)
+
 // NEW: 5 Additional Denulling Strategies (v3.0)
 void register_jcxz_null_safe_loop_termination_strategy(); // Priority 86 - JCXZ null-safe loop termination
 void register_push_byte_immediate_stack_construction_strategy(); // Priority 82 - PUSH byte immediate stack construction
@@ -179,7 +243,7 @@ void register_remaining_null_elimination_strategies(); // Final strategies for r
 void register_new_strategies(); // Forward declaration - New strategies for specific null-byte patterns
 extern strategy_t delayed_string_termination_strategy;
 
-void init_strategies(int use_ml) {
+void init_strategies(int use_ml, byval_arch_t arch) {
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Initializing strategies\n");
     #endif
@@ -203,10 +267,53 @@ void init_strategies(int use_ml) {
         #endif
     }
 
-    register_advanced_transformations();  // Register advanced transformations (highest priority)
+    // Register strategies based on target architecture
+    if (arch == BYVAL_ARCH_X86 || arch == BYVAL_ARCH_X64) {
+        register_advanced_transformations();  // Register advanced transformations (highest priority)
     init_advanced_transformations();      // Initialize the can_handle functions
     register_indirect_call_strategies();  // Register indirect CALL/JMP strategies (priority 100)
     register_sldt_replacement_strategy();  // Register SLDT replacement strategy (priority 95)
+
+    // NEW: Tier 1 High-Priority Strategies (2025-12-19)
+    register_register_dependency_chain_optimization_strategies();  // Priority 91 - Multi-instruction optimization
+    register_polymorphic_immediate_construction_strategies();  // Priority 88-90 - Universal immediate encoding
+
+    // NEW: 10 High-Priority General Bad-Byte Elimination Strategies (v4.0 - 2026-01-03)
+    register_conditional_jump_opcode_badbyte_strategies();  // Priority 92 - Conditional jump opcode bad-byte elimination
+    register_reg_to_reg_badbyte_strategies();  // Priority 90 - Register-to-register transfer bad-byte elimination
+    register_stack_frame_badbyte_strategies();  // Priority 89 - Stack frame pointer bad-byte elimination
+    register_modrm_sib_badbyte_strategies();  // Priority 88 - ModR/M and SIB bad-byte elimination
+    register_partial_immediate_badbyte_strategies();  // Priority 87 - Partial immediate bad-byte optimization
+    register_bitwise_immediate_badbyte_strategies();  // Priority 86 - Bitwise immediate bad-byte elimination
+    register_one_byte_opcode_sub_strategies();  // Priority 85 - One-byte opcode substitution
+    register_string_prefix_badbyte_strategies();  // Priority 84 - String instruction prefix bad-byte elimination
+    register_operand_size_prefix_badbyte_strategies();  // Priority 83 - Operand size prefix bad-byte elimination
+    register_segment_prefix_badbyte_strategies();  // Priority 81 - Segment prefix bad-byte detection
+
+    register_syscall_number_obfuscation_strategies();  // Priority 85-88 - Linux syscall optimization
+    register_setcc_jump_elimination_strategies();  // Priority 84-86 - Jump offset elimination
+
+    // NEW: High-Priority Additional Strategies (2025-12-19)
+    register_partial_register_optimization_strategies();  // Register partial register optimization strategies (priority 89)
+    register_simd_xmm_register_strategies();  // Register SIMD XMM register strategies (priority 89)
+    register_segment_register_teb_peb_strategies();  // Register segment register TEB/PEB access strategies (priority 94)
+    register_cmov_conditional_elimination_strategies();  // Register CMOV conditional move elimination strategies (priority 92)
+    register_advanced_string_operation_strategies();  // Register advanced string operation strategies (priority 85)
+    register_jecxz_jrcxz_transformation_strategies();  // Register JECXZ/JRCXZ transformation strategies (priority 85)
+
+    // NEW: 5 Additional Denulling Strategies (v3.5 - 2025-12-22)
+    register_bswap_endianness_transformation_strategies();  // Register BSWAP endianness transformation strategies (priority 85)
+    register_lahf_sahf_flag_preservation_strategies();  // Register LAHF/SAHF flag preservation strategies (priority 83)
+    register_pushf_popf_bit_manipulation_strategies();  // Register PUSHF/POPF bit manipulation strategies (priority 81)
+    register_bit_scanning_constant_strategies();  // Register BSF/BSR bit scanning strategies (priority 80)
+    register_loop_comprehensive_strategies();  // Register LOOP comprehensive variants strategies (priority 79)
+    register_atomic_operation_encoding_strategies();  // Register atomic operation encoding strategies (priority 78)
+    register_bit_counting_constant_strategies();  // Register POPCNT/LZCNT/TZCNT bit counting strategies (priority 77)
+
+    register_fpu_stack_immediate_encoding_strategies();  // Register FPU stack immediate encoding strategies (priority 76)
+    register_enter_leave_alternative_encoding_strategies();  // Register ENTER/LEAVE alternative encoding strategies (priority 74)
+    register_xlat_table_lookup_strategies();  // Register XLAT table lookup strategies (priority 72)
+    register_bcd_arithmetic_obfuscation_strategies();  // Register BCD arithmetic obfuscation strategies (priority 68)
 
     // NEW: Discovered Strategies (2025-12-16)
     register_pushw_word_immediate_strategies();  // Register PUSHW 16-bit immediate strategies (priority 87)
@@ -329,14 +436,34 @@ void init_strategies(int use_ml) {
 
     // Register final cleanup strategies for remaining nulls
     register_remaining_null_elimination_strategies(); // Final strategies for remaining nulls (highest priority)
+    } // End x86/x64 architecture check
+
+    else if (arch == BYVAL_ARCH_ARM) {
+        #include "arm_strategies.h"
+        register_arm_strategies();
+    }
+
+    else if (arch == BYVAL_ARCH_ARM64) {
+        #include "arm64_strategies.h"
+        register_arm64_strategies();
+    }
 
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Registered %d strategies\n", strategy_count);
     #endif
     // printf("init_strategies: Registered %d strategies.\n", strategy_count); // Removed debug print
+
+    // Initialize ML strategy registry if ML is enabled
+    if (use_ml && g_ml_initialized) {
+        if (ml_strategy_registry_init(strategies, strategy_count) == 0) {
+            printf("[ML] Strategy registry initialized with %d strategies\n", strategy_count);
+        } else {
+            fprintf(stderr, "[ML] WARNING: Failed to initialize strategy registry\n");
+        }
+    }
 }
 
-strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count) {
+strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count, byval_arch_t arch) {
     DEBUG_LOG("get_strategies_for_instruction called for instruction ID: 0x%x", insn->id);
     DEBUG_LOG("Instruction: %s %s", insn->mnemonic, insn->op_str);
 
@@ -344,6 +471,10 @@ strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count) {
     int applicable_count = 0;
 
     for (int i = 0; i < strategy_count; i++) {
+        // Filter by target architecture
+        if (strategies[i]->target_arch != arch) {
+            continue;
+        }
         DEBUG_LOG("  Trying strategy: %s", strategies[i]->name);
         if (strategies[i]->can_handle(insn)) {
             applicable_strategies[applicable_count++] = strategies[i];
@@ -401,15 +532,9 @@ int is_arithmetic_instruction(cs_insn *insn) {
 }
 
 int has_null_bytes(cs_insn *insn) {
-    int has_null = 0;
-    for (size_t j = 0; j < insn->size; j++) {
-        if (insn->bytes[j] == 0x00) { 
-            has_null = 1; 
-            break; 
-        }
-    }
-    // printf("has_null_bytes: insn->id=0x%x, has_null=%d\n", insn->id, has_null); // Removed debug print
-    return has_null;
+    // Updated in v3.0: Now checks for generic bad bytes, not just null bytes
+    // Function name kept for backward compatibility with 100+ strategy files
+    return !is_bad_byte_free_buffer(insn->bytes, insn->size);
 }
 
 // Register the new strategies
@@ -562,12 +687,95 @@ void register_register_swapping_immediate_strategies() {
     register_strategy(&register_swapping_immediate_strategy);
 }
 
+// Register the partial register optimization strategy
+void register_partial_register_optimization_strategies() {
+    extern strategy_t partial_register_optimization_strategy;
+    register_strategy(&partial_register_optimization_strategy);
+}
 
+// Register the segment register TEB/PEB access strategy
+void register_segment_register_teb_peb_strategies() {
+    extern strategy_t segment_register_teb_peb_strategy;
+    register_strategy(&segment_register_teb_peb_strategy);
+}
 
+// Register the CMOV conditional move elimination strategy
+void register_cmov_conditional_elimination_strategies() {
+    extern strategy_t cmov_conditional_elimination_strategy;
+    register_strategy(&cmov_conditional_elimination_strategy);
+}
 
+// Register the FPU stack immediate encoding strategy
+void register_fpu_stack_immediate_encoding_strategies() {
+    extern strategy_t fpu_stack_immediate_encoding_strategy;
+    register_strategy(&fpu_stack_immediate_encoding_strategy);
+}
 
+// Register the XLAT table lookup strategy
+void register_xlat_table_lookup_strategies() {
+    extern strategy_t xlat_table_lookup_strategy;
+    register_strategy(&xlat_table_lookup_strategy);
+}
 
+// Register the LAHF/SAHF flag preservation strategy
+void register_lahf_sahf_flag_preservation_strategies() {
+    extern strategy_t lahf_sahf_flag_preservation_strategy;
+    register_strategy(&lahf_sahf_flag_preservation_strategy);
+}
 
+// Register the BSWAP endianness transformation strategy
+void register_bswap_endianness_transformation_strategies() {
+    extern strategy_t bswap_endianness_transformation_strategy;
+    register_strategy(&bswap_endianness_transformation_strategy);
+}
+
+// Register the PUSHF/POPF bit manipulation strategy
+void register_pushf_popf_bit_manipulation_strategies() {
+    extern strategy_t pushf_popf_flag_manipulation_strategy;
+    register_strategy(&pushf_popf_flag_manipulation_strategy);
+}
+
+// Register the bit scanning constant strategy
+void register_bit_scanning_constant_strategies() {
+    extern strategy_t bit_scanning_constant_strategy;
+    register_strategy(&bit_scanning_constant_strategy);
+}
+
+// Register the LOOP comprehensive variants strategy
+void register_loop_comprehensive_strategies() {
+    extern strategy_t loop_comprehensive_strategy;
+    register_strategy(&loop_comprehensive_strategy);
+}
+
+// Register the BCD arithmetic obfuscation strategy
+void register_bcd_arithmetic_obfuscation_strategies() {
+    extern strategy_t bcd_arithmetic_strategy;
+    register_strategy(&bcd_arithmetic_strategy);
+}
+
+// Register the ENTER/LEAVE alternative encoding strategy
+void register_enter_leave_alternative_encoding_strategies() {
+    extern strategy_t enter_leave_strategy;
+    register_strategy(&enter_leave_strategy);
+}
+
+// Register the POPCNT/LZCNT/TZCNT bit counting strategy
+void register_bit_counting_constant_strategies() {
+    extern strategy_t bit_counting_strategy;
+    register_strategy(&bit_counting_strategy);
+}
+
+// Register the SIMD XMM register strategy
+void register_simd_xmm_register_strategies() {
+    extern strategy_t simd_xmm_strategy;
+    register_strategy(&simd_xmm_strategy);
+}
+
+// Register the JECXZ/JRCXZ transformation strategy
+void register_jecxz_jrcxz_transformation_strategies() {
+    extern strategy_t jecxz_jrcxz_strategy;
+    register_strategy(&jecxz_jrcxz_strategy);
+}
 
 
 

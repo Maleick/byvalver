@@ -39,7 +39,7 @@ int can_handle_advanced_hash_api_resolution(cs_insn *insn) {
         // Check for MOV reg, imm32 where immediate contains null bytes
         // This could be part of an advanced hash-based API resolution
         if (src_op->type == X86_OP_IMM) {
-            if (!is_null_free((uint32_t)src_op->imm)) {
+            if (!is_bad_byte_free((uint32_t)src_op->imm)) {
                 return 1;
             }
         }
@@ -50,7 +50,7 @@ int can_handle_advanced_hash_api_resolution(cs_insn *insn) {
         cs_x86_op *op = &insn->detail->x86.operands[0];
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_null_free(target) && has_null_bytes(insn)) {
+            if (!is_bad_byte_free(target) && has_null_bytes(insn)) {
                 // CALL with immediate target that has null bytes
                 // This could be the result of advanced hash-based resolution
                 return 1;
@@ -67,7 +67,7 @@ int can_handle_advanced_hash_api_resolution(cs_insn *insn) {
             cs_x86_op *src_op = &insn->detail->x86.operands[1];
             if (src_op->type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)src_op->imm;
-                if (!is_null_free(imm) && has_null_bytes(insn)) {
+                if (!is_bad_byte_free(imm) && has_null_bytes(insn)) {
                     return 1;
                 }
             }
@@ -103,7 +103,7 @@ void generate_advanced_hash_api_resolution_null_free(struct buffer *b, cs_insn *
         if (src_op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)src_op->imm;
 
-            if (!is_null_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Use null-safe MOV generation for immediate values containing nulls
                 uint8_t dst_reg = dst_op->reg;
 
@@ -142,7 +142,7 @@ void generate_advanced_hash_api_resolution_null_free(struct buffer *b, cs_insn *
             if (src_op->type == X86_OP_IMM) {
                 uint32_t imm = (uint32_t)src_op->imm;
 
-                if (!is_null_free(imm)) {
+                if (!is_bad_byte_free(imm)) {
                     // Use null-safe approach: MOV EAX, imm (null safe) + op reg, EAX
                     uint8_t dst_reg = dst_op->reg;
 
@@ -212,7 +212,7 @@ void generate_advanced_hash_api_resolution_null_free(struct buffer *b, cs_insn *
         cs_x86_op *op = &insn->detail->x86.operands[0];
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_null_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 // Transform CALL immediate to CALL register to avoid nulls in immediate
                 // MOV EAX, target_address (null-free)
                 generate_mov_eax_imm(b, target);

@@ -1,7 +1,97 @@
+#define _POSIX_C_SOURCE 200809L
 #include "cli.h"
+#include "badbyte_profiles.h"
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+/**
+ * Parse bad bytes from comma-separated hex string
+ * @param input: String like "00,0a,0d"
+ * @return: Allocated bad_byte_config_t or NULL on error
+ */
+bad_byte_config_t* parse_bad_bytes_string(const char *input) {
+    if (!input || strlen(input) == 0) {
+        return NULL;
+    }
+
+    bad_byte_config_t *config = calloc(1, sizeof(bad_byte_config_t));
+    if (!config) {
+        return NULL;
+    }
+
+    // Duplicate input for strtok
+    char *input_copy = strdup(input);
+    if (!input_copy) {
+        free(config);
+        return NULL;
+    }
+
+    // Parse comma-separated tokens
+    char *token = strtok(input_copy, ",");
+    while (token && config->bad_byte_count < 256) {
+        // Trim leading whitespace
+        while (*token && isspace((unsigned char)*token)) {
+            token++;
+        }
+
+        // Trim trailing whitespace
+        char *end = token + strlen(token) - 1;
+        while (end > token && isspace((unsigned char)*end)) {
+            *end = '\0';
+            end--;
+        }
+
+        // Skip empty tokens
+        if (strlen(token) == 0) {
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        // Parse hex byte
+        unsigned int byte_val;
+        if (sscanf(token, "%02x", &byte_val) != 1 && sscanf(token, "%02X", &byte_val) != 1) {
+            // Invalid hex format
+            fprintf(stderr, "Error: Invalid hex byte: '%s'\n", token);
+            fprintf(stderr, "Expected: 2-character hex value (00-FF)\n");
+            free(input_copy);
+            free(config);
+            return NULL;
+        }
+
+        if (byte_val > 0xFF) {
+            // Out of range
+            fprintf(stderr, "Error: Hex value out of range: '%s' (must be 00-FF)\n", token);
+            free(input_copy);
+            free(config);
+            return NULL;
+        }
+
+        uint8_t byte = (uint8_t)byte_val;
+
+        // Add to bitmap if not already present (avoid duplicates)
+        if (config->bad_bytes[byte] == 0) {
+            config->bad_bytes[byte] = 1;
+            config->bad_byte_list[config->bad_byte_count++] = byte;
+        }
+
+        token = strtok(NULL, ",");
+    }
+
+    free(input_copy);
+
+    // Default to null byte if no bytes were successfully parsed
+    if (config->bad_byte_count == 0) {
+        fprintf(stderr, "Warning: No valid bad bytes specified, defaulting to null byte (00)\n");
+        config->bad_bytes[0x00] = 1;
+        config->bad_byte_list[0] = 0x00;
+        config->bad_byte_count = 1;
+    }
+
+    return config;
+}
 
 // Create and initialize default configuration
 byvalver_config_t* config_create_default(void) {
@@ -23,7 +113,7 @@ byvalver_config_t* config_create_default(void) {
     config->encode_shellcode = 0;
     config->xor_key = 0;
     config->output_format = "raw";
-    config->target_arch = "x64";
+    config->target_arch = BYVAL_ARCH_X64;
     config->strategy_limit = 0; // unlimited by default
     config->max_size = 10 * 1024 * 1024; // 10MB default max
     config->timeout_seconds = 0; // no timeout by default
@@ -49,12 +139,28 @@ byvalver_config_t* config_create_default(void) {
     config->continue_on_error = 1;  // Default to continuing on errors
     config->failed_files_output = NULL;  // No failed files output by default
 
+    // Bad character configuration defaults (v3.0)
+    // Default: only null byte (0x00) for backward compatibility
+    config->bad_bytes = calloc(1, sizeof(bad_byte_config_t));
+    if (config->bad_bytes) {
+        config->bad_bytes->bad_bytes[0x00] = 1;      // Mark null byte as bad
+        config->bad_bytes->bad_byte_list[0] = 0x00;  // Add to list
+        config->bad_bytes->bad_byte_count = 1;        // Count = 1
+    }
+
     return config;
 }
 
 // Free configuration structure
 void config_free(byvalver_config_t *config) {
     if (!config) return;
+
+    // Free bad byte configuration (v3.0)
+    if (config->bad_bytes) {
+        free(config->bad_bytes);
+        config->bad_bytes = NULL;
+    }
+
     // Note: We don't free strings that point to argv or are static
     free(config);
 }
@@ -68,17 +174,21 @@ void print_usage(FILE *stream, const char *program_name) {
 
 // Print detailed help
 void print_detailed_help(FILE *stream, const char *program_name) {
-    fprintf(stream, "byvalver - Advanced Null-Byte Elimination Framework\n\n");
-    
+    fprintf(stream, "byvalver v3.0 - Generic Bad-Byte Elimination Framework\n\n");
+
     fprintf(stream, "SYNOPSIS\n");
     fprintf(stream, "    %s [OPTIONS] <input_file> [output_file]\n\n", program_name);
-    
+
     fprintf(stream, "DESCRIPTION\n");
     fprintf(stream, "    byvalver is an advanced C-based command-line tool designed for automated \n");
-    fprintf(stream, "    removal of null bytes from shellcode while preserving functional equivalence. \n");
-    fprintf(stream, "    The tool leverages the Capstone disassembly framework to analyze x86/x64 \n");
-    fprintf(stream, "    assembly instructions and applies sophisticated transformation strategies to \n");
-    fprintf(stream, "    replace null-containing instructions with functionally equivalent alternatives.\n\n");
+    fprintf(stream, "    elimination of bad bytes from shellcode while preserving functional \n");
+    fprintf(stream, "    equivalence. The tool leverages the Capstone disassembly framework to analyze \n");
+    fprintf(stream, "    x86/x64 assembly instructions and applies sophisticated transformation strategies \n");
+    fprintf(stream, "    to replace bad-byte-containing instructions with functionally equivalent \n");
+    fprintf(stream, "    alternatives.\n\n");
+    fprintf(stream, "    By default, byvalver eliminates null bytes (0x00). Version 3.0 introduces generic \n");
+    fprintf(stream, "    bad byte elimination via the --bad-bytes option, allowing you to specify \n");
+    fprintf(stream, "    any set of bytes to eliminate (e.g., newlines, spaces, CRLF sequences).\n\n");
     
     fprintf(stream, "OPTIONS\n");
     fprintf(stream, "    General Options:\n");
@@ -95,6 +205,14 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --ml                          Use ML strategy selection\n");
     fprintf(stream, "      --xor-encode KEY              XOR encode output with 4-byte key (hex)\n");
     fprintf(stream, "      --format FORMAT               Output format: raw, c, python, powershell, hexstring\n\n");
+
+    fprintf(stream, "    Bad Character Elimination (v3.0):\n");
+    fprintf(stream, "      --bad-bytes BYTES             Comma-separated hex bytes to eliminate (e.g., \"00,0a,0d\")\n");
+    fprintf(stream, "                                    Default: \"00\" (null bytes only)\n");
+    fprintf(stream, "      --profile NAME                Use predefined bad-byte profile\n");
+    fprintf(stream, "                                    Examples: http-newline, url-safe, sql-injection,\n");
+    fprintf(stream, "                                              alphanumeric-only, printable-only\n");
+    fprintf(stream, "      --list-profiles               List all available bad-byte profiles\n\n");
 
     fprintf(stream, "    ML Metrics Options (requires --ml):\n");
     fprintf(stream, "      --metrics                     Enable ML metrics tracking and learning\n");
@@ -116,7 +234,12 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --timeout SECONDS             Processing timeout (default: no timeout)\n");
     fprintf(stream, "      --dry-run                     Validate input without processing\n");
     fprintf(stream, "      --stats                       Show detailed statistics after processing\n\n");
-    
+
+    fprintf(stream, "    Architecture Options:\n");
+    fprintf(stream, "      --arch ARCH                   Target architecture\n");
+    fprintf(stream, "                                   Values: x86, x64, arm, arm64 (default: x64)\n");
+    fprintf(stream, "                                   ARM/ARM64 support is experimental\n\n");
+
     fprintf(stream, "    Output Options:\n");
     fprintf(stream, "      -o, --output FILE             Output file (alternative to positional argument)\n");
     fprintf(stream, "      --validate                    Validate output is null-byte free\n\n");
@@ -130,9 +253,28 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     
     fprintf(stream, "    With XOR encoding:\n");
     fprintf(stream, "      %s --biphasic --xor-encode 0x12345678 shellcode.bin output.bin\n\n", program_name);
-    
+
+    fprintf(stream, "    Cross-architecture processing:\n");
+    fprintf(stream, "      %s --arch arm --bad-bytes \"00\" arm_shellcode.bin output.bin\n\n", program_name);
+
     fprintf(stream, "    Generate position-independent code:\n");
     fprintf(stream, "      %s --pic shellcode.bin output.bin\n\n", program_name);
+
+    fprintf(stream, "    Eliminate specific bad bytes (v3.0+):\n");
+    fprintf(stream, "      # Eliminate null, newline, and carriage return (for network protocols)\n");
+    fprintf(stream, "      %s --bad-bytes \"00,0a,0d\" shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "      # Avoid space character (for command injection)\n");
+    fprintf(stream, "      %s --bad-bytes \"00,20\" shellcode.bin output.bin\n\n", program_name);
+
+    fprintf(stream, "    Use predefined profiles (v3.0+):\n");
+    fprintf(stream, "      # List all available profiles\n");
+    fprintf(stream, "      %s --list-profiles\n\n", program_name);
+    fprintf(stream, "      # Use HTTP newline profile (eliminates 0x00, 0x0A, 0x0D)\n");
+    fprintf(stream, "      %s --profile http-newline shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "      # Use SQL injection profile\n");
+    fprintf(stream, "      %s --profile sql-injection shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "      # Generate alphanumeric-only shellcode (extreme difficulty)\n");
+    fprintf(stream, "      %s --profile alphanumeric-only shellcode.bin output.bin\n\n", program_name);
 
     fprintf(stream, "    Batch process directory:\n");
     fprintf(stream, "      %s input_dir/ output_dir/\n\n", program_name);
@@ -161,7 +303,7 @@ void print_version(FILE *stream) {
             BYVALVER_VERSION_MINOR, 
             BYVALVER_VERSION_PATCH);
     fprintf(stream, "Built: %s", ctime(&build_time));
-    fprintf(stream, "Copyright (c) The Monad (Mo) - Advanced Cyber Security Framework\n");
+    fprintf(stream, "UNLICENSED by 'umpolungfish'\n");
 }
 
 // Parse command line arguments
@@ -189,6 +331,9 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         {"format", required_argument, 0, 0},
         {"arch", required_argument, 0, 0},
         {"ml", no_argument, 0, 0},  // EXPERIMENTAL: Known to degrade performance
+        {"bad-bytes", required_argument, 0, 0},  // NEW in v3.0: Generic bad byte elimination
+        {"profile", required_argument, 0, 0},    // NEW in v3.0: Use predefined bad-byte profile
+        {"list-profiles", no_argument, 0, 0},    // NEW in v3.0: List available profiles
 
         // ML Metrics options
         {"metrics", no_argument, 0, 0},
@@ -214,7 +359,10 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
         
         // Output options
         {"output", required_argument, 0, 'o'},
-        
+
+        // TUI options
+        {"menu", no_argument, 0, 0},
+
         {0, 0, 0, 0}
     };
     
@@ -293,6 +441,46 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                             return EXIT_INVALID_ARGUMENTS;
                         }
                     }
+                    else if (strcmp(opt_name, "bad-bytes") == 0) {
+                        // Parse bad bytes (v3.0)
+                        if (config->bad_bytes) {
+                            free(config->bad_bytes);  // Free default config
+                        }
+                        config->bad_bytes = parse_bad_bytes_string(optarg);
+                        if (!config->bad_bytes) {
+                            fprintf(stderr, "Error: Invalid --bad-bytes format: %s\n", optarg);
+                            fprintf(stderr, "Expected: comma-separated hex bytes (e.g., \"00,0a,0d\")\n");
+                            return EXIT_INVALID_ARGUMENTS;
+                        }
+                    }
+                    else if (strcmp(opt_name, "profile") == 0) {
+                        // Use predefined profile (v3.0)
+                        const badbyte_profile_t *profile = find_badbyte_profile(optarg);
+                        if (!profile) {
+                            fprintf(stderr, "Error: Unknown profile: %s\n", optarg);
+                            fprintf(stderr, "Use --list-profiles to see available profiles.\n");
+                            return EXIT_INVALID_ARGUMENTS;
+                        }
+
+                        if (config->bad_bytes) {
+                            free(config->bad_bytes);
+                        }
+                        config->bad_bytes = profile_to_config(profile);
+                        if (!config->bad_bytes) {
+                            fprintf(stderr, "Error: Failed to load profile: %s\n", optarg);
+                            return EXIT_INVALID_ARGUMENTS;
+                        }
+
+                        if (!config->quiet) {
+                            fprintf(stderr, "Using profile '%s': %s\n", profile->name, profile->description);
+                            fprintf(stderr, "Eliminating %zu bad bytes\n", profile->bad_byte_count);
+                        }
+                    }
+                    else if (strcmp(opt_name, "list-profiles") == 0) {
+                        // List available profiles
+                        list_badbyte_profiles(stdout);
+                        exit(EXIT_SUCCESS);
+                    }
                     else if (strcmp(opt_name, "format") == 0) {
                         config->output_format = optarg;
                         // Validate format
@@ -307,11 +495,18 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                         }
                     }
                     else if (strcmp(opt_name, "arch") == 0) {
-                        config->target_arch = optarg;
-                        // Validate architecture
-                        if (strcmp(optarg, "x86") != 0 && strcmp(optarg, "x64") != 0) {
+                        // Parse architecture string to enum
+                        if (strcmp(optarg, "x86") == 0) {
+                            config->target_arch = BYVAL_ARCH_X86;
+                        } else if (strcmp(optarg, "x64") == 0) {
+                            config->target_arch = BYVAL_ARCH_X64;
+                        } else if (strcmp(optarg, "arm") == 0) {
+                            config->target_arch = BYVAL_ARCH_ARM;
+                        } else if (strcmp(optarg, "arm64") == 0 || strcmp(optarg, "aarch64") == 0) {
+                            config->target_arch = BYVAL_ARCH_ARM64;
+                        } else {
                             fprintf(stderr, "Error: Invalid target architecture: %s\n", optarg);
-                            fprintf(stderr, "Valid architectures: x86, x64\n");
+                            fprintf(stderr, "Valid architectures: x86, x64, arm, arm64\n");
                             return EXIT_INVALID_ARGUMENTS;
                         }
                     }
@@ -363,6 +558,9 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                     else if (strcmp(opt_name, "failed-files") == 0) {
                         config->failed_files_output = optarg;
                     }
+                    else if (strcmp(opt_name, "menu") == 0) {
+                        config->interactive_menu = 1;
+                    }
                 }
                 break;
                 
@@ -410,25 +608,118 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
 
 // Load configuration from file
 int load_config_file(const char *config_path, byvalver_config_t *config) {
-    // This is a placeholder implementation
-    // In a full implementation, this would parse a JSON/YAML config file
     if (!config_path || !config) {
         return EXIT_CONFIG_ERROR;
     }
-    
-    // Check if file exists
+
     FILE *file = fopen(config_path, "r");
     if (!file) {
         fprintf(stderr, "Warning: Config file not found: %s\n", config_path);
         return EXIT_SUCCESS; // Not a fatal error, just a warning
     }
-    
-    fclose(file);
-    
-    // For now, just acknowledge the config file exists
-    if (config->verbose) {
-        fprintf(stderr, "Using config file: %s\n", config_path);
+
+    char line[1024];
+    char current_section[64] = "";
+    int line_num = 0;
+
+    while (fgets(line, sizeof(line), file)) {
+        line_num++;
+
+        // Remove trailing newline
+        line[strcspn(line, "\r\n")] = '\0';
+
+        // Trim leading whitespace
+        char *trimmed = line;
+        while (*trimmed && isspace((unsigned char)*trimmed)) trimmed++;
+
+        // Skip empty lines and comments
+        if (*trimmed == '\0' || *trimmed == '#') continue;
+
+        // Check for section header [section]
+        if (*trimmed == '[') {
+            char *end = strchr(trimmed, ']');
+            if (end) {
+                *end = '\0';
+                strncpy(current_section, trimmed + 1, sizeof(current_section) - 1);
+                current_section[sizeof(current_section) - 1] = '\0';
+            }
+            continue;
+        }
+
+        // Parse key = value
+        char *equals = strchr(trimmed, '=');
+        if (!equals) continue;
+
+        *equals = '\0';
+        char *key = trimmed;
+        char *value = equals + 1;
+
+        // Trim whitespace from key and value
+        char *key_end = key + strlen(key) - 1;
+        while (key_end > key && isspace((unsigned char)*key_end)) *key_end-- = '\0';
+
+        while (*value && isspace((unsigned char)*value)) value++;
+        char *value_end = value + strlen(value) - 1;
+        while (value_end > value && isspace((unsigned char)*value_end)) *value_end-- = '\0';
+
+        // Parse based on section and key
+        if (strcmp(current_section, "general") == 0) {
+            if (strcmp(key, "verbose") == 0) config->verbose = atoi(value);
+            else if (strcmp(key, "quiet") == 0) config->quiet = atoi(value);
+            else if (strcmp(key, "show_stats") == 0) config->show_stats = atoi(value);
+            else if (strcmp(key, "validate_output") == 0) config->validate_output = atoi(value);
+            else if (strcmp(key, "dry_run") == 0) config->dry_run = atoi(value);
+        }
+        else if (strcmp(current_section, "processing") == 0) {
+            if (strcmp(key, "use_biphasic") == 0) config->use_biphasic = atoi(value);
+            else if (strcmp(key, "use_pic_generation") == 0) config->use_pic_generation = atoi(value);
+            else if (strcmp(key, "encode_shellcode") == 0) config->encode_shellcode = atoi(value);
+            else if (strcmp(key, "xor_key") == 0) config->xor_key = (uint32_t)strtol(value, NULL, 16);
+            else if (strcmp(key, "strategy_limit") == 0) config->strategy_limit = atoi(value);
+            else if (strcmp(key, "timeout_seconds") == 0) config->timeout_seconds = atoi(value);
+            else if (strcmp(key, "max_size") == 0) config->max_size = (size_t)atoll(value);
+        }
+        else if (strcmp(current_section, "output") == 0) {
+            if (strcmp(key, "output_format") == 0) {
+                config->output_format = strdup(value);
+            }
+        }
+        else if (strcmp(current_section, "bad_bytes") == 0) {
+            if (strcmp(key, "bad_bytes") == 0) {
+                bad_byte_config_t *bad_bytes = parse_bad_bytes_string(value);
+                if (bad_bytes) {
+                    if (config->bad_bytes) free(config->bad_bytes);
+                    config->bad_bytes = bad_bytes;
+                }
+            }
+        }
+        else if (strcmp(current_section, "ml") == 0) {
+            if (strcmp(key, "use_ml_strategist") == 0) config->use_ml_strategist = atoi(value);
+            else if (strcmp(key, "metrics_enabled") == 0) config->metrics_enabled = atoi(value);
+            else if (strcmp(key, "metrics_export_json") == 0) config->metrics_export_json = atoi(value);
+            else if (strcmp(key, "metrics_export_csv") == 0) config->metrics_export_csv = atoi(value);
+            else if (strcmp(key, "metrics_show_live") == 0) config->metrics_show_live = atoi(value);
+            else if (strcmp(key, "metrics_output_file") == 0) {
+                if (config->metrics_output_file) free(config->metrics_output_file);
+                config->metrics_output_file = strdup(value);
+            }
+        }
+        else if (strcmp(current_section, "batch") == 0) {
+            if (strcmp(key, "file_pattern") == 0) {
+                if (config->file_pattern) free(config->file_pattern);
+                config->file_pattern = strdup(value);
+            }
+            else if (strcmp(key, "recursive") == 0) config->recursive = atoi(value);
+            else if (strcmp(key, "preserve_structure") == 0) config->preserve_structure = atoi(value);
+            else if (strcmp(key, "continue_on_error") == 0) config->continue_on_error = atoi(value);
+        }
     }
-    
+
+    fclose(file);
+
+    if (!config->quiet) {
+        fprintf(stderr, "Loaded configuration from: %s\n", config_path);
+    }
+
     return EXIT_SUCCESS;
 }

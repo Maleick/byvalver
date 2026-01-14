@@ -19,9 +19,9 @@ int can_handle_arithmetic_neg_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but negated value doesn't
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         uint32_t negated_val = ~imm + 1; // Two's complement negation
-        if (is_null_free(negated_val)) {
+        if (is_bad_byte_free(negated_val)) {
             return 1;
         }
     }
@@ -99,7 +99,8 @@ strategy_t arithmetic_neg_proper_strategy = {
     .can_handle = can_handle_arithmetic_neg_proper,
     .get_size = get_size_arithmetic_neg_proper,
     .generate = generate_arithmetic_neg_proper,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: Arithmetic XOR - handles arithmetic operations with XOR-encoding
@@ -118,7 +119,7 @@ int can_handle_arithmetic_xor_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but can be XOR-encoded with null-free values
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         // Try to find a null-free XOR key
         uint32_t xor_keys[] = {
             0x01010101, 0x11111111, 0x22222222, 0x33333333,
@@ -129,7 +130,7 @@ int can_handle_arithmetic_xor_proper(cs_insn *insn) {
 
         for (size_t i = 0; i < sizeof(xor_keys)/sizeof(xor_keys[0]); i++) {
             uint32_t encoded = imm ^ xor_keys[i];
-            if (is_null_free(encoded) && is_null_free(xor_keys[i])) {
+            if (is_bad_byte_free(encoded) && is_bad_byte_free(xor_keys[i])) {
                 return 1;
             }
         }
@@ -160,7 +161,7 @@ void generate_arithmetic_xor_proper(struct buffer *b, cs_insn *insn) {
     
     for (size_t i = 0; i < sizeof(xor_keys)/sizeof(xor_keys[0]); i++) {
         uint32_t encoded = imm ^ xor_keys[i];
-        if (is_null_free(encoded) && is_null_free(xor_keys[i])) {
+        if (is_bad_byte_free(encoded) && is_bad_byte_free(xor_keys[i])) {
             encoded_val = encoded;
             used_key = xor_keys[i];
             found = 1;
@@ -247,7 +248,8 @@ strategy_t arithmetic_xor_proper_strategy = {
     .can_handle = can_handle_arithmetic_xor_proper,
     .get_size = get_size_arithmetic_xor_proper,
     .generate = generate_arithmetic_xor_proper,
-    .priority = 78
+    .priority = 78,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: Arithmetic ADD/SUB - handles arithmetic operations with ADD/SUB immediate encoding
@@ -266,11 +268,11 @@ int can_handle_arithmetic_addsub_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but can be encoded as ADD reg, val1; ADD reg, val2 where val1+val2=imm
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         // Try finding two values that sum to imm and are both null-free
         for (uint32_t val1 = 1; val1 < imm && val1 < 0x7FFFFFFF; val1 += 0x01010101) { // Use step to try different values
             uint32_t val2 = imm - val1;
-            if (is_null_free(val1) && is_null_free(val2)) {
+            if (is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
                 return 1;
             }
         }
@@ -300,7 +302,7 @@ void generate_arithmetic_addsub_proper(struct buffer *b, cs_insn *insn) {
     for (int i = 0; i < num_values; i++) {
         if (test_values[i] < imm) {
             uint32_t temp_val2 = imm - test_values[i];
-            if (is_null_free(test_values[i]) && is_null_free(temp_val2)) {
+            if (is_bad_byte_free(test_values[i]) && is_bad_byte_free(temp_val2)) {
                 val1 = test_values[i];
                 val2 = temp_val2;
                 found = 1;
@@ -313,7 +315,7 @@ void generate_arithmetic_addsub_proper(struct buffer *b, cs_insn *insn) {
     if (!found) {
         for (uint32_t v1 = 0x01010101; v1 < imm && v1 < 0x7FFFFFFF && !found; v1 += 0x01010101) {
             uint32_t v2 = imm - v1;
-            if (is_null_free(v1) && is_null_free(v2)) {
+            if (is_bad_byte_free(v1) && is_bad_byte_free(v2)) {
                 val1 = v1;
                 val2 = v2;
                 found = 1;
@@ -386,7 +388,8 @@ strategy_t arithmetic_addsub_proper_strategy = {
     .can_handle = can_handle_arithmetic_addsub_proper,
     .get_size = get_size_arithmetic_addsub_proper,
     .generate = generate_arithmetic_addsub_proper,
-    .priority = 76
+    .priority = 76,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_improved_arithmetic_strategies() {

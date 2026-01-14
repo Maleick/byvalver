@@ -73,7 +73,7 @@ int can_handle_syscall_number_mov(cs_insn *insn) {
     // For 64-bit: 48 C7 C0 XX XX XX XX (7 bytes) or B8 XX XX XX XX (5 bytes with REX prefix)
     uint32_t imm32 = (uint32_t)imm;
 
-    if (is_null_free(imm32)) {
+    if (is_bad_byte_free(imm32)) {
         // Already null-free
         return 0;
     }

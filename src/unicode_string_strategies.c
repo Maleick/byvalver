@@ -207,7 +207,7 @@ static size_t get_size_unicode_string(cs_insn *insn) {
             if (dst->reg == X86_REG_ESP || dst->reg == X86_REG_RSP) {
                 uint32_t imm = (uint32_t)src->imm;
 
-                if (is_null_free(imm)) {
+                if (is_bad_byte_free(imm)) {
                     return 3; // SUB ESP, imm8 or 6 for imm32 (null-free)
                 } else {
                     // Transform to: PUSH reg + MOV reg, imm (null-free) + SUB ESP, reg + POP reg
@@ -315,7 +315,7 @@ static void generate_unicode_string(struct buffer *b, cs_insn *insn) {
             if (dst->reg == X86_REG_ESP || dst->reg == X86_REG_RSP) {
                 uint32_t imm = (uint32_t)src->imm;
 
-                if (is_null_free(imm)) {
+                if (is_bad_byte_free(imm)) {
                     // Direct encoding if null-free
                     if (imm <= 0x7F) {
                         // SUB ESP, imm8 (3 bytes: 83 EC imm8)
@@ -356,7 +356,7 @@ static void generate_unicode_string(struct buffer *b, cs_insn *insn) {
         if (op->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)op->imm;
 
-            if (!is_null_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Transform to: MOV EAX, imm (null-free) + PUSH EAX
                 generate_mov_eax_imm(b, imm);
 

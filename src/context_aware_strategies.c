@@ -45,11 +45,11 @@ static int validate_strategy_output(__attribute__((unused)) cs_insn *insn,
  * Context-aware strategy selection function
  * This function enhances the standard strategy selection with additional validation
  */
-strategy_t** get_context_aware_strategies_for_instruction(cs_insn *insn, int *count, 
+strategy_t** get_context_aware_strategies_for_instruction(cs_insn *insn, int *count,
                                                         struct instruction_node *current_node,
-                                                        struct instruction_node *head) {
+                                                        struct instruction_node *head, byval_arch_t arch) {
     // First, get the standard strategies
-    strategy_t **standard_strategies = get_strategies_for_instruction(insn, count);
+    strategy_t **standard_strategies = get_strategies_for_instruction(insn, count, arch);
     
     // For now, we'll validate each strategy to ensure it doesn't introduce nulls
     // This is a basic form of context-awareness
@@ -80,7 +80,7 @@ static int can_handle_context_aware(cs_insn *insn) {
     // This strategy can technically handle any instruction that has other strategies available
     // In practice, this is more of an enhancement to the strategy selection process
     int count;
-    get_strategies_for_instruction(insn, &count);
+    get_strategies_for_instruction(insn, &count, BYVAL_ARCH_X64);
     return count > 0;
 }
 

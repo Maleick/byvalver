@@ -8,28 +8,33 @@
 
 #include "ml_strategist.h"
 #include "ml_metrics.h"
+#include "ml_strategy_registry.h"
+#include "ml_instruction_map.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
+// Define M_PI if not already defined
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 // Enterprise-grade ML strategist implementation
 // Uses custom neural network inference engine optimized for shellcode analysis
+// Architecture v2.0: One-hot instruction encoding + context window
 
-// Neural network parameters for the instruction classifier
-#define NN_INPUT_SIZE 128
-#define NN_HIDDEN_SIZE 256
-#define NN_OUTPUT_SIZE 200  // Maximum number of strategies
 #define NN_NUM_LAYERS 3
 
 // Simple neural network structure for demonstration
+// v2.0: Expanded to support one-hot encoding and context windows
 typedef struct {
-    double input_weights[NN_HIDDEN_SIZE][NN_INPUT_SIZE];
-    double hidden_weights[NN_OUTPUT_SIZE][NN_HIDDEN_SIZE];
-    double input_bias[NN_HIDDEN_SIZE];
-    double hidden_bias[NN_OUTPUT_SIZE];
-    int layer_sizes[NN_NUM_LAYERS];  // [input, hidden, output]
+    double input_weights[NN_HIDDEN_SIZE][NN_INPUT_SIZE];    // 512 × 336
+    double hidden_weights[NN_OUTPUT_SIZE][NN_HIDDEN_SIZE];  // 200 × 512
+    double input_bias[NN_HIDDEN_SIZE];                      // 512
+    double hidden_bias[NN_OUTPUT_SIZE];                     // 200
+    int layer_sizes[NN_NUM_LAYERS];  // [336, 512, 200]
 } simple_neural_network_t;
 
 static simple_neural_network_t* g_loaded_model = NULL;
@@ -39,6 +44,19 @@ static ml_metrics_tracker_t* g_ml_metrics = NULL;
 // Track the last predicted strategy for verification
 static strategy_t* g_last_predicted_strategy = NULL;
 static double g_last_prediction_confidence = 0.0;
+
+// Global instruction history buffer for context-aware predictions
+static instruction_history_t g_instruction_history = {0};
+
+/**
+ * @brief Generate Gaussian random number (mean=0, std=1)
+ * Uses Box-Muller transform to generate normally distributed random numbers
+ */
+static double randn(void) {
+    double u1 = (rand() + 1.0) / (RAND_MAX + 1.0);
+    double u2 = (rand() + 1.0) / (RAND_MAX + 1.0);
+    return sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+}
 
 /**
  * @brief Initialize the ML strategist with neural network model
@@ -60,18 +78,23 @@ int ml_strategist_init(ml_strategist_t* strategist, const char* model_path) {
         return -1;
     }
 
-    // Initialize the neural network with default weights
-    // In a real enterprise implementation, these would be loaded from the model file
+    // Initialize the neural network with He/Xavier initialization (v2.0)
+    // He initialization for ReLU layers, Xavier for output layer
+
+    // He initialization for input->hidden (ReLU activation)
+    double he_scale = sqrt(2.0 / NN_INPUT_SIZE);
     for (int i = 0; i < NN_HIDDEN_SIZE; i++) {
         for (int j = 0; j < NN_INPUT_SIZE; j++) {
-            model->input_weights[i][j] = 0.01 * (rand() % 100) / 100.0;  // Small random weights
+            model->input_weights[i][j] = he_scale * randn();
         }
         model->input_bias[i] = 0.0;
     }
 
+    // Xavier initialization for hidden->output (softmax activation)
+    double xavier_scale = sqrt(2.0 / (NN_HIDDEN_SIZE + NN_OUTPUT_SIZE));
     for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
         for (int j = 0; j < NN_HIDDEN_SIZE; j++) {
-            model->hidden_weights[i][j] = 0.01 * (rand() % 100) / 100.0;
+            model->hidden_weights[i][j] = xavier_scale * randn();
         }
         model->hidden_bias[i] = 0.0;
     }
@@ -95,74 +118,245 @@ int ml_strategist_init(ml_strategist_t* strategist, const char* model_path) {
         printf("[ML] Metrics tracking enabled\n");
     }
 
+    // Initialize instruction mapping
+    ml_instruction_map_init();
+
+    // Reset history buffer
+    memset(&g_instruction_history, 0, sizeof(instruction_history_t));
+
     printf("[ML] Enterprise ML Strategist initialized with model: %s\n", model_path);
     return 0;
 }
 
 /**
- * @brief Extract features from an instruction for ML model input
+ * @brief Extract features for a SINGLE instruction WITHOUT context
+ * Helper function that extracts 84 features from one instruction
+ */
+static int ml_extract_single_instruction_features(cs_insn* insn,
+                                                   double* output,
+                                                   int offset,
+                                                   int* has_bad_bytes_out,
+                                                   int* bad_byte_count_out) {
+    if (!insn || !output) {
+        return -1;
+    }
+
+    int idx = offset;
+
+    // [0-50] One-hot instruction encoding
+    int onehot_idx = ml_get_instruction_onehot_index(insn->id);
+    for (int i = 0; i < ONEHOT_DIM; i++) {
+        output[idx++] = (i == onehot_idx) ? 1.0 : 0.0;
+    }
+
+    // Check for bad bytes
+    int has_bad_bytes = !is_bad_byte_free_buffer(insn->bytes, insn->size);
+    int bad_byte_count = 0;
+    for (size_t i = 0; i < insn->size; i++) {
+        if (!is_bad_byte_free_byte(insn->bytes[i])) {
+            bad_byte_count++;
+        }
+    }
+
+    if (has_bad_bytes_out) *has_bad_bytes_out = has_bad_bytes;
+    if (bad_byte_count_out) *bad_byte_count_out = bad_byte_count;
+
+    // [51-54] Basic features
+    output[idx++] = (double)insn->size;
+    output[idx++] = (double)has_bad_bytes;
+    output[idx++] = (double)bad_byte_count;
+    output[idx++] = (double)insn->detail->x86.op_count;
+
+    // [55-58] Operand types
+    for (int i = 0; i < 4; i++) {
+        output[idx++] = (i < insn->detail->x86.op_count) ?
+            (double)insn->detail->x86.operands[i].type : 0.0;
+    }
+
+    // [59-62] Register operands
+    for (int i = 0; i < 4; i++) {
+        output[idx++] = (i < insn->detail->x86.op_count &&
+                        insn->detail->x86.operands[i].type == X86_OP_REG) ?
+            (double)insn->detail->x86.operands[i].reg : 0.0;
+    }
+
+    // [63-66] Immediate operands (normalized)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_IMM) {
+            double imm_val = (double)insn->detail->x86.operands[i].imm;
+            output[idx++] = imm_val / 2147483648.0;
+        } else {
+            output[idx++] = 0.0;
+        }
+    }
+
+    // [67-70] Memory base register
+    for (int i = 0; i < 4; i++) {
+        output[idx++] = (i < insn->detail->x86.op_count &&
+                        insn->detail->x86.operands[i].type == X86_OP_MEM) ?
+            (double)insn->detail->x86.operands[i].mem.base : 0.0;
+    }
+
+    // [71-74] Memory index register
+    for (int i = 0; i < 4; i++) {
+        output[idx++] = (i < insn->detail->x86.op_count &&
+                        insn->detail->x86.operands[i].type == X86_OP_MEM) ?
+            (double)insn->detail->x86.operands[i].mem.index : 0.0;
+    }
+
+    // [75-78] Memory scale
+    for (int i = 0; i < 4; i++) {
+        output[idx++] = (i < insn->detail->x86.op_count &&
+                        insn->detail->x86.operands[i].type == X86_OP_MEM) ?
+            (double)insn->detail->x86.operands[i].mem.scale : 0.0;
+    }
+
+    // [79-82] Memory displacement (normalized)
+    for (int i = 0; i < 4; i++) {
+        if (i < insn->detail->x86.op_count &&
+            insn->detail->x86.operands[i].type == X86_OP_MEM) {
+            double disp = (double)insn->detail->x86.operands[i].mem.disp;
+            output[idx++] = disp / 2147483648.0;
+        } else {
+            output[idx++] = 0.0;
+        }
+    }
+
+    // [83] Prefix count
+    output[idx++] = (insn->detail->x86.prefix[0] != 0) ? 1.0 : 0.0;
+
+    return 0;
+}
+
+/**
+ * @brief Update history buffer with current instruction
+ */
+static void ml_update_history_buffer(instruction_history_t* history,
+                                     cs_insn* insn,
+                                     double* current_features) {
+    if (!history || !insn || !current_features) {
+        return;
+    }
+
+    // Shift buffer
+    if (history->count >= CONTEXT_WINDOW_SIZE - 1) {
+        for (int i = CONTEXT_WINDOW_SIZE - 2; i > 0; i--) {
+            history->instructions[i] = history->instructions[i-1];
+            memcpy(history->features[i].features,
+                   history->features[i-1].features,
+                   FEATURES_PER_INSN * sizeof(double));
+        }
+    } else {
+        for (int i = history->count; i > 0; i--) {
+            history->instructions[i] = history->instructions[i-1];
+            memcpy(history->features[i].features,
+                   history->features[i-1].features,
+                   FEATURES_PER_INSN * sizeof(double));
+        }
+        history->count++;
+    }
+
+    // Store current at position 0
+    history->instructions[0] = insn;
+    memcpy(history->features[0].features,
+           current_features,
+           FEATURES_PER_INSN * sizeof(double));
+}
+
+/**
+ * @brief Extract features for a SINGLE instruction (one-hot + other features)
+ *
+ * NEW FEATURE LAYOUT v2.0 (84 dimensions per instruction):
+ * [0-50]   : One-hot instruction encoding (51 dims)
+ * [51]     : instruction_size (1-15 bytes)
+ * [52]     : has_bad_bytes (0 or 1)
+ * [53]     : bad_byte_count (0-N)
+ * [54]     : operand_count (0-4)
+ * [55-58]  : operand_type[0-3] (4 slots)
+ * [59-62]  : register[0-3] (4 slots)
+ * [63-66]  : immediate[0-3] normalized (4 slots)
+ * [67-70]  : memory_base[0-3] (4 slots)
+ * [71-74]  : memory_index[0-3] (4 slots)
+ * [75-78]  : memory_scale[0-3] (4 slots)
+ * [79-82]  : memory_disp[0-3] normalized (4 slots)
+ * [83]     : prefix_count
+ *
+ * v2.0 UPDATE: This is now a WRAPPER that calls ml_extract_single_instruction_features()
+ *              and adds context from history buffer
+ * OLD LAYOUT for reference:
+ * [0]      : instruction_id (categorical, will be one-hot encoded later)
+ * [1]      : instruction_size (1-15 bytes)
+ * [2]      : has_bad_bytes (0 or 1)
+ * [3]      : bad_byte_count (0-N)
+ * [4]      : operand_count (0-4)
+ * [5-8]    : operand_type[0-3] (always 4 slots, 0 if unused)
+ * [9-12]   : register[0-3] (always 4 slots, 0 if not REG type)
+ * [13-16]  : immediate[0-3] (always 4 slots, 0 if not IMM type)
+ * [17-20]  : memory_base[0-3] (always 4 slots, 0 if not MEM type)
+ * [21-24]  : memory_index[0-3] (always 4 slots, 0 if not MEM type)
+ * [25-28]  : memory_scale[0-3] (always 4 slots, 0 if not MEM type)
+ * [29-32]  : memory_disp[0-3] (always 4 slots, 0 if not MEM type)
+ * [33]     : prefix_count
+ * [34-127] : Reserved for future features (padded with 0)
  */
 int ml_extract_instruction_features(cs_insn* insn, instruction_features_t* features) {
     if (!insn || !features) {
         return -1;
     }
-    
-    // Initialize features
+
+    // Initialize ALL features to zero
     memset(features, 0, sizeof(instruction_features_t));
-    
-    // Extract instruction type
+
+    // Extract current instruction features at offset 0 (v2.0: one-hot encoding)
+    int has_bad_bytes, bad_byte_count;
+    ml_extract_single_instruction_features(insn, features->features, 0,
+                                          &has_bad_bytes, &bad_byte_count);
+
+    // Store metadata
     features->instruction_type = insn->id;
-    
-    // Check for null bytes
-    features->has_nulls = 0;
-    for (int i = 0; i < insn->size; i++) {
-        if (insn->bytes[i] == 0x00) {
-            features->has_nulls = 1;
-            break;
+    features->has_bad_bytes = has_bad_bytes;
+    features->has_nulls = has_bad_bytes;  // Backward compatibility
+    features->bad_byte_count = bad_byte_count;
+
+    // Extract bad byte types bitmap
+    memset(features->bad_byte_types, 0, sizeof(features->bad_byte_types));
+    for (size_t i = 0; i < insn->size; i++) {
+        if (!is_bad_byte_free_byte(insn->bytes[i])) {
+            features->bad_byte_types[insn->bytes[i]] = 1;
         }
     }
-    
-    // Extract operand information
-    features->feature_count = 0;
+
+    // Extract operand information for backward compatibility
     for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
         features->operand_types[i] = insn->detail->x86.operands[i].type;
-        
         if (insn->detail->x86.operands[i].type == X86_OP_REG) {
             features->register_indices[i] = insn->detail->x86.operands[i].reg;
         } else if (insn->detail->x86.operands[i].type == X86_OP_IMM) {
             features->immediate_value = (int)insn->detail->x86.operands[i].imm;
         }
     }
-    
-    // Add basic features to the feature vector
-    features->features[features->feature_count++] = (double)insn->id;
-    features->features[features->feature_count++] = (double)insn->size;
-    features->features[features->feature_count++] = (double)features->has_nulls;
-    features->features[features->feature_count++] = (double)insn->detail->x86.op_count;
-    
-    // Add operand type features
-    for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
-        features->features[features->feature_count++] = (double)insn->detail->x86.operands[i].type;
-    }
-    
-    // Add register features if applicable
-    for (int i = 0; i < insn->detail->x86.op_count && i < 4; i++) {
-        if (insn->detail->x86.operands[i].type == X86_OP_REG) {
-            features->features[features->feature_count++] = (double)insn->detail->x86.operands[i].reg;
+
+    // v2.0: Add context from history buffer (previous 3 instructions)
+    instruction_history_t* history = &g_instruction_history;
+    int context_count = (history != NULL) ? history->count : 0;
+
+    for (int i = 0; i < CONTEXT_WINDOW_SIZE - 1; i++) {
+        int offset = (i + 1) * FEATURES_PER_INSN;
+        if (i < context_count) {
+            // Copy features from history
+            memcpy(&features->features[offset],
+                   &history->features[i].features,
+                   FEATURES_PER_INSN * sizeof(double));
         }
+        // else: already zero-padded by memset above
     }
-    
-    // Add immediate value features if applicable
-    if (insn->detail->x86.op_count > 0 && 
-        insn->detail->x86.operands[0].type == X86_OP_IMM) {
-        features->features[features->feature_count++] = (double)insn->detail->x86.operands[0].imm;
-    }
-    
-    // Pad with zeros if necessary
-    while (features->feature_count < MAX_INSTRUCTION_FEATURES) {
-        features->features[features->feature_count++] = 0.0;
-    }
-    
+
+    features->feature_count = NN_INPUT_SIZE;  // 336
+
+    // Update history buffer with current instruction
+    ml_update_history_buffer(&g_instruction_history, insn, features->features);
+
     return 0;
 }
 
@@ -201,10 +395,19 @@ static void softmax(double* inputs, int size, double* outputs) {
 
 /**
  * @brief Perform forward pass through the neural network
+ * @param nn Neural network
+ * @param input Input features
+ * @param output Output probabilities
+ * @param valid_indices Array of valid strategy indices (NULL = all valid)
+ * @param valid_count Number of valid indices (0 = all valid)
+ *
+ * FIXED: Now supports output masking to filter invalid strategies
  */
 static void neural_network_forward(simple_neural_network_t* nn,
                                    double* input,
-                                   double* output) {
+                                   double* output,
+                                   int* valid_indices,
+                                   int valid_count) {
     double hidden[NN_HIDDEN_SIZE];
 
     // Input to hidden layer
@@ -216,7 +419,7 @@ static void neural_network_forward(simple_neural_network_t* nn,
         hidden[i] = relu(hidden[i]);  // Apply activation function
     }
 
-    // Hidden to output layer
+    // Hidden to output layer (logits before softmax)
     for (int i = 0; i < nn->layer_sizes[2]; i++) {
         output[i] = nn->hidden_bias[i];
         for (int j = 0; j < nn->layer_sizes[1]; j++) {
@@ -224,7 +427,30 @@ static void neural_network_forward(simple_neural_network_t* nn,
         }
     }
 
+    // MASKING: Set invalid strategy logits to -infinity before softmax
+    // This ensures they get probability ~0 and don't contribute to gradients
+    if (valid_indices != NULL && valid_count > 0) {
+        // Create a mask of valid indices
+        int is_valid[NN_OUTPUT_SIZE];
+        for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
+            is_valid[i] = 0;
+        }
+        for (int i = 0; i < valid_count; i++) {
+            if (valid_indices[i] >= 0 && valid_indices[i] < NN_OUTPUT_SIZE) {
+                is_valid[valid_indices[i]] = 1;
+            }
+        }
+
+        // Mask invalid outputs with -infinity
+        for (int i = 0; i < nn->layer_sizes[2]; i++) {
+            if (!is_valid[i]) {
+                output[i] = -INFINITY;  // Will become ~0 after softmax
+            }
+        }
+    }
+
     // Apply softmax to get probability distribution
+    // Softmax handles -inf correctly: exp(-inf) = 0
     softmax(output, nn->layer_sizes[2], output);
 }
 
@@ -257,16 +483,15 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
         return -1;
     }
 
-    // Perform neural network inference
+    // Perform neural network inference (without masking for get_strategy_recommendation)
     double nn_output[NN_OUTPUT_SIZE];
-    neural_network_forward(nn, features.features, nn_output);
+    neural_network_forward(nn, features.features, nn_output, NULL, 0);
 
-    // NOTE: We don't call get_strategies_for_instruction here to avoid recursion
-    // The applicable strategies should be provided by the caller (ml_reprioritize_strategies)
-    // For now, we return just the NN output without strategy mapping
-    prediction->strategy_count = 0;
+    // Get applicable strategies for this instruction
     int applicable_count = 0;
-    strategy_t** applicable_strategies = NULL;
+    strategy_t** applicable_strategies = get_strategies_for_instruction(insn, &applicable_count, BYVAL_ARCH_X64);
+
+    prediction->strategy_count = applicable_count;
 
     // Map neural network outputs to applicable strategies and rank them
     if (applicable_count > 0) {
@@ -327,11 +552,15 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
         prediction->confidence = 0.0;
     }
 
+    // NOTE: Do not free applicable_strategies here - it's returned by get_strategies_for_instruction
+    // and may be a statically allocated array or managed elsewhere
+
     return 0;
 }
 
 /**
  * @brief Update strategy priorities based on ML model prediction
+ * FIXED: Now uses stable strategy indices from registry
  */
 int ml_reprioritize_strategies(ml_strategist_t* strategist,
                                cs_insn* insn,
@@ -357,17 +586,49 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
         return -1;
     }
 
-    // Perform neural network inference to get scores
-    double nn_output[NN_OUTPUT_SIZE];
-    neural_network_forward(nn, features.features, nn_output);
+    // Get stable indices for applicable strategies
+    int stable_indices[MAX_STRATEGY_COUNT];
+    int valid_index_count = 0;
 
-    // Assign scores to each strategy (using index as simple mapping)
-    double scores_copy[MAX_STRATEGY_COUNT];
     for (int i = 0; i < *strategy_count && i < MAX_STRATEGY_COUNT; i++) {
-        if (i < NN_OUTPUT_SIZE) {
-            scores_copy[i] = nn_output[i];
+        int stable_idx = ml_strategy_get_index(applicable_strategies[i]);
+        if (stable_idx >= 0 && stable_idx < NN_OUTPUT_SIZE) {
+            stable_indices[i] = stable_idx;
+            valid_index_count++;
         } else {
-            scores_copy[i] = 0.01 * (rand() % 100) / 100.0;
+            fprintf(stderr, "[ML] WARNING: Strategy '%s' not in registry\n",
+                    applicable_strategies[i] ? applicable_strategies[i]->name : "NULL");
+            stable_indices[i] = -1;
+        }
+    }
+
+    // Perform neural network inference WITH MASKING for only applicable strategies
+    // This prevents invalid strategies from dominating the softmax/gradients
+    double nn_output[NN_OUTPUT_SIZE];
+    int valid_indices_for_nn[MAX_STRATEGY_COUNT];
+    int valid_nn_count = 0;
+
+    // Build list of valid indices for masking
+    for (int i = 0; i < *strategy_count; i++) {
+        if (stable_indices[i] >= 0) {
+            valid_indices_for_nn[valid_nn_count++] = stable_indices[i];
+        }
+    }
+
+    // Forward pass with output masking (invalid strategies get probability ~0)
+    neural_network_forward(nn, features.features, nn_output,
+                          valid_indices_for_nn, valid_nn_count);
+
+    // Map applicable strategies to their NN output scores using stable indices
+    double scores_copy[MAX_STRATEGY_COUNT];
+
+    for (int i = 0; i < *strategy_count && i < MAX_STRATEGY_COUNT; i++) {
+        if (stable_indices[i] >= 0 && stable_indices[i] < NN_OUTPUT_SIZE) {
+            // Use the NN output score for this strategy's stable index
+            scores_copy[i] = nn_output[stable_indices[i]];
+        } else {
+            // Strategy not in registry (shouldn't happen)
+            scores_copy[i] = 0.0;
         }
 
         // Record strategy attempt with confidence score
@@ -378,7 +639,7 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
         }
     }
 
-    // Sort strategies based on ML scores
+    // Sort strategies based on ML scores (bubble sort for simplicity)
     for (int i = 0; i < *strategy_count - 1; i++) {
         for (int j = i + 1; j < *strategy_count; j++) {
             if (scores_copy[i] < scores_copy[j]) {
@@ -391,6 +652,11 @@ int ml_reprioritize_strategies(ml_strategist_t* strategist,
                 double temp_score = scores_copy[i];
                 scores_copy[i] = scores_copy[j];
                 scores_copy[j] = temp_score;
+
+                // Swap stable indices
+                int temp_idx = stable_indices[i];
+                stable_indices[i] = stable_indices[j];
+                stable_indices[j] = temp_idx;
             }
         }
     }
@@ -437,42 +703,71 @@ int ml_discover_new_strategies(ml_strategist_t* strategist) {
 }
 
 /**
- * @brief Update neural network weights using simple gradient descent (simplified)
+ * @brief Update neural network weights using full backpropagation
+ * FIXED: Now implements complete backprop through all layers with correct gradients
  */
 static void update_weights(simple_neural_network_t* nn,
                            double* input,
                            double* target_output,
                            double* actual_output,
                            double learning_rate) {
-    // This is a simplified implementation of backpropagation
-    // In an enterprise-grade implementation, this would be a full backpropagation algorithm
+    // FORWARD PASS - Recompute hidden layer activations
+    double hidden_z[NN_HIDDEN_SIZE];      // Pre-activation values
+    double hidden_a[NN_HIDDEN_SIZE];      // Post-activation values (after ReLU)
 
-    // Calculate output layer error
-    double output_error[NN_OUTPUT_SIZE];
-    for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
-        output_error[i] = (target_output[i] - actual_output[i]) * actual_output[i] * (1 - actual_output[i]);
-    }
-
-    // Update hidden to output weights
-    double hidden_output[NN_HIDDEN_SIZE];
-    // Calculate hidden layer outputs (forward pass up to hidden layer)
+    // Input to hidden layer
     for (int i = 0; i < nn->layer_sizes[1]; i++) {
-        hidden_output[i] = nn->input_bias[i];
+        hidden_z[i] = nn->input_bias[i];
         for (int j = 0; j < nn->layer_sizes[0]; j++) {
-            hidden_output[i] += input[j] * nn->input_weights[i][j];
+            hidden_z[i] += input[j] * nn->input_weights[i][j];
         }
-        hidden_output[i] = relu(hidden_output[i]);
+        hidden_a[i] = relu(hidden_z[i]);
     }
 
+    // BACKWARD PASS
+
+    // Output layer gradient
+    // For softmax + cross-entropy loss, gradient is simply: (actual - target)
+    // This is mathematically cleaner than the sigmoid derivative we had before
+    double output_delta[NN_OUTPUT_SIZE];
+    for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
+        output_delta[i] = actual_output[i] - target_output[i];
+    }
+
+    // Hidden layer gradient
+    double hidden_delta[NN_HIDDEN_SIZE];
+    for (int i = 0; i < nn->layer_sizes[1]; i++) {
+        hidden_delta[i] = 0.0;
+
+        // Backpropagate error from output layer
+        for (int j = 0; j < NN_OUTPUT_SIZE; j++) {
+            hidden_delta[i] += output_delta[j] * nn->hidden_weights[j][i];
+        }
+
+        // Apply ReLU derivative: d/dx ReLU(x) = 1 if x > 0, else 0
+        if (hidden_z[i] <= 0.0) {
+            hidden_delta[i] = 0.0;
+        }
+    }
+
+    // UPDATE WEIGHTS AND BIASES
+
+    // Update hidden-to-output layer weights and biases
     for (int i = 0; i < NN_OUTPUT_SIZE; i++) {
         for (int j = 0; j < NN_HIDDEN_SIZE; j++) {
-            nn->hidden_weights[i][j] += learning_rate * output_error[i] * hidden_output[j];
+            nn->hidden_weights[i][j] -= learning_rate * output_delta[i] * hidden_a[j];
         }
-        nn->hidden_bias[i] += learning_rate * output_error[i];
+        nn->hidden_bias[i] -= learning_rate * output_delta[i];
     }
 
-    // For simplicity, skip the full input to hidden weight update in this example
-    // In enterprise implementation, full backpropagation would be implemented
+    // Update input-to-hidden layer weights and biases
+    // FIXED: Now actually updates these weights (previously skipped)
+    for (int i = 0; i < nn->layer_sizes[1]; i++) {
+        for (int j = 0; j < nn->layer_sizes[0]; j++) {
+            nn->input_weights[i][j] -= learning_rate * hidden_delta[i] * input[j];
+        }
+        nn->input_bias[i] -= learning_rate * hidden_delta[i];
+    }
 }
 
 /**
@@ -503,9 +798,9 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         return -1;
     }
 
-    // Perform forward pass to get current prediction
+    // Perform forward pass to get current prediction (no masking for feedback)
     double nn_output[NN_OUTPUT_SIZE];
-    neural_network_forward(nn, features.features, nn_output);
+    neural_network_forward(nn, features.features, nn_output, NULL, 0);
 
     // Create target output based on the result
     // If successful, boost the score for the applied strategy; otherwise, reduce it
@@ -514,24 +809,27 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         target_output[i] = nn_output[i];
     }
 
-    // Use a simple hash-based mapping from strategy name to index to avoid recursion
-    // This allows us to enable learning without calling get_strategies_for_instruction
+    // FIXED: Use stable index from registry instead of hash-based mapping
     int strategy_idx = -1;
-    if (applied_strategy != NULL && applied_strategy->name != NULL) {
-        // Simple hash function to map strategy name to NN output index
-        // This is a simplified approach; in production we'd use a proper mapping table
-        unsigned long hash = 5381;
-        const char* str = applied_strategy->name;
-        int c;
-        while ((c = *str++)) {
-            hash = ((hash << 5) + hash) + c;
+    if (applied_strategy != NULL) {
+        strategy_idx = ml_strategy_get_index(applied_strategy);
+        if (strategy_idx < 0) {
+            fprintf(stderr, "[ML] WARNING: Applied strategy '%s' not found in registry\n",
+                    applied_strategy->name ? applied_strategy->name : "NULL");
         }
-        strategy_idx = (int)(hash % NN_OUTPUT_SIZE);
     }
 
-    // Track instruction processing
+    // Track instruction processing with bad byte awareness (v3.0)
     if (g_ml_metrics) {
-        ml_metrics_record_instruction_processed(g_ml_metrics, features.has_nulls);
+        // Record the bad byte configuration for this session if not already recorded
+        // This would typically happen once per session when processing starts
+        // For now, we'll record the instruction processing with bad byte count
+        uint8_t bad_bytes_in_insn[256] = {0};
+        for (int i = 0; i < 256; i++) {
+            bad_bytes_in_insn[i] = features.bad_byte_types[i];
+        }
+
+        ml_metrics_record_instruction_processed_v3(g_ml_metrics, bad_bytes_in_insn, features.bad_byte_count);
     }
 
     // Check if the applied strategy matches our prediction and record it
@@ -605,18 +903,25 @@ int ml_provide_feedback(ml_strategist_t* strategist,
         }
     }
 
-    // Record strategy result metrics
+    // Record strategy result metrics with bad byte awareness (v3.0)
     if (g_ml_metrics && applied_strategy != NULL) {
-        // Calculate nulls eliminated (original had nulls, strategy tried to eliminate them)
-        int nulls_eliminated = features.has_nulls && success ? 1 : 0;
+        // Calculate bad bytes eliminated (more accurate than just using features.has_nulls)
+        int bad_bytes_eliminated = 0;
 
-        // Record the strategy result
-        ml_metrics_record_strategy_result(g_ml_metrics,
-                                          applied_strategy->name,
-                                          success,
-                                          nulls_eliminated,
-                                          (int)new_shellcode_size,
-                                          0.0); // processing_time_ms placeholder
+        // In a real implementation, we'd compare the original instruction bytes
+        // with the transformed bytes to count how many bad bytes were eliminated
+        // For now, we'll use features.bad_byte_count as a proxy if the strategy was successful
+        if (success) {
+            bad_bytes_eliminated = features.bad_byte_count;
+        }
+
+        // Record the strategy result using the new v3 function
+        ml_metrics_record_strategy_result_v3(g_ml_metrics,
+                                             applied_strategy->name,
+                                             success,
+                                             bad_bytes_eliminated,
+                                             (int)new_shellcode_size,
+                                             0.0); // processing_time_ms placeholder
     }
 
     if (applied_strategy != NULL) {
@@ -635,11 +940,15 @@ int ml_provide_feedback(ml_strategist_t* strategist,
  */
 void ml_strategist_cleanup(ml_strategist_t* strategist) {
     if (strategist) {
-        // Print final metrics summary before cleanup
+        // Print final metrics summary before cleanup (only for runtime, not training)
         if (g_ml_metrics) {
-            ml_metrics_print_summary(g_ml_metrics);
-            ml_metrics_print_strategy_breakdown(g_ml_metrics);
-            ml_metrics_print_learning_progress(g_ml_metrics);
+            // Only print detailed metrics if we actually made predictions during runtime
+            // During training, predictions_made will be 0 and the evaluation section shows real metrics
+            if (g_ml_metrics->model.predictions_made > 0 || g_ml_metrics->session.total_strategies_applied > 0) {
+                ml_metrics_print_summary(g_ml_metrics);
+                ml_metrics_print_strategy_breakdown(g_ml_metrics);
+                ml_metrics_print_learning_progress(g_ml_metrics);
+            }
             ml_metrics_cleanup(g_ml_metrics);
             g_ml_metrics = NULL;
         }
@@ -742,6 +1051,21 @@ int ml_strategist_load_model(ml_strategist_t* strategist, const char* path) {
         input_bias_read != NN_HIDDEN_SIZE ||
         hidden_bias_read != NN_OUTPUT_SIZE ||
         layer_sizes_read != NN_NUM_LAYERS) {
+        fprintf(stderr, "[ML] Error: Model file corrupted or incomplete\n");
+        return -1;
+    }
+
+    // v2.0: Validate model architecture matches expected dimensions
+    if (nn->layer_sizes[0] != NN_INPUT_SIZE ||
+        nn->layer_sizes[1] != NN_HIDDEN_SIZE ||
+        nn->layer_sizes[2] != NN_OUTPUT_SIZE) {
+        fprintf(stderr, "[ML] Error: Model architecture mismatch!\n");
+        fprintf(stderr, "[ML]   Expected: [%d, %d, %d]\n",
+                NN_INPUT_SIZE, NN_HIDDEN_SIZE, NN_OUTPUT_SIZE);
+        fprintf(stderr, "[ML]   Found:    [%d, %d, %d]\n",
+                nn->layer_sizes[0], nn->layer_sizes[1], nn->layer_sizes[2]);
+        fprintf(stderr, "[ML] This model was trained with a different architecture.\n");
+        fprintf(stderr, "[ML] Please retrain your model or use the correct version.\n");
         return -1;
     }
 
@@ -804,6 +1128,15 @@ void ml_strategist_print_metrics_summary(void) {
 void ml_strategist_print_strategy_breakdown(void) {
     if (g_ml_metrics) {
         ml_metrics_print_strategy_breakdown(g_ml_metrics);
+    }
+}
+
+/**
+ * @brief Print bad byte elimination breakdown
+ */
+void ml_strategist_print_bad_byte_breakdown(void) {
+    if (g_ml_metrics) {
+        ml_metrics_print_bad_byte_breakdown(g_ml_metrics);
     }
 }
 

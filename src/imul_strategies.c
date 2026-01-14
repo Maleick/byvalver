@@ -108,7 +108,8 @@ strategy_t imul_modrm_null_bypass_strategy = {
     .can_handle = can_handle_imul_modrm_null,
     .get_size = get_size_imul_modrm_null,
     .generate = generate_imul_modrm_null,
-    .priority = 72
+    .priority = 72,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -129,7 +130,7 @@ static int can_handle_imul_immediate_null(cs_insn *insn) {
         cs_x86_op *op2 = &insn->detail->x86.operands[2];
         if (op2->type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)op2->imm;
-            return !is_null_free(imm);
+            return !is_bad_byte_free(imm);
         }
     }
 
@@ -161,20 +162,20 @@ static void generate_imul_immediate_null(struct buffer *b, cs_insn *insn) {
 
     for (int i = 0; i < 32; i++) {
         uint32_t shifted = imm << i;
-        if (is_null_free(shifted)) {
+        if (is_bad_byte_free(shifted)) {
             base_val = shifted;
             shift_amount = i;
             break;
         }
         shifted = imm >> i;
-        if (is_null_free(shifted) && shifted != 0) {
+        if (is_bad_byte_free(shifted) && shifted != 0) {
             base_val = shifted;
             shift_amount = -i;
             break;
         }
     }
 
-    if (is_null_free(base_val)) {
+    if (is_bad_byte_free(base_val)) {
         buffer_write_byte(b, 0xBB); // MOV EBX, imm32
         buffer_write_dword(b, base_val);
 
@@ -209,7 +210,8 @@ strategy_t imul_immediate_null_free_strategy = {
     .can_handle = can_handle_imul_immediate_null,
     .get_size = get_size_imul_immediate_null,
     .generate = generate_imul_immediate_null,
-    .priority = 71
+    .priority = 71,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

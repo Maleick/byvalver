@@ -231,7 +231,8 @@ strategy_t transform_add_mem_reg8_strategy = {
     .can_handle = can_handle_transform_add_mem_reg8,
     .get_size = get_size_transform_add_mem_reg8,
     .generate = generate_transform_add_mem_reg8,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_transform_add_mem_reg8_strategy() {

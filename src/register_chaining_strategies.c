@@ -1,5 +1,6 @@
 #include "strategy.h"
 #include "utils.h"
+#include "profile_aware_sib.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -16,7 +17,7 @@ int can_handle_register_chaining_immediate(cs_insn *insn) {
             uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
 
             // Check if the immediate value contains null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Additionally confirm the original instruction has null bytes
                 if (has_null_bytes(insn)) {
                     return 1;
@@ -49,7 +50,7 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
 
     // Method 1: Try NOT encoding (with null-free check)
     uint32_t not_val;
-    if (find_not_equivalent(target_val, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(target_val, &not_val) && is_bad_byte_free(not_val)) {
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, not_val);
             uint8_t not_code[] = {0xF7, 0xD0}; // NOT EAX
@@ -65,11 +66,10 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
             not_code[1] = 0xD0 + get_reg_index(X86_REG_EAX);
             buffer_append(b, not_code, 2);
 
-            // Move result to target register using SIB addressing to avoid nulls
-            uint8_t mov_to_target[] = {0x89, 0x04, 0x20}; // MOV target_reg, EAX using SIB
-            mov_to_target[1] = 0x04 | (get_reg_index(X86_REG_EAX) << 3);  // ModR/M: reg=EAX, r/m=SIB
-            mov_to_target[2] = (0 << 6) | (4 << 3) | get_reg_index(target_reg);  // SIB: scale=0, index=ESP, base=target_reg
-            buffer_append(b, mov_to_target, 3);
+            // Move result to target register (register-to-register MOV)
+            uint8_t mov_to_target[] = {0x89, 0xC0};
+            mov_to_target[1] = 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(target_reg);
+            buffer_append(b, mov_to_target, 2);
 
             // Restore original EAX
             uint8_t pop_eax[] = {0x58};
@@ -80,7 +80,7 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
 
     // Method 2: Try NEG encoding (with null-free check)
     uint32_t negated_val;
-    if (find_neg_equivalent(target_val, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(target_val, &negated_val) && is_bad_byte_free(negated_val)) {
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, negated_val);
             uint8_t neg_code[] = {0xF7, 0xD8}; // NEG EAX
@@ -96,11 +96,10 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
             neg_code[1] = 0xD8 + get_reg_index(X86_REG_EAX);
             buffer_append(b, neg_code, 2);
 
-            // Move result to target register using SIB addressing to avoid nulls
-            uint8_t mov_to_target[] = {0x89, 0x04, 0x20}; // MOV target_reg, EAX using SIB
-            mov_to_target[1] = 0x04 | (get_reg_index(X86_REG_EAX) << 3);  // ModR/M: reg=EAX, r/m=SIB
-            mov_to_target[2] = (0 << 6) | (4 << 3) | get_reg_index(target_reg);  // SIB: scale=0, index=ESP, base=target_reg
-            buffer_append(b, mov_to_target, 3);
+            // Move result to target register (register-to-register MOV)
+            uint8_t mov_to_target[] = {0x89, 0xC0};
+            mov_to_target[1] = 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(target_reg);
+            buffer_append(b, mov_to_target, 2);
 
             // Restore original EAX
             uint8_t pop_eax[] = {0x58};
@@ -112,7 +111,7 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
     // Method 3: Try ADD/SUB encoding (with null-free check)
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, val1);
             uint8_t op_code = is_add ? 0x05 : 0x2D; // ADD EAX, imm32 or SUB EAX, imm32
@@ -130,11 +129,10 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
             memcpy(addsub_code + 1, &val2, 4);
             buffer_append(b, addsub_code, 5);
 
-            // Move result to target register using SIB addressing to avoid nulls
-            uint8_t mov_to_target[] = {0x89, 0x04, 0x20}; // MOV target_reg, EAX using SIB
-            mov_to_target[1] = 0x04 | (get_reg_index(X86_REG_EAX) << 3);  // ModR/M: reg=EAX, r/m=SIB
-            mov_to_target[2] = (0 << 6) | (4 << 3) | get_reg_index(target_reg);  // SIB: scale=0, index=ESP, base=target_reg
-            buffer_append(b, mov_to_target, 3);
+            // Move result to target register (register-to-register MOV)
+            uint8_t mov_to_target[] = {0x89, 0xC0};
+            mov_to_target[1] = 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(target_reg);
+            buffer_append(b, mov_to_target, 2);
 
             // Restore original EAX
             uint8_t pop_eax[] = {0x58};
@@ -155,11 +153,10 @@ void generate_register_chaining_immediate(struct buffer *b, cs_insn *insn) {
         // Build target value in EAX using reliable null-free construction
         generate_mov_eax_imm(b, target_val);
 
-        // Move result to target register using SIB addressing to avoid nulls
-        uint8_t mov_to_target[] = {0x89, 0x04, 0x20}; // MOV target_reg, EAX using SIB
-        mov_to_target[1] = 0x04 | (get_reg_index(X86_REG_EAX) << 3);  // ModR/M: reg=EAX, r/m=SIB
-        mov_to_target[2] = (0 << 6) | (4 << 3) | get_reg_index(target_reg);  // SIB: scale=0, index=ESP, base=target_reg
-        buffer_append(b, mov_to_target, 3);
+        // Move result to target register (register-to-register MOV)
+        uint8_t mov_to_target[] = {0x89, 0xC0};
+        mov_to_target[1] = 0xC0 | (get_reg_index(X86_REG_EAX) << 3) | get_reg_index(target_reg);
+        buffer_append(b, mov_to_target, 2);
 
         // Restore original EAX
         uint8_t pop_eax[] = {0x58};
@@ -185,7 +182,7 @@ int can_handle_cross_register_operation(cs_insn *insn) {
 
             uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
             // Check if the immediate value contains null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Additionally confirm the original instruction has null bytes
                 if (has_null_bytes(insn)) {
                     return 1;
@@ -217,7 +214,7 @@ void generate_cross_register_operation(struct buffer *b, cs_insn *insn) {
 
     // Method 1: Try NOT encoding (with null-free check)
     uint32_t not_val;
-    if (find_not_equivalent(target_val, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(target_val, &not_val) && is_bad_byte_free(not_val)) {
         // MOV target_reg, ~target_val then NOT target_reg
         // MOV using null-safe construction
         if (target_reg == X86_REG_EAX) {
@@ -247,7 +244,7 @@ void generate_cross_register_operation(struct buffer *b, cs_insn *insn) {
 
     // Method 2: Try NEG encoding (with null-free check)
     uint32_t negated_val;
-    if (find_neg_equivalent(target_val, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(target_val, &negated_val) && is_bad_byte_free(negated_val)) {
         // MOV target_reg, -target_val then NEG target_reg
         if (target_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, negated_val);
@@ -277,7 +274,7 @@ void generate_cross_register_operation(struct buffer *b, cs_insn *insn) {
     // Method 3: Try ADD/SUB encoding (with null-free check)
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(target_val, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
         if (target_reg == X86_REG_EAX) {
             // Direct approach: MOV EAX, val1 + operation with val2
             generate_mov_eax_imm(b, val1);

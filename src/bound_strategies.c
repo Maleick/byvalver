@@ -140,7 +140,8 @@ static strategy_t bound_modrm_null_strategy = {
     .can_handle = can_handle_bound_modrm_null,
     .get_size = get_size_bound_modrm_null,
     .generate = generate_bound_modrm_null,
-    .priority = 70
+    .priority = 70,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 /* Registration function */

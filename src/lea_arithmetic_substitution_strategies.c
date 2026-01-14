@@ -53,7 +53,7 @@ int can_handle_lea_arithmetic_substitution(cs_insn *insn) {
     uint32_t imm = (uint32_t)src_op->imm;
 
     // Check if the immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_byte_free(imm)) {
         // Already null-free, LEA substitution might not be needed
         return 0;
     }
@@ -91,7 +91,7 @@ void generate_lea_arithmetic_substitution(struct buffer *b, cs_insn *insn) {
 
     // Use LEA reg, [reg + imm] to add imm to reg
     // If imm is null-free, we can use it directly
-    if (is_null_free(imm)) {
+    if (is_bad_byte_free(imm)) {
         // Direct LEA encoding
         uint8_t lea_code[] = {0x8D, 0x80, 0, 0, 0, 0}; // LEA reg, [reg + disp32]
         lea_code[1] = 0x80 + (get_reg_index(dst_reg) << 3) + get_reg_index(dst_reg);
@@ -113,5 +113,6 @@ strategy_t lea_arithmetic_substitution_strategy = {
     .can_handle = can_handle_lea_arithmetic_substitution,
     .get_size = get_size_lea_arithmetic_substitution,
     .generate = generate_lea_arithmetic_substitution,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };

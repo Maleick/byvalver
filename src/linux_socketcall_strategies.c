@@ -27,7 +27,7 @@ int can_handle_socketcall_argument_array(cs_insn *insn) {
                    insn->detail->x86.operands[0].type == X86_OP_IMM) {
             uint32_t imm = (uint32_t)insn->detail->x86.operands[0].imm;
             // Check if the immediate value contains null bytes
-            if (!is_null_free(imm)) {
+            if (!is_bad_byte_free(imm)) {
                 // Additional check: does the instruction itself contain nulls?
                 return has_null_bytes(insn);
             }

@@ -52,7 +52,7 @@ int can_handle_small_immediate_optimization(cs_insn *insn) {
     uint32_t imm = (uint32_t)src_op->imm;
 
     // Check if immediate contains null bytes
-    if (is_null_free(imm)) {
+    if (is_bad_byte_free(imm)) {
         // If immediate is already null-free, we don't need to optimize
         return 0;
     }
@@ -90,7 +90,7 @@ void generate_small_immediate_optimization(struct buffer *b, cs_insn *insn) {
     // Try alternative encoding methods first before falling back to complex construction
     // Method 1: NOT encoding (with null-free check)
     uint32_t not_val;
-    if (find_not_equivalent(imm, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(imm, &not_val) && is_bad_byte_free(not_val)) {
         // MOV dst_reg, ~imm then NOT dst_reg
         if (dst_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, not_val);
@@ -120,7 +120,7 @@ void generate_small_immediate_optimization(struct buffer *b, cs_insn *insn) {
 
     // Method 2: NEG encoding (with null-free check)
     uint32_t negated_val;
-    if (find_neg_equivalent(imm, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(imm, &negated_val) && is_bad_byte_free(negated_val)) {
         // MOV dst_reg, -imm then NEG dst_reg
         if (dst_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, negated_val);
@@ -151,7 +151,7 @@ void generate_small_immediate_optimization(struct buffer *b, cs_insn *insn) {
     // Method 3: ADD/SUB encoding (with null-free check)
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(imm, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(imm, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
         if (dst_reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, val1);
             uint8_t op_code = is_add ? 0x05 : 0x2D; // ADD EAX, imm32 or SUB EAX, imm32

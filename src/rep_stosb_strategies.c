@@ -69,7 +69,7 @@ int can_handle_rep_stosb_count_setup(cs_insn *insn) {
     }
 
     // Check if the immediate contains null bytes when encoded
-    if (is_null_free(imm)) {
+    if (is_bad_byte_free(imm)) {
         // Already null-free
         return 0;
     }
@@ -133,7 +133,7 @@ void generate_rep_stosb_count_setup(struct buffer *b, cs_insn *insn) {
         // If count is 0, ECX is already zero from XOR ECX, ECX
     } else if (count <= 0xFFFF) {
         // For 16-bit values, check if the value itself is null-free
-        if (is_null_free(count)) {
+        if (is_bad_byte_free(count)) {
             // Use MOV CX, word directly if it's null-free
             buffer_write_byte(b, 0x66);  // Operand size override prefix
             buffer_write_byte(b, 0xB9);  // MOV CX, imm16

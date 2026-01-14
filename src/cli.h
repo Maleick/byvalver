@@ -7,11 +7,19 @@
 #include <string.h>
 #include <getopt.h>
 
+// Architecture enumeration for type-safe handling
+typedef enum {
+    BYVAL_ARCH_X86 = 0,    // 32-bit x86
+    BYVAL_ARCH_X64 = 1,    // 64-bit x86-64
+    BYVAL_ARCH_ARM = 2,    // 32-bit ARM
+    BYVAL_ARCH_ARM64 = 3   // 64-bit ARM (AArch64)
+} byval_arch_t;
+
 // Application version information
-#define BYVALVER_VERSION_MAJOR 2
-#define BYVALVER_VERSION_MINOR 1
+#define BYVALVER_VERSION_MAJOR 4
+#define BYVALVER_VERSION_MINOR 0
 #define BYVALVER_VERSION_PATCH 0
-#define BYVALVER_VERSION_STRING "2.1.0"
+#define BYVALVER_VERSION_STRING "4.0.0"
 
 // Exit codes
 #define EXIT_SUCCESS 0
@@ -22,6 +30,14 @@
 #define EXIT_OUTPUT_FILE_ERROR 5
 #define EXIT_TIMEOUT_EXCEEDED 6
 #define EXIT_CONFIG_ERROR 7
+
+// Bad byte configuration structure
+// Uses bitmap for O(1) lookup performance
+typedef struct {
+    uint8_t bad_bytes[256];      // Bitmap: bad_bytes[byte] = 1 if bad, 0 if ok
+    int bad_byte_count;           // Number of distinct bad bytes
+    uint8_t bad_byte_list[256];   // Ordered list of bad byte values
+} bad_byte_config_t;
 
 // Configuration structure
 typedef struct {
@@ -57,18 +73,22 @@ typedef struct {
     
     // Advanced options
     char *output_format;  // "raw", "c", "python", "powershell", "hexstring"
-    char *target_arch;    // "x86", "x64"
+    byval_arch_t target_arch;  // Target architecture enum
     int strategy_limit;
     size_t max_size;
     int timeout_seconds;
     int dry_run;
     int show_stats;
     int validate_output;
-    
+
+    // Bad byte configuration (NEW in v3.0)
+    bad_byte_config_t *bad_bytes;  // Dynamically allocated bad byte configuration
+
     // Internal flags
     int help_requested;
     int version_requested;
     int output_file_specified_via_flag;  // Whether -o/--output was used
+    int interactive_menu;                // Whether to launch interactive TUI menu
 } byvalver_config_t;
 
 // Function declarations
@@ -79,5 +99,8 @@ void print_usage(FILE *stream, const char *program_name);
 void print_version(FILE *stream);
 int load_config_file(const char *config_path, byvalver_config_t *config);
 void print_detailed_help(FILE *stream, const char *program_name);
+
+// Bad byte configuration functions
+bad_byte_config_t* parse_bad_bytes_string(const char *input);
 
 #endif

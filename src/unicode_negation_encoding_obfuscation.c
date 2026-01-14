@@ -41,7 +41,7 @@ static int find_neg_unicode_equivalent(uint32_t target, uint32_t *negated_val) {
     uint32_t neg_val = (~target) + 1;
 
     // Check if the negated value is null-free
-    if (is_null_free(neg_val)) {
+    if (is_bad_byte_free(neg_val)) {
         *negated_val = neg_val;
         return 1;
     }

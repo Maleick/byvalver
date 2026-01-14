@@ -49,7 +49,8 @@ static strategy_t loop_strategy = {
     .can_handle = can_handle_loop,
     .get_size = get_size_loop,
     .generate = generate_loop,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -100,7 +101,8 @@ static strategy_t jecxz_strategy = {
     .can_handle = can_handle_jecxz,
     .get_size = get_size_jecxz,
     .generate = generate_jecxz,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -161,7 +163,8 @@ static strategy_t loope_strategy = {
     .can_handle = can_handle_loope,
     .get_size = get_size_loope,
     .generate = generate_loope,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -222,7 +225,8 @@ static strategy_t loopne_strategy = {
     .can_handle = can_handle_loopne,
     .get_size = get_size_loopne,
     .generate = generate_loopne,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

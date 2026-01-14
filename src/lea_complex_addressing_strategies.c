@@ -80,7 +80,7 @@ void generate_lea_complex_addressing(struct buffer *b, cs_insn *insn) {
     uint32_t value_to_construct = (uint32_t)src_op->imm;
 
     // First, let's try LEA reg, [disp32] if the displacement is null-free
-    if (is_null_free(value_to_construct)) {
+    if (is_bad_byte_free(value_to_construct)) {
         // Use LEA reg, [disp32] format
         // 8D /r LEA reg, [disp32]
         uint8_t lea_code[6]; // LEA reg, [disp32]
@@ -165,7 +165,7 @@ int can_handle_lea_arithmetic_value_construction(cs_insn *insn) {
 
     // Check if the immediate contains null bytes
     uint32_t imm = (uint32_t)src_op->imm;
-    if (is_null_free(imm)) {
+    if (is_bad_byte_free(imm)) {
         return 0; // No nulls to handle
     }
 

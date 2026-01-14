@@ -45,7 +45,7 @@ void generate_conservative_mov(struct buffer *b, cs_insn *insn) {
 
     // Method 1: Try NOT encoding first (higher priority for conservation)
     uint32_t not_val;
-    if (find_not_equivalent(imm, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(imm, &not_val) && is_bad_byte_free(not_val)) {
         // MOV reg, ~imm then NOT reg
         if (reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, not_val);  // Use reliable null-free construction
@@ -75,7 +75,7 @@ void generate_conservative_mov(struct buffer *b, cs_insn *insn) {
 
     // Method 2: Try NEG encoding
     uint32_t negated_val;
-    if (find_neg_equivalent(imm, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(imm, &negated_val) && is_bad_byte_free(negated_val)) {
         // MOV reg, -imm then NEG reg
         if (reg == X86_REG_EAX) {
             generate_mov_eax_imm(b, negated_val);  // Use reliable null-free construction
@@ -106,7 +106,7 @@ void generate_conservative_mov(struct buffer *b, cs_insn *insn) {
     // Method 3: Try ADD/SUB encoding
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(imm, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(imm, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
         if (reg == X86_REG_EAX) {
             // MOV EAX, val1 (null-free construction)
             generate_mov_eax_imm(b, val1);

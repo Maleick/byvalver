@@ -59,6 +59,7 @@
  */
 
 #include "strategy.h"
+#include "profile_aware_sib.h"
 #include "utils.h"
 #include <stdio.h>
 #include <string.h>
@@ -69,28 +70,26 @@
 // ============================================================================
 
 /**
- * Check if a 32-bit displacement value contains null bytes
+ * Check if a 32-bit displacement value contains bad bytes (profile-aware)
  */
-static int has_null_in_disp32(int32_t disp) {
+static int has_bad_byte_in_disp32(int32_t disp) {
     uint32_t val = (uint32_t)disp;
-    return ((val & 0xFF) == 0) ||
-           (((val >> 8) & 0xFF) == 0) ||
-           (((val >> 16) & 0xFF) == 0) ||
-           (((val >> 24) & 0xFF) == 0);
+    // Use profile-aware check for ALL bad bytes, not just nulls
+    return !is_bad_byte_free(val);
 }
 
 /**
- * Check if instruction has memory operand with null displacement
+ * Check if instruction has memory operand with bad-byte displacement (profile-aware)
  */
-static int has_memory_disp_null(cs_insn *insn) {
+static int has_memory_disp_bad_byte(cs_insn *insn) {
     if (!insn || !insn->detail) return 0;
 
     for (int i = 0; i < insn->detail->x86.op_count; i++) {
         cs_x86_op *op = &insn->detail->x86.operands[i];
 
         if (op->type == X86_OP_MEM) {
-            // Check if displacement exists and contains nulls
-            if (op->mem.disp != 0 && has_null_in_disp32(op->mem.disp)) {
+            // Check if displacement exists and contains bad bytes
+            if (op->mem.disp != 0 && has_bad_byte_in_disp32(op->mem.disp)) {
                 return 1;
             }
 
@@ -164,7 +163,7 @@ static int can_handle_lea_disp_null(cs_insn *insn) {
     }
 
     // Check if memory operand has null displacement
-    return has_memory_disp_null(insn);
+    return has_memory_disp_bad_byte(insn);
 }
 
 static size_t get_size_lea_disp_null(cs_insn *insn) {
@@ -379,7 +378,8 @@ static strategy_t lea_disp_null_strategy = {
     .can_handle = can_handle_lea_disp_null,
     .get_size = get_size_lea_disp_null,
     .generate = generate_lea_disp_null,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -408,7 +408,7 @@ static int can_handle_mov_mem_disp_null(cs_insn *insn) {
     }
 
     // Check if has memory operand with null displacement
-    return has_memory_disp_null(insn);
+    return has_memory_disp_bad_byte(insn);
 }
 
 static size_t get_size_mov_mem_disp_null(cs_insn *insn) {
@@ -468,7 +468,7 @@ static void generate_mov_mem_disp_null(struct buffer *b, cs_insn *insn) {
                 // ModR/M: 00 (mod) | reg_index<<3 | 100 (r/m means SIB follows)
                 // SIB: 00 (scale) | 100 (index means no index) | 000 (base means EAX)
                 uint8_t modrm = 0x04 | (get_reg_index(data_reg) << 3);
-                uint8_t sib = 0x20;  // [EAX] with no index
+                sib_encoding_result_t sib_enc = select_sib_encoding_for_eax(X86_REG_EAX); uint8_t sib = (sib_enc.strategy == SIB_ENCODING_STANDARD) ? sib_enc.sib_byte : 0x24; // Fallback to [ESP] if 0x20 unsafe  // [EAX] with no index
                 uint8_t mov[] = {0x89, modrm, sib};
                 buffer_append(b, mov, 3);
             } else {
@@ -483,7 +483,7 @@ static void generate_mov_mem_disp_null(struct buffer *b, cs_insn *insn) {
                 // ModR/M: 00 (mod) | reg_index<<3 | 100 (r/m means SIB follows)
                 // SIB: 00 (scale) | 100 (index means no index) | 000 (base means EAX)
                 uint8_t modrm = 0x04 | (get_reg_index(data_reg) << 3);
-                uint8_t sib = 0x20;  // [EAX] with no index
+                sib_encoding_result_t sib_enc = select_sib_encoding_for_eax(X86_REG_EAX); uint8_t sib = (sib_enc.strategy == SIB_ENCODING_STANDARD) ? sib_enc.sib_byte : 0x24; // Fallback to [ESP] if 0x20 unsafe  // [EAX] with no index
                 uint8_t mov[] = {0x8B, modrm, sib};
                 buffer_append(b, mov, 3);
             } else {
@@ -535,7 +535,7 @@ static void generate_mov_mem_disp_null(struct buffer *b, cs_insn *insn) {
                 // ModR/M: 00 (mod) | reg_index<<3 | 100 (r/m means SIB follows)
                 // SIB: 00 (scale) | 100 (index means no index) | 000 (base means EAX)
                 uint8_t modrm = 0x04 | (get_reg_index(data_reg) << 3);
-                uint8_t sib = 0x20;  // [EAX] with no index
+                sib_encoding_result_t sib_enc = select_sib_encoding_for_eax(X86_REG_EAX); uint8_t sib = (sib_enc.strategy == SIB_ENCODING_STANDARD) ? sib_enc.sib_byte : 0x24; // Fallback to [ESP] if 0x20 unsafe  // [EAX] with no index
                 uint8_t mov[] = {0x89, modrm, sib};
                 buffer_append(b, mov, 3);
             } else {
@@ -549,7 +549,7 @@ static void generate_mov_mem_disp_null(struct buffer *b, cs_insn *insn) {
                 // ModR/M: 00 (mod) | reg_index<<3 | 100 (r/m means SIB follows)
                 // SIB: 00 (scale) | 100 (index means no index) | 000 (base means EAX)
                 uint8_t modrm = 0x04 | (get_reg_index(data_reg) << 3);
-                uint8_t sib = 0x20;  // [EAX] with no index
+                sib_encoding_result_t sib_enc = select_sib_encoding_for_eax(X86_REG_EAX); uint8_t sib = (sib_enc.strategy == SIB_ENCODING_STANDARD) ? sib_enc.sib_byte : 0x24; // Fallback to [ESP] if 0x20 unsafe  // [EAX] with no index
                 uint8_t mov[] = {0x8B, modrm, sib};
                 buffer_append(b, mov, 3);
             } else {
@@ -616,7 +616,8 @@ static strategy_t mov_mem_disp_null_strategy = {
     .can_handle = can_handle_mov_mem_disp_null,
     .get_size = get_size_mov_mem_disp_null,
     .generate = generate_mov_mem_disp_null,
-    .priority = 83
+    .priority = 83,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -639,7 +640,7 @@ static int can_handle_general_mem_disp_null(cs_insn *insn) {
     }
 
     // Check if has memory operand with null displacement
-    return has_memory_disp_null(insn);
+    return has_memory_disp_bad_byte(insn);
 }
 
 static size_t get_size_general_mem_disp_null(cs_insn *insn) {
@@ -773,9 +774,22 @@ static void generate_general_mem_disp_null(struct buffer *b, cs_insn *insn) {
 
         // Emit: OP data_reg, [temp]
         if (temp == X86_REG_EAX) {
-            // Use SIB to avoid [EAX] encoding with null
-            uint8_t code[] = {opcode, 0x04, 0x20 | (get_reg_index(data_reg) << 3)};
-            buffer_append(b, code, 3);
+            // FIXED: Use profile-aware SIB generation for [EAX]
+            sib_encoding_result_t sib_enc = select_sib_encoding_for_eax(data_reg);
+            uint8_t modrm = (get_reg_index(data_reg) << 3) | 0x04; // r/m=SIB
+
+            if (sib_enc.strategy == SIB_ENCODING_STANDARD) {
+                uint8_t code[] = {opcode, modrm, sib_enc.sib_byte};
+                buffer_append(b, code, 3);
+            } else {
+                // Fallback: use PUSH/POP approach
+                uint8_t push[] = {0xFF, 0x30}; // PUSH [EAX]
+                buffer_append(b, push, 2);
+                uint8_t pop_ecx[] = {0x59}; // POP ECX
+                buffer_append(b, pop_ecx, 1);
+                uint8_t op_ecx[] = {opcode, 0xC0 | (get_reg_index(data_reg) << 3) | 1}; // OP data_reg, ECX
+                buffer_append(b, op_ecx, 2);
+            }
         } else {
             uint8_t modrm = 0x00 | (get_reg_index(data_reg) << 3) | get_reg_index(temp);
             uint8_t code[] = {opcode, modrm};
@@ -792,7 +806,8 @@ static strategy_t general_mem_disp_null_strategy = {
     .can_handle = can_handle_general_mem_disp_null,
     .get_size = get_size_general_mem_disp_null,
     .generate = generate_general_mem_disp_null,
-    .priority = 82
+    .priority = 82,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

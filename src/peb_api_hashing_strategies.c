@@ -39,7 +39,7 @@ int can_handle_peb_api_hashing(cs_insn *insn) {
         uint32_t target_addr = (uint32_t)op->imm;
         
         // Check if address might contain nulls (typical Windows API addresses)
-        if (!is_null_free(target_addr)) {
+        if (!is_bad_byte_free(target_addr)) {
             return 1;
         }
     }
@@ -86,5 +86,6 @@ strategy_t peb_api_hashing_strategy = {
     .can_handle = can_handle_peb_api_hashing,
     .get_size = get_size_peb_api_hashing,
     .generate = generate_peb_api_hashing,
-    .priority = 95
+    .priority = 95,
+    .target_arch = BYVAL_ARCH_X86
 };

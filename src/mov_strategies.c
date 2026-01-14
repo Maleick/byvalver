@@ -41,7 +41,8 @@ strategy_t mov_original_strategy = {
     .can_handle = can_handle_mov_original,
     .get_size = get_size_mov_original,
     .generate = generate_mov_original,
-    .priority = 10
+    .priority = 10,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with NEG strategy - FIXED to check operand types
@@ -66,7 +67,7 @@ int can_handle_mov_neg(cs_insn *insn) {
 
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
     uint32_t negated_val;
-    if (find_neg_equivalent(target, &negated_val) && is_null_free(negated_val)) {
+    if (find_neg_equivalent(target, &negated_val) && is_bad_byte_free(negated_val)) {
         return 1; // Can handle with NEG
     }
     return 0;
@@ -123,7 +124,8 @@ strategy_t mov_neg_strategy = {
     .can_handle = can_handle_mov_neg,
     .get_size = get_size_mov_neg,
     .generate = generate_mov_neg,
-    .priority = 13
+    .priority = 13,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with NOT strategy - FIXED
@@ -147,12 +149,12 @@ int can_handle_mov_not(cs_insn *insn) {
 
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
     uint32_t not_val;
-    if (find_not_equivalent(target, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(target, &not_val) && is_bad_byte_free(not_val)) {
         // Check if other higher-priority strategies can handle it first
         uint32_t neg_val;
 
         // Don't handle if NEG strategy can handle it (NEG is more efficient than NOT)
-        if (find_neg_equivalent(target, &neg_val) && is_null_free(neg_val)) {
+        if (find_neg_equivalent(target, &neg_val) && is_bad_byte_free(neg_val)) {
             return 0;
         }
 
@@ -174,7 +176,8 @@ strategy_t mov_not_strategy = {
     .can_handle = can_handle_mov_not,
     .get_size = get_size_mov_not,
     .generate = generate_mov_not,
-    .priority = 12
+    .priority = 12,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with XOR strategy - FIXED
@@ -205,17 +208,17 @@ int can_handle_mov_xor(cs_insn *insn) {
         int is_add;
 
         // Don't handle if NOT strategy can handle it
-        if (find_not_equivalent(target, &not_val) && is_null_free(not_val)) {
+        if (find_not_equivalent(target, &not_val) && is_bad_byte_free(not_val)) {
             return 0;
         }
 
         // Don't handle if NEG strategy can handle it
-        if (find_neg_equivalent(target, &neg_val) && is_null_free(neg_val)) {
+        if (find_neg_equivalent(target, &neg_val) && is_bad_byte_free(neg_val)) {
             return 0;
         }
 
         // Don't handle if ADD/SUB strategy can handle it
-        if (find_addsub_key(target, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+        if (find_addsub_key(target, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
             return 0;
         }
 
@@ -237,7 +240,8 @@ strategy_t mov_xor_strategy = {
     .can_handle = can_handle_mov_xor,
     .get_size = get_size_mov_xor,
     .generate = generate_mov_xor,
-    .priority = 6
+    .priority = 6,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with shift strategy - FIXED
@@ -267,17 +271,17 @@ int can_handle_mov_shift(cs_insn *insn) {
     int is_add;
 
     // Don't handle if NOT strategy can handle it
-    if (find_not_equivalent(target, &not_val) && is_null_free(not_val)) {
+    if (find_not_equivalent(target, &not_val) && is_bad_byte_free(not_val)) {
         return 0;
     }
 
     // Don't handle if NEG strategy can handle it
-    if (find_neg_equivalent(target, &neg_val) && is_null_free(neg_val)) {
+    if (find_neg_equivalent(target, &neg_val) && is_bad_byte_free(neg_val)) {
         return 0;
     }
 
     // Don't handle if ADD/SUB strategy can handle it
-    if (find_addsub_key(target, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(target, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
         return 0;
     }
 
@@ -300,7 +304,7 @@ void generate_mov_shift(struct buffer *b, cs_insn *insn) {
     for (int shift_amount = 1; shift_amount <= 24; shift_amount++) {
         // Try left shifts (SHL) - multiply by 2^shift
         uint32_t shifted = target << shift_amount;
-        if (is_null_free(shifted)) {
+        if (is_bad_byte_free(shifted)) {
             // MOV reg, shifted_value
             cs_insn temp_insn = *insn;
             temp_insn.detail->x86.operands[1].imm = shifted;
@@ -326,7 +330,7 @@ void generate_mov_shift(struct buffer *b, cs_insn *insn) {
         uint32_t candidate = target << shift_amount;
         // Check if this recreates target when shifted back (to avoid issues with shifted out bits)
         if ((candidate >> shift_amount) == target) {  // Ensure shifting back gives original target
-            if (is_null_free(candidate)) {
+            if (is_bad_byte_free(candidate)) {
                 // MOV reg, candidate (null-free)
                 cs_insn temp_insn = *insn;
                 temp_insn.detail->x86.operands[1].imm = candidate;
@@ -346,7 +350,7 @@ void generate_mov_shift(struct buffer *b, cs_insn *insn) {
             uint32_t candidate = target >> shift_amount;
             // Check if this recreates target when shifted back left (to avoid issues with shifted out bits)
             if ((candidate << shift_amount) == target) {  // Ensure shifting back gives original target
-                if (is_null_free(candidate)) {
+                if (is_bad_byte_free(candidate)) {
                     // MOV reg, candidate (null-free)
                     cs_insn temp_insn = *insn;
                     temp_insn.detail->x86.operands[1].imm = candidate;
@@ -372,7 +376,8 @@ strategy_t mov_shift_strategy = {
     .can_handle = can_handle_mov_shift,
     .get_size = get_size_mov_shift,
     .generate = generate_mov_shift,
-    .priority = 7
+    .priority = 7,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with ADD/SUB strategy - FIXED
@@ -397,17 +402,17 @@ int can_handle_mov_addsub(cs_insn *insn) {
     uint32_t target = (uint32_t)insn->detail->x86.operands[1].imm;
     uint32_t val1, val2;
     int is_add;
-    if (find_addsub_key(target, &val1, &val2, &is_add) && is_null_free(val1) && is_null_free(val2)) {
+    if (find_addsub_key(target, &val1, &val2, &is_add) && is_bad_byte_free(val1) && is_bad_byte_free(val2)) {
         // Check if other higher-priority strategies can handle it first
         uint32_t not_val, neg_val;
 
         // Don't handle if NOT strategy can handle it
-        if (find_not_equivalent(target, &not_val) && is_null_free(not_val)) {
+        if (find_not_equivalent(target, &not_val) && is_bad_byte_free(not_val)) {
             return 0;
         }
 
         // Don't handle if NEG strategy can handle it
-        if (find_neg_equivalent(target, &neg_val) && is_null_free(neg_val)) {
+        if (find_neg_equivalent(target, &neg_val) && is_bad_byte_free(neg_val)) {
             return 0;
         }
 
@@ -436,7 +441,7 @@ void generate_mov_addsub(struct buffer *b, cs_insn *insn) {
     }
 
     // Double-check that both values are null-free (should be per can_handle)
-    if (!is_null_free(val1) || !is_null_free(val2)) {
+    if (!is_bad_byte_free(val1) || !is_bad_byte_free(val2)) {
         generate_mov_reg_imm(b, insn);
         return;
     }
@@ -483,7 +488,8 @@ strategy_t mov_addsub_strategy = {
     .can_handle = can_handle_mov_addsub,
     .get_size = get_size_mov_addsub,
     .generate = generate_mov_addsub,
-    .priority = 11
+    .priority = 11,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with arithmetic equivalent - REMOVED (redundant with addsub)

@@ -16,9 +16,9 @@ int can_handle_mov_neg_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but negated value doesn't
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         uint32_t negated_val = ~imm + 1; // Two's complement negation
-        if (is_null_free(negated_val)) {
+        if (is_bad_byte_free(negated_val)) {
             return 1;
         }
     }
@@ -69,7 +69,8 @@ strategy_t mov_neg_proper_strategy = {
     .can_handle = can_handle_mov_neg_proper,
     .get_size = get_size_mov_neg_proper,
     .generate = generate_mov_neg_proper,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: MOV with NOT (x86_NOT - F7 /2) - Handles MOV reg, imm via NOT
@@ -85,9 +86,9 @@ int can_handle_mov_not_proper(cs_insn *insn) {
 
     // Check if immediate contains null bytes but bitwise NOT value doesn't
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         uint32_t not_val = ~imm; // Bitwise NOT
-        if (is_null_free(not_val)) {
+        if (is_bad_byte_free(not_val)) {
             return 1;
         }
     }
@@ -138,7 +139,8 @@ strategy_t mov_not_proper_strategy = {
     .can_handle = can_handle_mov_not_proper,
     .get_size = get_size_mov_not_proper,
     .generate = generate_mov_not_proper,
-    .priority = 74
+    .priority = 74,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: MOV with ADD/SUB decomposition - MOV reg, val via ADD reg, (val-base) if reg initialized to base
@@ -155,7 +157,7 @@ int can_handle_mov_addsub_proper(cs_insn *insn) {
     // This strategy is more complex - we need to know initial register state
     // For now, implement a simpler version that uses XOR to zero first, then ADD
     uint32_t imm = (uint32_t)insn->detail->x86.operands[1].imm;
-    if (!is_null_free(imm)) {
+    if (!is_bad_byte_free(imm)) {
         // Just check if we can build it with ADD (knowing reg starts as 0 or some known value)
         // For this implementation, if imm is small enough and null-free when we add it to zero reg
         // We'll use XOR reg,reg then ADD/SUB reg,imm approach
@@ -205,7 +207,8 @@ strategy_t mov_addsub_proper_strategy = {
     .can_handle = can_handle_mov_addsub_proper,
     .get_size = get_size_mov_addsub_proper,
     .generate = generate_mov_addsub_proper,
-    .priority = 60
+    .priority = 60,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_improved_mov_strategies() {

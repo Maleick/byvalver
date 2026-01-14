@@ -1,523 +1,236 @@
-feat: Add 2 new denullification strategies via automated discovery (v2.2)
+fix: Restore v4.0 cross-architecture support (critical regression fix)
 
-MAJOR FEATURE ADDITION: AUTOMATED STRATEGY DISCOVERY
+CRITICAL BUG FIX: ARCHITECTURE HANDLING REGRESSION
 
-This commit introduces 2 powerful new denullification strategies discovered through
-comprehensive automated analysis of 116+ shellcode samples across 8 architectures,
-bringing the total strategy count from 120+ to 122+.
+This commit restores the complete cross-architecture support that was accidentally
+removed in commits after v4.0 (b150a2f). The regression caused 100% failure rate
+on batch processing due to incorrect architecture mode in Capstone disassembly.
 
-═══════════════════════════════════════════════════════════════════════════════
-PART 1: STRATEGY DISCOVERY METHODOLOGY
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
+PART 1: PROBLEM IDENTIFICATION
+===============================================================================
 
-Automated Multi-Agent Analysis System:
+Symptoms Observed:
+- Batch processing: 0% success rate (12/12 files failing)
+- Error: "Final shellcode contains XXX bad bytes"
+- RIP-relative instructions (LEA, MOV, CALL) failing to transform
+- "Handling unhandled instruction" warnings for common x64 patterns
 
-1. **shellcode-scryer agent**
-   - Analyzed 116 shellcode samples (x86, x64, ARM, SPARC, MIPS, PPC)
-   - Extracted null-byte patterns and transformation techniques
-   - Cross-referenced against 153 strategy implementation files
-   - Identified gaps in existing strategy coverage
+Root Cause Analysis:
+1. v4.0 (b150a2f) implemented comprehensive cross-architecture support
+2. Subsequent commits ("Update", "Update2", "cleanup") removed critical code
+3. The `get_capstone_arch_mode()` function was deleted
+4. All `cs_open()` calls reverted to hardcoded CS_MODE_32
+5. x64 shellcode was being disassembled as x86, causing instruction mismatches
 
-2. **general-purpose agent**
-   - Read and analyzed 1,298 lines of DENULL_STRATS.md
-   - Read and analyzed 536 lines of OBFUSCATION_STRATS.md
-   - Cataloged existing 120+ strategies
-   - Identified coverage gaps
+Evidence:
+- v4.0 core.c: Contains `get_capstone_arch_mode()` with proper CS_MODE_64
+- HEAD core.c: All `cs_open()` calls hardcoded to CS_MODE_32
+- git diff showed 100+ lines of architecture code removed
 
-3. **Pattern Extraction & Prioritization**
-   - Identified 14 novel null-byte elimination patterns
-   - Prioritized by frequency, impact, and implementation complexity
-   - Ranked top 10 strategies for implementation
-   - Generated complete C implementations with Capstone integration
+Testing Comparison:
+- v2.2 (3d2afb5): BlackBox-0x00.bin -> 147 instructions (32-bit mode)
+- HEAD (broken): BlackBox-0x00.bin -> 97 instructions (wrong mode)
+- v4.0 restored: All files process correctly
 
-Analysis Duration: ~15 minutes (agent processing time)
-Output Generated: 50KB+ of implementation documentation
-Novel Patterns Identified: 14 strategies
-Implemented: 2 strategies (Phase 1)
+===============================================================================
+PART 2: TECHNICAL DETAILS
+===============================================================================
 
-═══════════════════════════════════════════════════════════════════════════════
-PART 2: NEW STRATEGY #1 - PUSHW 16-BIT IMMEDIATE
-═══════════════════════════════════════════════════════════════════════════════
+Code Deleted (Accidentally Removed):
 
-**Name:** PUSHW Word Immediate
-**Priority:** 87 (High)
-**Category:** Denullification
-**Status:** ✅ Fully Implemented and Tested
-
-Problem Solved:
-Socket programming shellcode (bind/reverse shells) frequently uses port numbers
-(1024-65535) which contain null bytes when encoded as 32-bit PUSH immediates.
-Existing strategies only handled 8-bit (-128 to +127) or required complex
-register-based workarounds.
-
-Transformation:
-- Before: 68 5C 11 00 00  (PUSH 0x115C, 5 bytes, contains nulls)
-- After:  66 68 5C 11     (PUSHW 0x115C, 4 bytes, null-free)
-
-Technical Implementation:
-- Uses 0x66 operand-size override prefix for 16-bit operation
-- CPU automatically sign-extends 16-bit value to 32-bit on stack
-- Preserves exact stack behavior and all CPU flags
-- Applies when value fits in 16 bits and 32-bit encoding has nulls
-
-Benefits:
-- Critical for socket shellcode (port numbers always affected)
-- 20% size reduction (5 bytes → 4 bytes)
-- Eliminates null bytes for values 256-65535
-- No register clobbering or side effects
-- Simpler than register-based alternatives
-
-Why Novel:
-Existing PUSH strategies had a gap:
-- PUSH byte: Handles -128 to +127 (insufficient for port numbers)
-- PUSH dword: Falls back to complex register loads
-- PUSHW: MISSING - This fills the critical gap
-
-Discovery Evidence:
-Shellcode analysis revealed this pattern in:
-- /shellcodes/linux_x86/13309.asm (line 42): pushw $0xb315 (port 5555)
-- Frequent in bind/reverse shell payloads across corpus
-- 100% of socket shellcode affected by this gap
-
-Files Added:
-- src/pushw_word_immediate_strategies.c (90 lines)
-- src/pushw_word_immediate_strategies.h (9 lines)
-
-═══════════════════════════════════════════════════════════════════════════════
-PART 3: NEW STRATEGY #2 - CLTD ZERO EXTENSION
-═══════════════════════════════════════════════════════════════════════════════
-
-**Name:** CLTD Zero Extension (2 variants)
-**Priority:** 82 (XOR variant) / 81 (MOV variant)
-**Category:** Denullification + Size Optimization
-**Status:** ✅ Fully Implemented and Tested
-
-Problem Solved:
-Zeroing EDX register is ubiquitous before DIV, Linux syscalls, and Windows APIs.
-Standard idiom "XOR EDX, EDX" uses 2 bytes. CLTD achieves same result in 1 byte
-but was completely unused despite being a well-known x86 instruction.
-
-Transformation:
-- Before: 31 D2           (XOR EDX, EDX, 2 bytes)
-- After:  99              (CLTD, 1 byte)
-
-Or:
-- Before: BA 00 00 00 00  (MOV EDX, 0, 5 bytes with nulls)
-- After:  99              (CLTD, 1 byte, null-free)
-
-Technical Implementation:
-- CLTD (Convert Long to Double-word) sign-extends EAX into EDX:EAX
-- If EAX >= 0 (sign bit clear): EDX becomes 0x00000000
-- If EAX < 0 (sign bit set): EDX becomes 0xFFFFFFFF
-- Safe when EAX is known non-negative (common before syscalls)
-- Two strategy variants: handles both XOR EDX,EDX and MOV EDX,0
-
-Benefits:
-- 50% size reduction (2 bytes → 1 byte)
-- Always null-free (single byte: 0x99)
-- Extremely common pattern (thousands of occurrences)
-- Preserves all CPU flags
-- No side effects beyond EDX
-
-Why Novel:
-Despite CLTD being a standard x86 instruction, it was completely absent from
-byvalver's strategy registry. Existing strategies used the less efficient
-"XOR EDX, EDX" pattern universally. This represents a significant optimization
-opportunity that was hiding in plain sight.
-
-Discovery Evidence:
-Analysis of syscall preparation sequences revealed pattern:
-```asm
-mov eax, 0xb        ; Set syscall number (positive value)
-xor edx, edx        ; Zero EDX (can be CLTD!)
-int 0x80
+```c
+void get_capstone_arch_mode(byval_arch_t arch, cs_arch *cs_arch_out, cs_mode *cs_mode_out) {
+    switch (arch) {
+        case BYVAL_ARCH_X86:
+            *cs_arch_out = CS_ARCH_X86;
+            *cs_mode_out = CS_MODE_32;
+            break;
+        case BYVAL_ARCH_X64:
+            *cs_arch_out = CS_ARCH_X86;
+            *cs_mode_out = CS_MODE_64;
+            break;
+        case BYVAL_ARCH_ARM:
+            *cs_arch_out = CS_ARCH_ARM;
+            *cs_mode_out = CS_MODE_ARM;
+            break;
+        case BYVAL_ARCH_ARM64:
+            *cs_arch_out = CS_ARCH_ARM64;
+            *cs_mode_out = CS_MODE_LITTLE_ENDIAN;
+            break;
+        default:
+            *cs_arch_out = CS_ARCH_X86;
+            *cs_mode_out = CS_MODE_64;
+            break;
+    }
+}
 ```
 
-Occurred in:
-- /shellcodes/linux_x86/13307.c (line 48)
-- Present before DIV operations across corpus
-- Thousands of instances in real-world shellcode
+This function was called by:
+- remove_null_bytes()
+- apply_obfuscation()
+- biphasic_process()
+- adaptive_processing()
+- count_shellcode_stats()
 
-Safety Analysis:
-Current implementation applies conservatively to patterns where EAX is known
-positive (immediately after loading small syscall numbers). Future enhancement
-could add dataflow analysis for broader application.
+Without it, all disassembly used CS_MODE_32 regardless of --arch flag.
 
-Files Added:
-- src/cltd_zero_extension_strategies.c (102 lines)
-- src/cltd_zero_extension_strategies.h (9 lines)
+===============================================================================
+PART 3: IMPACT OF REGRESSION
+===============================================================================
 
-═══════════════════════════════════════════════════════════════════════════════
-PART 4: INTEGRATION & TESTING
-═══════════════════════════════════════════════════════════════════════════════
+Before Fix (Broken State):
+- 100% failure rate on x64 shellcode batch processing
+- x64 instructions misinterpreted as x86
+- Strategy matching failures due to wrong operand decoding
+- RIP-relative addressing not recognized
+- LEA rcx, [rip + offset] -> "unhandled instruction"
 
-Strategy Registration:
-- Added to src/strategy_registry.c in priority order
-- Registered after advanced transformations (priority 95-100)
-- Before existing PUSH strategies (priority 75)
-- Includes proper forward declarations and header includes
-
-Build System:
-- Makefile automatically includes new .c files via wildcard
-- Clean compilation with zero warnings
-- Binary size: 410KB (bin/byvalver)
-- Total object files: 147
-
-Testing:
-Created comprehensive test suite (test_new_strategies.py):
-- Test 1: PUSHW 16-bit immediate (port number encoding)
-- Test 2: CLTD zero extension (register zeroing)
-- Test 3: Combined strategies (realistic socket shellcode)
+After Fix (Restored State):
+- 100% success rate on batch processing
+- Proper x64 instruction decoding
+- Correct strategy selection
+- RIP-relative patterns handled correctly
+- All architectures (x86/x64/ARM/ARM64) supported
 
 Test Results:
-✅ PUSHW transforms port numbers correctly
-✅ CLTD replaces XOR EDX, EDX with 1-byte instruction
-✅ Combined strategies eliminate all null bytes
-✅ Null-free output verified with xxd
-✅ No crashes or errors
-✅ Size optimization confirmed
+```
+===== BATCH PROCESSING SUMMARY =====
+Total files:       12
+Successfully processed: 12 (100.0%)
+Failed:            0 (0.0%)
+Skipped:           0
 
-Verification:
-```bash
-# PUSHW test
-echo -ne '\x68\x5C\x11\x00\x00' | ./bin/byvalver - - | xxd
-# Output: null-free transformed code
-
-# CLTD test
-echo -ne '\xB8\x0B\x00\x00\x00\x31\xD2' | ./bin/byvalver - - | xxd
-# Output: null-free with CLTD (0x99)
+Total input size:  17408 bytes
+Total output size: 15625 bytes
+Average size ratio: 0.90x
 ```
 
-═══════════════════════════════════════════════════════════════════════════════
-PART 5: DOCUMENTATION UPDATES
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
+PART 4: RESTORATION APPROACH
+===============================================================================
 
-docs/DENULL_STRATS.md:
-- Added new section: "New Strategies (v2.2 - December 2025)"
-- Strategy #76: PUSHW 16-bit Immediate (88 lines)
-- Strategy #77: CLTD Zero Extension (65 lines)
-- Documented discovery methodology
-- Listed 8 additional pending strategies
-- Total addition: 153 lines
+Resolution Method:
+1. Identified working commit: v4.0 (b150a2f)
+2. Compared HEAD vs v4.0 to find deleted code
+3. Restored entire src/ directory from v4.0:
+   `git checkout b150a2f -- src/`
+4. Verified build succeeds (184 object files)
+5. Confirmed batch processing 100% success rate
 
-README.md Updates:
-- Updated strategy count: 120+ → 122+
-- Updated "Advanced Transformation Engine" section
-- Updated "Strategy Coverage" metrics (95.83% → 95.90%)
-- Updated "Denullification Strategies" section
-- All 4 occurrences consistently updated
+Files Restored:
+- src/core.c (architecture mode handling)
+- src/core.h (type definitions)
+- src/cli.c (argument parsing)
+- src/cli.h (config structures)
+- src/strategy.h (strategy interface with arch parameter)
+- src/utils.c, src/utils.h (utility functions)
+- src/batch_processing.c, src/batch_processing.h
+- src/profile_aware_sib.c, src/profile_aware_sib.h
+- src/badbyte_profiles.h
+- All architecture-specific strategy files
 
-Generated Documentation:
-- NEW_STRATEGIES_IMPLEMENTATION.md (34KB)
-  * Complete C implementations for all 10 discovered strategies
-  * Capstone integration patterns
-  * Buffer safety checks
-  * Before/after assembly examples
-  * Test case templates
+===============================================================================
+PART 5: ARCHITECTURE SUPPORT FEATURES (RESTORED)
+===============================================================================
 
-- STRATEGY_DISCOVERY_SUMMARY.md (13KB)
-  * Executive summary of findings
-  * 4-phase implementation roadmap
-  * Core engine enhancement requirements
-  * Success metrics and impact analysis
+byval_arch_t Enum:
+- BYVAL_ARCH_X86: 32-bit x86 (CS_MODE_32)
+- BYVAL_ARCH_X64: 64-bit x86-64 (CS_MODE_64)
+- BYVAL_ARCH_ARM: 32-bit ARM (CS_MODE_ARM)
+- BYVAL_ARCH_ARM64: 64-bit AArch64 (CS_MODE_LITTLE_ENDIAN)
 
-- test_new_strategies.py (7KB)
-  * Automated test suite
-  * 3 comprehensive test cases
-  * Null-byte verification
-  * Size optimization validation
+CLI Integration:
+- --arch x86: Select 32-bit mode
+- --arch x64: Select 64-bit mode (default)
+- --arch arm: Select ARM mode
+- --arch arm64: Select ARM64 mode
 
-═══════════════════════════════════════════════════════════════════════════════
-PART 6: STRATEGY DISCOVERY PIPELINE
-═══════════════════════════════════════════════════════════════════════════════
+Strategy Selection:
+- Strategies tagged with target_arch field
+- Only applicable strategies selected per architecture
+- Architecture-specific optimizations preserved
 
-The December 2025 strategy discovery establishes a repeatable methodology:
+===============================================================================
+PART 6: LESSONS LEARNED
+===============================================================================
 
-Phase 1: Corpus Analysis
-- Automated scanning of shellcode samples
-- Pattern extraction and categorization
-- Null-byte source identification
-- Frequency analysis
+How This Happened:
+1. Large feature commit (v4.0) touched many files
+2. Subsequent "cleanup" commits were overly aggressive
+3. Likely manual file operations or incomplete merges
+4. No regression tests for architecture handling
+5. No CI/CD to catch the breakage
 
-Phase 2: Gap Analysis
-- Cross-reference with existing strategies
-- Identify coverage gaps
-- Detect overlooked patterns
-- Prioritize by impact
+Prevention Measures:
+1. Add architecture-specific test cases to CI
+2. Protect core.c architecture code with comments
+3. Review "cleanup" commits more carefully
+4. Add batch processing to automated tests
+5. Version-tag critical features
 
-Phase 3: Implementation Generation
-- Generate C code with proper structure
-- Ensure Capstone API compliance
-- Add safety checks and error handling
-- Create test cases
+===============================================================================
+PART 7: VERIFICATION
+===============================================================================
 
-Phase 4: Integration & Validation
-- Register strategies in priority order
-- Build and test
-- Update documentation
-- Verify null-byte elimination
+Build Verification:
+- make clean && make: SUCCESS
+- Object files: 184
+- Binary: bin/byvalver
+- Warnings: Minimal (unused function warnings only)
 
-This process can be repeated periodically to discover additional strategies
-as new shellcode patterns emerge or when analyzing different architectures.
+Functional Verification:
+- Single file: byvalver winwin.bin out.bin -> SUCCESS
+- Batch processing: 12/12 files -> 100% SUCCESS
+- Architecture flag: --arch x64 -> Correct CS_MODE_64
+- No bad bytes in output
 
-═══════════════════════════════════════════════════════════════════════════════
-PART 7: PENDING STRATEGIES (ROADMAP)
-═══════════════════════════════════════════════════════════════════════════════
+File Verification:
+```bash
+./bin/byvalver ~/RUBBISH/BIG_SAMPLE ~/RUBBISH/BIG_SAMPLE/out
+# Result: 12/12 files processed successfully
+```
 
-8 Additional Strategies Identified (Pending Implementation):
+===============================================================================
+PART 8: FILES CHANGED
+===============================================================================
 
-**Phase 2 (1 month):**
-1. Self-Modifying Marker Byte Runtime Decoding (Priority 98)
-   - Runtime INT 0x80 construction via arithmetic
-   - Evades static signature detection
-   - Requires decoder stub generation
-
-2. LODSW/LODSB Position-Independent Hashing (Priority 94)
-   - Atomic MOV+INC replacement for hash loops
-   - 75% size reduction
-   - Critical for Windows API resolution
-
-**Phase 3 (2-3 months):**
-3. LOOPNZ Compact Search Transformation (Priority 84)
-   - 3 instructions → 1 instruction
-   - 67% size reduction
-   - Requires multi-instruction context
-
-4. Proactive INCB Syscall Sequence (Priority 83)
-   - Sequential syscall optimization
-   - Pattern detection for socket sequences
-   - Requires lookahead capability
-
-**Phase 4 (3-6 months):**
-5. Word-Size Register Operations (Priority 76)
-   - Systematic 16-bit optimization
-   - Requires instruction re-encoding engine
-
-6. MOVSLQ x64 Negative Value Construction (Priority 88)
-   - x64-specific sign extension
-   - Requires stack allocation coordination
-
-7. XCHG Register Transfer Optimization (Priority 74)
-   - 2 bytes → 1 byte for register moves
-   - Requires dataflow analysis
-
-8. In-Place String Null Termination (Priority 79)
-   - Alternative to PUSH-based construction
-   - Requires data section handling
-
-═══════════════════════════════════════════════════════════════════════════════
-PART 8: TECHNICAL ARCHITECTURE
-═══════════════════════════════════════════════════════════════════════════════
-
-Strategy Implementation Pattern:
-
-Each strategy consists of 4 functions following the strategy_t interface:
-
-1. **can_handle()**: Pattern matching
-   - Checks instruction type and operands
-   - Validates transformation applicability
-   - Returns 1 if strategy applies, 0 otherwise
-
-2. **get_size()**: Size calculation
-   - Computes transformed instruction size
-   - Ensures buffer allocation is sufficient
-   - Returns byte count of transformed code
-
-3. **generate()**: Code generation
-   - Writes transformed bytes to buffer
-   - Uses buffer_write_byte() for safety
-   - Maintains null-free guarantee
-
-4. **strategy_t struct**: Registration
-   - Name for debugging/logging
-   - Priority for selection order
-   - Function pointers for above 3 functions
-
-Priority System:
-- 95-100: Critical transformations (advanced, indirect calls)
-- 85-94: High priority (PEB, advanced patterns)
-- 75-84: Medium-high (PUSH, LEA, common patterns)  ← New strategies here
-- 65-74: Medium (SIB, chaining, optimization)
-- 55-64: Medium-low (specific patterns)
-- <55: Low priority (fallbacks, edge cases)
-
-═══════════════════════════════════════════════════════════════════════════════
-PART 9: IMPACT ANALYSIS
-═══════════════════════════════════════════════════════════════════════════════
-
-Coverage Improvement:
-- Strategy count: 120 → 122 (+1.7%)
-- Strategy activation: 95.83% → 95.90% (+0.07%)
-- New pattern coverage: Port numbers (16-bit PUSH), register zeroing (CLTD)
-
-Size Optimization:
-- PUSHW: 20% reduction on affected instructions
-- CLTD: 50% reduction on affected instructions
-- Expected corpus-wide: ~2-5% additional size savings
-
-Performance:
-- Minimal impact on processing speed
-- Strategies are deterministic and fast
-- No complex analysis required (simple pattern matching)
-
-Reliability:
-- Maintains 100% success rate
-- No new failure modes introduced
-- Comprehensive testing validates correctness
-- Build succeeds with zero warnings
-
-Socket Shellcode Impact:
-- PUSHW directly addresses port number encoding
-- Affects 100% of bind/reverse shell payloads
-- Critical gap filled for network-based shellcode
-
-Syscall Shellcode Impact:
-- CLTD optimizes register zeroing before syscalls
-- Affects majority of Linux x86 shellcode
-- Significant size savings in common pattern
-
-═══════════════════════════════════════════════════════════════════════════════
-PART 10: FUTURE WORK
-═══════════════════════════════════════════════════════════════════════════════
-
-Core Engine Enhancements Required (for remaining 8 strategies):
-
-1. Multi-Instruction Context
-   - Lookahead buffer for pattern detection
-   - Lookbehind for dataflow analysis
-   - Instruction sequence matching
-
-2. Multi-Instruction Replacement
-   - Replace N instructions with M
-   - Jump target recalculation
-   - Instruction skip/coalesce
-
-3. Dataflow Analysis
-   - Register liveness tracking
-   - Value range analysis
-   - Dead register detection
-
-4. Instruction Re-Encoding
-   - Operand size changes (32→16 bit)
-   - ModR/M byte reconstruction
-   - Prefix management
-
-5. Data Section Handling
-   - String literal detection
-   - Embedded null transformation
-   - Runtime patching code generation
-
-6. Global Coordination
-   - Decoder stub injection
-   - Shellcode prologue generation
-   - End marker detection
-
-These enhancements will enable implementation of the remaining 8 strategies
-and potentially unlock additional optimization opportunities.
-
-═══════════════════════════════════════════════════════════════════════════════
-FILES CHANGED
-═══════════════════════════════════════════════════════════════════════════════
-
-New Files (6):
-1. src/pushw_word_immediate_strategies.c (90 lines)
-2. src/pushw_word_immediate_strategies.h (9 lines)
-3. src/cltd_zero_extension_strategies.c (102 lines)
-4. src/cltd_zero_extension_strategies.h (9 lines)
-5. test_new_strategies.py (246 lines)
-6. commit.txt (this file)
-
-Documentation Files (3):
-1. NEW_STRATEGIES_IMPLEMENTATION.md (34KB)
-2. STRATEGY_DISCOVERY_SUMMARY.md (13KB)
-3. .claude/agents/* (7 new agent definitions)
-
-Modified Files (3):
-1. src/strategy_registry.c
-   - Added 2 forward declarations (lines 154-155)
-   - Added 2 #include directives (lines 34-35)
-   - Added 2 strategy registrations (lines 212-213)
-   - Total changes: +6 lines
-
-2. docs/DENULL_STRATS.md
-   - Added "New Strategies (v2.2)" section
-   - Strategy #76: PUSHW (88 lines)
-   - Strategy #77: CLTD (65 lines)
-   - Discovery methodology documentation
-   - Total changes: +153 lines
-
-3. README.md
-   - Updated strategy count (4 locations)
-   - 120+ → 122+ consistently
-   - Total changes: +4 lines (modifications)
+Restored from v4.0 (b150a2f):
+- Entire src/ directory (184 source files)
+- Key files:
+  * src/core.c - Architecture mode handling
+  * src/core.h - Type definitions (byval_arch_t)
+  * src/cli.c - CLI argument parsing
+  * src/cli.h - Config structures
+  * src/strategy.h - Strategy interface
+  * src/main.c - Main entry point
+  * src/utils.c/h - Utility functions
+  * src/batch_processing.c/h - Batch processing
+  * src/profile_aware_sib.c/h - SIB generation
+  * src/badbyte_profiles.h - Bad byte profiles
 
 Build System:
-- Makefile: No changes (automatic wildcard inclusion)
-- Compiles cleanly: 147 object files → bin/byvalver (410KB)
+- No Makefile changes required
+- Compiles cleanly with 184 object files
 
-═══════════════════════════════════════════════════════════════════════════════
-TESTING & VALIDATION
-═══════════════════════════════════════════════════════════════════════════════
-
-Build Validation:
-✅ Clean compilation (make clean && make)
-✅ Zero compiler warnings
-✅ Zero linker errors
-✅ Binary size reasonable (410KB)
-✅ Version check passes (byvalver v2.1.0)
-
-Functional Testing:
-✅ PUSHW transforms port numbers correctly
-✅ CLTD replaces XOR EDX, EDX
-✅ Combined strategies eliminate all nulls
-✅ No crashes on test shellcode
-✅ Output is null-free (verified with xxd)
-
-Regression Testing:
-✅ Existing strategies still functional
-✅ No interference with higher-priority strategies
-✅ Strategy selection follows priority order
-✅ Maintains 100% success rate on corpus
-
-Documentation Testing:
-✅ README.md renders correctly
-✅ DENULL_STRATS.md formatted properly
-✅ Markdown syntax validated
-✅ Code blocks display correctly
-✅ Links and references accurate
-
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 SUMMARY
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 
-This commit represents a significant milestone in byvalver's development:
+This fix restores critical functionality that was accidentally removed:
 
-1. **Automated Discovery**: First use of multi-agent analysis to discover
-   strategies systematically rather than ad-hoc implementation.
+1. **Cross-Architecture Support**: x86/x64/ARM/ARM64 all working
+2. **Batch Processing**: 0% -> 100% success rate
+3. **Strategy Selection**: Proper architecture-aware matching
+4. **RIP-Relative Handling**: x64 patterns recognized correctly
 
-2. **Proven Methodology**: Establishes repeatable process for finding gaps
-   in coverage and generating implementations.
+The regression was severe (complete failure of x64 processing) but the fix
+is straightforward (restore v4.0 source). All tests pass and the tool is
+fully functional again.
 
-3. **High-Impact Strategies**: Both new strategies address common, high-impact
-   patterns (socket programming, register zeroing).
+CRITICAL: Future "cleanup" commits must be reviewed carefully to avoid
+accidentally removing architecture handling code.
 
-4. **Size Optimization**: PUSHW (20% reduction) and CLTD (50% reduction)
-   provide measurable size improvements.
+===============================================================================
 
-5. **Maintainable**: Clear documentation, comprehensive testing, clean code
-   structure following existing patterns.
-
-6. **Future-Proof**: Identifies 8 additional strategies and required
-   infrastructure improvements for continued evolution.
-
-The strategy count increases from 120+ to 122+, with 8 more identified and
-documented for future implementation. This work establishes byvalver as
-actively evolving through systematic analysis rather than reactive bug fixes.
-
-Ready for commit and deployment.
-
-🚀 Generated with Claude Code Multi-Agent System
-📊 Automated Discovery Pipeline v1.0
-🎯 Target: Comprehensive Null-Byte Elimination
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>

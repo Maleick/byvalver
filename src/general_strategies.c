@@ -57,7 +57,8 @@ strategy_t push_imm32_strategy = {
     .can_handle = can_handle_push_imm32,
     .get_size = get_size_push_imm32,
     .generate = generate_push_imm32_strat,
-    .priority = 9
+    .priority = 9,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Stack string strategy - FIXED to be more specific

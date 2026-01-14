@@ -5,6 +5,107 @@
 #include <stdlib.h>
 #include "strategy.h"  // For provide_ml_feedback
 #include "ml_strategist.h"  // For metrics tracking functions
+#include "profile_aware_sib.h"  // For profile-safe SIB generation
+
+// Global bad byte context instance (v3.0)
+bad_byte_context_t g_bad_byte_context = {0};
+
+// Global batch statistics context (for tracking strategy usage during processing)
+batch_stats_t* g_batch_stats_context = NULL;
+
+/**
+ * Get Capstone architecture and mode for a given Byvalver architecture
+ * @param arch: Byvalver architecture enum
+ * @param cs_arch_out: Output Capstone architecture
+ * @param cs_mode_out: Output Capstone mode
+ */
+void get_capstone_arch_mode(byval_arch_t arch, cs_arch *cs_arch_out, cs_mode *cs_mode_out) {
+    switch (arch) {
+        case BYVAL_ARCH_X86:
+            *cs_arch_out = CS_ARCH_X86;
+            *cs_mode_out = CS_MODE_32;
+            break;
+        case BYVAL_ARCH_X64:
+            *cs_arch_out = CS_ARCH_X86;
+            *cs_mode_out = CS_MODE_64;
+            break;
+        case BYVAL_ARCH_ARM:
+            *cs_arch_out = CS_ARCH_ARM;
+            *cs_mode_out = CS_MODE_ARM;
+            break;
+        case BYVAL_ARCH_ARM64:
+            *cs_arch_out = CS_ARCH_ARM64;
+            *cs_mode_out = CS_MODE_LITTLE_ENDIAN;  // AArch64 is little-endian by default
+            break;
+        default:
+            // Default to x64 for safety
+            *cs_arch_out = CS_ARCH_X86;
+            *cs_mode_out = CS_MODE_64;
+            break;
+    }
+}
+
+// Set the batch statistics context
+void set_batch_stats_context(batch_stats_t *stats) {
+    g_batch_stats_context = stats;
+}
+
+// Track strategy usage in the batch statistics
+void track_strategy_usage(const char *strategy_name, int success, size_t output_size) {
+    if (g_batch_stats_context && strategy_name) {
+        batch_stats_add_strategy_usage(g_batch_stats_context, strategy_name, success, output_size);
+    }
+}
+
+/**
+ * Initialize global bad byte context
+ * @param config: Configuration to copy (NULL = default to null-byte only)
+ */
+void init_bad_byte_context(bad_byte_config_t *config) {
+    if (config) {
+        // Copy user configuration
+        memcpy(&g_bad_byte_context.config, config, sizeof(bad_byte_config_t));
+        g_bad_byte_context.initialized = 1;
+
+        // Record bad byte configuration for metrics tracking (v3.0)
+        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
+        if (metrics) {
+            ml_metrics_record_bad_byte_config(metrics,
+                                            g_bad_byte_context.config.bad_bytes,
+                                            g_bad_byte_context.config.bad_byte_count);
+        }
+    } else {
+        // Default configuration: null byte only (for backward compatibility)
+        memset(&g_bad_byte_context, 0, sizeof(bad_byte_context_t));
+        g_bad_byte_context.config.bad_bytes[0x00] = 1;
+        g_bad_byte_context.config.bad_byte_list[0] = 0x00;
+        g_bad_byte_context.config.bad_byte_count = 1;
+        g_bad_byte_context.initialized = 1;
+
+        // Record default bad byte configuration
+        ml_metrics_tracker_t* metrics = get_ml_metrics_tracker();
+        if (metrics) {
+            ml_metrics_record_bad_byte_config(metrics,
+                                            g_bad_byte_context.config.bad_bytes,
+                                            g_bad_byte_context.config.bad_byte_count);
+        }
+    }
+}
+
+/**
+ * Reset context to uninitialized state
+ */
+void reset_bad_byte_context(void) {
+    memset(&g_bad_byte_context, 0, sizeof(bad_byte_context_t));
+}
+
+/**
+ * Get pointer to current configuration (read-only)
+ * @return: Pointer to active bad byte configuration
+ */
+bad_byte_config_t* get_bad_byte_config(void) {
+    return &g_bad_byte_context.config;
+}
 
 void buffer_init(struct buffer *b) {
     b->data = NULL;
@@ -233,14 +334,27 @@ static void process_relative_jump(struct buffer *new_shellcode,
             size_t mov_size = get_mov_eax_imm_size((uint32_t)target_addr);
             uint8_t skip_size = (uint8_t)(mov_size + 2); // MOV + JMP EAX
 
+            // FIXED: Ensure skip_size is not a bad byte
+            uint8_t nop_count = 0;
+            while (!is_bad_byte_free_byte(skip_size + nop_count)) {
+                nop_count++;
+                if (nop_count > 10) break; // Safety limit
+            }
+
             // Emit opposite short jump to skip over absolute jump
-            uint8_t skip[] = {opposite_opcode, skip_size};
+            uint8_t skip[] = {opposite_opcode, skip_size + nop_count};
             buffer_append(new_shellcode, skip, 2);
 
             // Emit absolute jump
             generate_mov_eax_imm(new_shellcode, (uint32_t)target_addr);
             uint8_t jmp_eax[] = {0xFF, 0xE0};
             buffer_append(new_shellcode, jmp_eax, 2);
+
+            // Add NOPs if skip distance needed padding
+            for (uint8_t i = 0; i < nop_count; i++) {
+                uint8_t nop[] = {0x90};
+                buffer_append(new_shellcode, nop, 1);
+            }
             return;
         }
     }
@@ -432,7 +546,7 @@ static void process_relative_jump(struct buffer *new_shellcode,
     }
 }
 
-struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
+struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size, byval_arch_t arch) {
     csh handle;
     cs_insn *insn_array;
     size_t count;
@@ -450,7 +564,10 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     }
     fprintf(stderr, "\n");
 
-    if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) != CS_ERR_OK) {
+    cs_arch cs_arch;
+    cs_mode cs_mode;
+    get_capstone_arch_mode(arch, &cs_arch, &cs_mode);
+    if (cs_open(cs_arch, cs_mode, &handle) != CS_ERR_OK) {
         fprintf(stderr, "[ERROR] cs_open failed!\n");
         return new_shellcode;
     }
@@ -490,30 +607,25 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     // First pass: calculate new sizes for each instruction
     current = head;
     while (current != NULL) {
-        int has_null = 0;
-        for (int j = 0; j < current->insn->size; j++) {
-            if (current->insn->bytes[j] == 0x00) {
-                has_null = 1;
-                break;
-            }
-        }
+        // Check if instruction contains bad bytes (v3.0: generic check)
+        int has_bad_bytes = !is_bad_byte_free_buffer(current->insn->bytes, current->insn->size);
 
         // Special handling for relative jumps - they're transformed in process_relative_jump()
         // not via strategies, so we need to estimate their size here
         if (is_relative_jump(current->insn)) {
-            if (has_null || current->insn->size > 2) {
+            if (has_bad_bytes || current->insn->size > 2) {
                 // Relative jump might need transformation
                 // Conservative estimate: opposite short jump (2) + MOV EAX (5-20) + JMP EAX (2)
                 // Use worst-case: 2 + 20 + 2 = 24 bytes
                 current->new_size = 24;
             } else {
-                // Short jump without nulls, likely stays same size
+                // Short jump without bad chars, likely stays same size
                 current->new_size = current->insn->size;
             }
-        } else if (has_null) {
+        } else if (has_bad_bytes) {
             // Use strategy pattern to get new size
             int strategy_count;
-            strategy_t** strategies = get_strategies_for_instruction(current->insn, &strategy_count);
+            strategy_t** strategies = get_strategies_for_instruction(current->insn, &strategy_count, arch);
 
             if (strategy_count > 0) {
                 current->new_size = strategies[0]->get_size(current->insn);
@@ -541,24 +653,18 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
     int insn_count = 0;
     while (current != NULL) {
         insn_count++;
-        int has_null = 0;
-        for (int j = 0; j < current->insn->size; j++) {
-            if (current->insn->bytes[j] == 0x00) {
-                has_null = 1;
-                break;
-            }
-        }
-        fprintf(stderr, "[GEN] Insn #%d: %s %s (has_null=%d, size=%d)\n",
+        int has_bad_bytes = !is_bad_byte_free_buffer(current->insn->bytes, current->insn->size);
+        fprintf(stderr, "[GEN] Insn #%d: %s %s (has_bad_bytes=%d, size=%d)\n",
                 insn_count, current->insn->mnemonic, current->insn->op_str,
-                has_null, current->insn->size);
+                has_bad_bytes, current->insn->size);
 
         if (is_relative_jump(current->insn)) {
             process_relative_jump(&new_shellcode, current->insn, current, head);
-        } else if (has_null) {
+        } else if (has_bad_bytes) {
             // Use strategy pattern if it has nulls
             int strategy_count;
             size_t before_gen = new_shellcode.size;
-            strategy_t** strategies = get_strategies_for_instruction(current->insn, &strategy_count);
+            strategy_t** strategies = get_strategies_for_instruction(current->insn, &strategy_count, arch);
 
             if (strategy_count > 0) {
                 // Use the first (highest priority) strategy to generate code
@@ -569,18 +675,18 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                 // For now, we'll use a basic approach and record the prediction accuracy after generation
                 strategies[0]->generate(&new_shellcode, current->insn);
 
-                // Check if the strategy was successful (i.e., didn't introduce new nulls)
-                int strategy_success = 1;
-                for (size_t i = before_gen; i < new_shellcode.size; i++) {
-                    if (new_shellcode.data[i] == 0x00) {
-                        fprintf(stderr, "ERROR: Strategy '%s' introduced null at offset %zu\n",
-                               strategies[0]->name, i - before_gen);
-                        strategy_success = 0; // Mark as failed if it introduced nulls
-                        break;  // Stop checking once we find a null
-                    }
+                // Check if the strategy was successful (i.e., didn't introduce bad bytes)
+                int strategy_success = is_bad_byte_free_buffer(
+                    new_shellcode.data + before_gen,
+                    new_shellcode.size - before_gen
+                );
+
+                if (!strategy_success) {
+                    fprintf(stderr, "ERROR: Strategy '%s' introduced bad bytes\n",
+                           strategies[0]->name);
                 }
 
-                // CRITICAL FIX: Rollback buffer if strategy introduced nulls
+                // CRITICAL FIX: Rollback buffer if strategy introduced bad bytes
                 if (!strategy_success) {
                     fprintf(stderr, "ROLLBACK: Reverting strategy '%s' output, using fallback\n",
                            strategies[0]->name);
@@ -589,12 +695,20 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                     // Use fallback instead
                     fallback_general_instruction(&new_shellcode, current->insn);
 
-                    // Verify fallback didn't introduce nulls either
-                    for (size_t i = before_gen; i < new_shellcode.size; i++) {
-                        if (new_shellcode.data[i] == 0x00) {
-                            fprintf(stderr, "CRITICAL: Fallback also introduced null bytes!\n");
-                            break;
-                        }
+                    // Verify fallback didn't introduce bad bytes either
+                    if (!is_bad_byte_free_buffer(new_shellcode.data + before_gen,
+                                                  new_shellcode.size - before_gen)) {
+                        fprintf(stderr, "CRITICAL: Fallback also introduced bad bytes!\n");
+                    }
+
+                    // Track the failed strategy usage
+                    if (g_batch_stats_context) {
+                        track_strategy_usage(strategies[0]->name, 0, new_shellcode.size - before_gen);
+                    }
+                } else {
+                    // Track the successful strategy usage
+                    if (g_batch_stats_context) {
+                        track_strategy_usage(strategies[0]->name, 1, new_shellcode.size - before_gen);
                     }
                 }
 
@@ -606,14 +720,11 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
                 fallback_general_instruction(&new_shellcode, current->insn);
 
                 // Even fallback strategies should provide feedback
-                // In this case we'll treat it as successful if no nulls are introduced in the final result
-                int fallback_success = 1;
-                for (size_t i = before_gen; i < new_shellcode.size; i++) {
-                    if (new_shellcode.data[i] == 0x00) {
-                        fallback_success = 0;
-                        break;
-                    }
-                }
+                // In this case we'll treat it as successful if no bad bytes are introduced in the final result
+                int fallback_success = is_bad_byte_free_buffer(
+                    new_shellcode.data + before_gen,
+                    new_shellcode.size - before_gen
+                );
 
                 // We don't have a specific strategy pointer for fallback, so we pass NULL
                 // The provide_ml_feedback function handles NULL strategy gracefully
@@ -621,7 +732,7 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
 
             }
         } else {
-            // No nulls, output original instruction
+            // No bad bytes, output original instruction
             buffer_append(&new_shellcode, current->insn->bytes, current->insn->size);
         }
         current = current->next;
@@ -629,13 +740,13 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
 
     // Final verification - DO THIS BEFORE CLEANUP
     DEBUG_LOG("Final verification pass");
-    int null_count = 0;
+    int bad_byte_count = 0;
     for (size_t i = 0; i < new_shellcode.size; i++) {
-        if (new_shellcode.data[i] == 0x00) {
-            null_count++;
-            fprintf(stderr, "WARNING: Null byte at offset %zu\n", i);
-            
-            // Try to identify which original instruction caused this null
+        if (!is_bad_byte_free_byte(new_shellcode.data[i])) {
+            bad_byte_count++;
+            fprintf(stderr, "WARNING: Bad character 0x%02x at offset %zu\n", new_shellcode.data[i], i);
+
+            // Try to identify which original instruction caused this bad byte
             struct instruction_node *debug_node = head;
             size_t current_offset = 0;
             while (debug_node != NULL) {
@@ -652,11 +763,11 @@ struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size) {
         }
     }
 
-    if (null_count > 0) {
-        fprintf(stderr, "\nERROR: Final shellcode contains %d null bytes\n", null_count);
+    if (bad_byte_count > 0) {
+        fprintf(stderr, "\nERROR: Final shellcode contains %d bad bytes\n", bad_byte_count);
         fprintf(stderr, "Recompile with -DDEBUG for details\n");
     } else {
-        DEBUG_LOG("SUCCESS: No null bytes in final shellcode");
+        DEBUG_LOG("SUCCESS: No bad bytes in final shellcode");
     }
 
     // Clean up only AFTER verification
@@ -820,16 +931,8 @@ void fallback_general_instruction(struct buffer *b, cs_insn *insn) {
 
                 uint32_t disp = (uint32_t)insn->detail->x86.operands[i].mem.disp;
 
-                // Check if displacement has null bytes
-                int has_null_in_disp = 0;
-                for (int j = 0; j < 4; j++) {
-                    if (((disp >> (j * 8)) & 0xFF) == 0) {
-                        has_null_in_disp = 1;
-                        break;
-                    }
-                }
-
-                if (has_null_in_disp) {
+                // Check if displacement has bad bytes (profile-aware)
+                if (!is_bad_byte_free(disp)) {
                     // Convert the instruction to use a register-based approach
                     // First, load the displacement to EAX
                     generate_mov_eax_imm(b, disp);
@@ -839,31 +942,25 @@ void fallback_general_instruction(struct buffer *b, cs_insn *insn) {
                     if (insn->id == X86_INS_MOV && i == 0) { // Destination is memory
                         // Handle MOV [disp32], reg
                         uint8_t src_reg = insn->detail->x86.operands[1].reg;
-                        uint8_t reg_index = get_reg_index(src_reg);
-                        // Use SIB byte to avoid null when source register is EAX
-                        if (reg_index == 0) {
-                            uint8_t code[] = {0x89, 0x04, 0x20}; // MOV [EAX], EAX using SIB: [EAX] with SIB byte 0x20
-                            // SIB: scale=00 (1x), index=100 (ESP/no index), base=000 (EAX) = [EAX]
-                            buffer_append(b, code, 3);
-                        } else {
-                            uint8_t code[] = {0x89, 0x00}; // MOV [EAX], reg format
-                            code[1] = (reg_index << 3) | 0;  // Encode source register
-                            buffer_append(b, code, 2);
+                        // FIXED: Use profile-safe SIB generation
+                        if (generate_safe_mov_mem_reg(b, X86_REG_EAX, src_reg) != 0) {
+                            // Fallback if safe generation fails
+                            uint8_t push[] = {(uint8_t)(0x50 | get_reg_index(src_reg))};
+                            buffer_append(b, push, 1);
+                            uint8_t pop[] = {0x8F, 0x00};  // POP [EAX]
+                            buffer_append(b, pop, 2);
                         }
                         handled = 1;
                     } else if (insn->id == X86_INS_MOV && i == 1) { // Source is memory
                         // Handle MOV reg, [disp32]
                         uint8_t dst_reg = insn->detail->x86.operands[0].reg;
-                        uint8_t reg_index = get_reg_index(dst_reg);
-                        // Use SIB byte to avoid null when destination register is EAX
-                        if (reg_index == 0) {
-                            uint8_t code[] = {0x8B, 0x04, 0x20}; // MOV EAX, [EAX] using SIB: [EAX] with SIB byte 0x20
-                            // SIB: scale=00 (1x), index=100 (ESP/no index), base=000 (EAX) = [EAX]
-                            buffer_append(b, code, 3);
-                        } else {
-                            uint8_t code[] = {0x8B, 0x00}; // MOV reg, [EAX] format
-                            code[1] = (reg_index << 3) | 0;  // Encode destination register
-                            buffer_append(b, code, 2);
+                        // FIXED: Use profile-safe SIB generation
+                        if (generate_safe_mov_reg_mem(b, dst_reg, X86_REG_EAX) != 0) {
+                            // Fallback
+                            uint8_t push[] = {0xFF, 0x30};  // PUSH [EAX]
+                            buffer_append(b, push, 2);
+                            uint8_t pop[] = {(uint8_t)(0x58 | get_reg_index(dst_reg))};
+                            buffer_append(b, pop, 1);
                         }
                         handled = 1;
                     } else if (insn->id == X86_INS_NOP) {
@@ -887,12 +984,22 @@ void fallback_general_instruction(struct buffer *b, cs_insn *insn) {
                             case X86_INS_CMP: opcode = 0x39; break; // 32-bit CMP
                             default: opcode = 0x01; break; // Default to ADD
                         }
-                        
-                        // Use SIB byte to avoid null: [EAX] using SIB byte format
-                        uint8_t code[] = {opcode, 0x00, 0x20}; // op [EAX], reg using SIB
-                        code[1] = 0x04 | (reg_index << 3); // ModR/M: reg=reg_index, r/m=100 (SIB follows)
-                        code[2] = 0x20; // SIB: scale=00 (1x), index=100 (no index), base=000 (EAX)
-                        buffer_append(b, code, 3);
+
+                        // FIXED: Use profile-safe encoding for [EAX]
+                        // For arithmetic ops, we need to build the instruction manually with safe SIB
+                        sib_encoding_result_t enc = select_sib_encoding_for_eax(reg);
+                        if (enc.strategy == SIB_ENCODING_STANDARD) {
+                            uint8_t code[3] = {opcode, enc.modrm_byte, enc.sib_byte};
+                            buffer_append(b, code, ((enc.modrm_byte & 0x07) == 0x04) ? 3 : 2);
+                        } else {
+                            // Complex case - use temp register approach
+                            uint8_t push[] = {0xFF, 0x30};  // PUSH [EAX]
+                            buffer_append(b, push, 2);
+                            uint8_t pop[] = {(uint8_t)(0x58 | reg_index)};  // POP reg
+                            buffer_append(b, pop, 1);
+                            uint8_t op[] = {opcode, (uint8_t)(0xC0 + (reg_index << 3))};  // OP [EAX], reg
+                            buffer_append(b, op, 2);
+                        }
                         handled = 1;
                     }
                     // Add more cases as needed for other instruction types
@@ -958,14 +1065,14 @@ void fallback_memory_operation(struct buffer *b, cs_insn *insn) {
             uint8_t push_temp[] = {0x50 + temp_reg_idx};
             buffer_append(b, push_temp, 1);
 
-            // MOV temp_reg, [mem_location] - might need SIB addressing to avoid nulls
-            if (dest_mem_reg == X86_REG_EAX) {
-                // Use SIB byte to avoid null: MOV temp_reg, [EAX] = 0x8B 0x04 0x20 + temp_reg_idx
-                uint8_t mov_temp_eax[] = {0x8B, 0x04, 0x20 + (temp_reg_idx << 3)}; // SIB: scale=0, index=ESP(100), base=EAX(000)
-                buffer_append(b, mov_temp_eax, 3);
-            } else {
-                uint8_t mov_temp_mem[] = {0x8B, 0x00 + (temp_reg_idx << 3) + dest_mem_idx};
-                buffer_append(b, mov_temp_mem, 2);
+            // MOV temp_reg, [mem_location] - FIXED: Use profile-safe SIB
+            x86_reg temp_reg_enum = X86_REG_EAX + temp_reg_idx;  // Convert index to enum
+            if (generate_safe_mov_reg_mem(b, temp_reg_enum, dest_mem_reg) != 0) {
+                // Fallback
+                uint8_t push[] = {0xFF, (uint8_t)(0x30 | dest_mem_idx)};
+                buffer_append(b, push, 2);
+                uint8_t pop[] = {(uint8_t)(0x58 | temp_reg_idx)};
+                buffer_append(b, pop, 1);
             }
 
             // Perform the operation: op temp_reg, src_reg
@@ -984,14 +1091,13 @@ void fallback_memory_operation(struct buffer *b, cs_insn *insn) {
             op_instr[1] = op_instr[1] + (temp_reg_idx << 3) + src_reg_idx;
             buffer_append(b, op_instr, 2);
 
-            // MOV [mem_location], temp_reg - might need SIB addressing to avoid nulls
-            if (dest_mem_reg == X86_REG_EAX) {
-                // Use SIB byte to avoid null: MOV [EAX], temp_reg = 0x89 0x04 0x20 + temp_reg_idx
-                uint8_t mov_eax_temp[] = {0x89, 0x04, 0x20 + (temp_reg_idx << 3)}; // SIB: scale=0, index=ESP(100), base=EAX(000)
-                buffer_append(b, mov_eax_temp, 3);
-            } else {
-                uint8_t mov_mem_temp[] = {0x89, 0x00 + (temp_reg_idx << 3) + dest_mem_idx};
-                buffer_append(b, mov_mem_temp, 2);
+            // MOV [mem_location], temp_reg - FIXED: Use profile-safe SIB (reuse temp_reg_enum)
+            if (generate_safe_mov_mem_reg(b, dest_mem_reg, temp_reg_enum) != 0) {
+                // Fallback
+                uint8_t push2[] = {(uint8_t)(0x50 | temp_reg_idx)};
+                buffer_append(b, push2, 1);
+                uint8_t pop2[] = {0x8F, (uint8_t)(0x00 | dest_mem_idx)};
+                buffer_append(b, pop2, 2);
             }
 
             // POP temp_reg (restore register state)
@@ -1008,8 +1114,8 @@ void fallback_memory_operation(struct buffer *b, cs_insn *insn) {
     }
 }
 
-struct buffer adaptive_processing(const uint8_t *input, size_t size) {
-    struct buffer intermediate = remove_null_bytes(input, size);
+struct buffer adaptive_processing(const uint8_t *input, size_t size, byval_arch_t arch) {
+    struct buffer intermediate = remove_null_bytes(input, size, arch);
 
     // Verification pass: check if any nulls remain
     if (!verify_null_elimination(&intermediate)) {
@@ -1018,8 +1124,11 @@ struct buffer adaptive_processing(const uint8_t *input, size_t size) {
         csh handle;
         cs_insn *insn_array;
         size_t count;
-        
-        if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) == CS_ERR_OK) {
+
+        cs_arch cs_arch;
+        cs_mode cs_mode;
+        get_capstone_arch_mode(arch, &cs_arch, &cs_mode);
+        if (cs_open(cs_arch, cs_mode, &handle) == CS_ERR_OK) {
             cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
             count = cs_disasm(handle, input, size, 0, 0, &insn_array);
             
@@ -1081,7 +1190,7 @@ struct buffer adaptive_processing(const uint8_t *input, size_t size) {
                         
                         // Find the strategy that was applied
                         int temp_strategy_count;
-                        strategy_t** strategies = get_strategies_for_instruction(current->insn, &temp_strategy_count);
+                        strategy_t** strategies = get_strategies_for_instruction(current->insn, &temp_strategy_count, arch);
                         (void)strategies; // Suppress unused variable warning when not in debug mode
                         if (temp_strategy_count > 0) {
                             DEBUG_LOG("  Applied strategy: %s", strategies[0]->name);
@@ -1202,7 +1311,7 @@ void handle_unhandled_instruction_with_nulls(struct buffer *b, cs_insn *insn) {
  * analytical difficulty. This pass CAN introduce null bytes - Pass 2
  * will clean them up.
  */
-struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size) {
+struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size, byval_arch_t arch) {
     csh handle;
     cs_insn *insn_array;
     size_t count;
@@ -1212,7 +1321,10 @@ struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size) {
     fprintf(stderr, "\n=== PASS 1: OBFUSCATION ===\n");
     fprintf(stderr, "[OBFUSC] Input size: %zu bytes\n", size);
 
-    if (cs_open(CS_ARCH_X86, CS_MODE_32, &handle) != CS_ERR_OK) {
+    cs_arch cs_arch;
+    cs_mode cs_mode;
+    get_capstone_arch_mode(arch, &cs_arch, &cs_mode);
+    if (cs_open(cs_arch, cs_mode, &handle) != CS_ERR_OK) {
         fprintf(stderr, "[ERROR] Obfuscation: cs_open failed!\n");
         return obfuscated;
     }
@@ -1283,7 +1395,7 @@ struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size) {
  * Combines Pass 1 (Obfuscation) and Pass 2 (Null-Elimination) for
  * maximum evasion and null-byte elimination.
  */
-struct buffer biphasic_process(const uint8_t *shellcode, size_t size) {
+struct buffer biphasic_process(const uint8_t *shellcode, size_t size, byval_arch_t arch) {
     fprintf(stderr, "\n");
     fprintf(stderr, "╔════════════════════════════════════════════════════════╗\n");
     fprintf(stderr, "║  BYVALVER BIPHASIC PROCESSING PIPELINE                ║\n");
@@ -1292,8 +1404,8 @@ struct buffer biphasic_process(const uint8_t *shellcode, size_t size) {
     fprintf(stderr, "Original shellcode: %zu bytes\n", size);
 
     // Pass 1: Obfuscation & Complexification
-    struct buffer pass1_output = apply_obfuscation(shellcode, size);
-    
+    struct buffer pass1_output = apply_obfuscation(shellcode, size, arch);
+
     if (pass1_output.size == 0) {
         fprintf(stderr, "[ERROR] Pass 1 failed, aborting biphasic processing\n");
         return pass1_output;
@@ -1301,7 +1413,7 @@ struct buffer biphasic_process(const uint8_t *shellcode, size_t size) {
 
     // Pass 2: Null-Byte Elimination
     fprintf(stderr, "=== PASS 2: NULL-BYTE ELIMINATION ===\n");
-    struct buffer pass2_output = remove_null_bytes(pass1_output.data, pass1_output.size);
+    struct buffer pass2_output = remove_null_bytes(pass1_output.data, pass1_output.size, arch);
     
     // Free Pass 1 intermediate buffer
     buffer_free(&pass1_output);
@@ -1316,4 +1428,52 @@ struct buffer biphasic_process(const uint8_t *shellcode, size_t size) {
             pass2_output.size, ((float)pass2_output.size / size - 1.0) * 100.0);
 
     return pass2_output;
+}
+
+// Function to count instructions and bad bytes in shellcode
+void count_shellcode_stats(const uint8_t *shellcode, size_t size, int *instruction_count, int *bad_byte_count, byval_arch_t arch) {
+    if (!shellcode || size == 0 || !instruction_count || !bad_byte_count) {
+        if (instruction_count) *instruction_count = 0;
+        if (bad_byte_count) *bad_byte_count = 0;
+        return;
+    }
+
+    csh handle;
+    cs_insn *insn;
+    size_t count;
+    int instr_count = 0;
+    int bad_byte_total = 0;
+
+    // Initialize Capstone disassembler with correct architecture
+    cs_arch cs_arch;
+    cs_mode cs_mode;
+    get_capstone_arch_mode(arch, &cs_arch, &cs_mode);
+    if (cs_open(cs_arch, cs_mode, &handle) != CS_ERR_OK) {
+        *instruction_count = 0;
+        *bad_byte_count = 0;
+        return;
+    }
+
+    // Set detailed disassembly
+    cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+
+    // Disassemble the shellcode
+    count = cs_disasm(handle, shellcode, size, 0, 0, &insn);
+    if (count > 0) {
+        instr_count = (int)count;
+
+        // Count bad bytes in the original shellcode
+        for (size_t i = 0; i < size; i++) {
+            if (!is_bad_byte_free_byte(shellcode[i])) {
+                bad_byte_total++;
+            }
+        }
+
+        cs_free(insn, count);
+    }
+
+    cs_close(&handle);
+
+    *instruction_count = instr_count;
+    *bad_byte_count = bad_byte_total;
 }

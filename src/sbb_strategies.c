@@ -136,7 +136,8 @@ strategy_t sbb_modrm_null_bypass_strategy = {
     .can_handle = can_handle_sbb_modrm_null,
     .get_size = get_size_sbb_modrm_null,
     .generate = generate_sbb_modrm_null,
-    .priority = 70
+    .priority = 70,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -192,7 +193,7 @@ static int can_handle_sbb_immediate_null(cs_insn *insn) {
     } else {
         // 32-bit register - check full immediate
         uint32_t imm32 = (uint32_t)imm;
-        return !is_null_free(imm32);
+        return !is_bad_byte_free(imm32);
     }
 }
 
@@ -272,13 +273,13 @@ static void generate_sbb_immediate_null(struct buffer *b, cs_insn *insn) {
     // Try to find shift amount that makes value null-free
     for (int i = 0; i < 32; i++) {
         uint32_t shifted = imm32 << i;
-        if (is_null_free(shifted)) {
+        if (is_bad_byte_free(shifted)) {
             base_val = shifted;
             shift_amount = i;
             break;
         }
         shifted = imm32 >> i;
-        if (is_null_free(shifted) && shifted != 0) {
+        if (is_bad_byte_free(shifted) && shifted != 0) {
             base_val = shifted;
             shift_amount = -i;
             break;
@@ -286,7 +287,7 @@ static void generate_sbb_immediate_null(struct buffer *b, cs_insn *insn) {
     }
 
     // MOV EBX, base_val (5 bytes if null-free)
-    if (is_null_free(base_val)) {
+    if (is_bad_byte_free(base_val)) {
         buffer_write_byte(b, 0xBB); // MOV EBX, imm32
         buffer_write_dword(b, base_val);
 
@@ -352,7 +353,8 @@ strategy_t sbb_immediate_null_free_strategy = {
     .can_handle = can_handle_sbb_immediate_null,
     .get_size = get_size_sbb_immediate_null,
     .generate = generate_sbb_immediate_null,
-    .priority = 69
+    .priority = 69,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

@@ -193,11 +193,23 @@ void batch_stats_init(batch_stats_t *stats) {
     stats->skipped_files = 0;
     stats->total_input_bytes = 0;
     stats->total_output_bytes = 0;
+    stats->bad_byte_count = 0;
+    memset(stats->bad_byte_set, 0, sizeof(stats->bad_byte_set)); // Initialize bad byte set
 
     // Initialize failed file list
     stats->failed_file_list = NULL;
     stats->failed_file_count = 0;
     stats->failed_file_capacity = 0;
+
+    // Initialize strategy statistics
+    stats->strategy_stats = NULL;
+    stats->strategy_count = 0;
+    stats->strategy_capacity = 0;
+
+    // Initialize file complexity statistics
+    stats->file_stats = NULL;
+    stats->file_count = 0;
+    stats->file_capacity = 0;
 }
 
 // Add a failed file to the statistics
@@ -267,6 +279,115 @@ void batch_stats_free(batch_stats_t *stats) {
         stats->failed_file_count = 0;
         stats->failed_file_capacity = 0;
     }
+
+    // Free strategy statistics
+    if (stats->strategy_stats) {
+        free(stats->strategy_stats);
+        stats->strategy_stats = NULL;
+        stats->strategy_count = 0;
+        stats->strategy_capacity = 0;
+    }
+
+    // Free file complexity statistics
+    if (stats->file_stats) {
+        for (size_t i = 0; i < stats->file_count; i++) {
+            free(stats->file_stats[i].path);
+        }
+        free(stats->file_stats);
+        stats->file_stats = NULL;
+        stats->file_count = 0;
+        stats->file_capacity = 0;
+    }
+}
+
+// Add strategy usage statistics
+int batch_stats_add_strategy_usage(batch_stats_t *stats, const char *strategy_name, int success, size_t output_size) {
+    if (!stats || !strategy_name) {
+        return -1;
+    }
+
+    // Find existing strategy or create new one
+    strategy_stats_t *found = NULL;
+    for (size_t i = 0; i < stats->strategy_count; i++) {
+        if (strcmp(stats->strategy_stats[i].name, strategy_name) == 0) {
+            found = &stats->strategy_stats[i];
+            break;
+        }
+    }
+
+    if (!found) {
+        // Resize if needed
+        if (stats->strategy_count >= stats->strategy_capacity) {
+            size_t new_capacity = (stats->strategy_capacity == 0) ? 16 : (stats->strategy_capacity * 2);
+            strategy_stats_t *new_stats = realloc(stats->strategy_stats, new_capacity * sizeof(strategy_stats_t));
+            if (!new_stats) {
+                return -1;
+            }
+            stats->strategy_stats = new_stats;
+            stats->strategy_capacity = new_capacity;
+        }
+
+        // Initialize new strategy stats
+        found = &stats->strategy_stats[stats->strategy_count];
+        strncpy(found->name, strategy_name, sizeof(found->name) - 1);
+        found->name[sizeof(found->name) - 1] = '\0';
+        found->success_count = 0;
+        found->failure_count = 0;
+        found->total_output_size = 0;
+        found->avg_output_size = 0.0;
+        stats->strategy_count++;
+    }
+
+    // Update statistics
+    if (success) {
+        found->success_count++;
+    } else {
+        found->failure_count++;
+    }
+    found->total_output_size += output_size;
+
+    // Update average
+    int total_applications = found->success_count + found->failure_count;
+    if (total_applications > 0) {
+        found->avg_output_size = (double)found->total_output_size / total_applications;
+    }
+
+    return 0;
+}
+
+// Add file complexity statistics
+int batch_stats_add_file_stats(batch_stats_t *stats, const char *file_path, size_t input_size,
+                               size_t output_size, int instruction_count, int bad_byte_count, int success) {
+    if (!stats || !file_path) {
+        return -1;
+    }
+
+    // Resize if needed
+    if (stats->file_count >= stats->file_capacity) {
+        size_t new_capacity = (stats->file_capacity == 0) ? 16 : (stats->file_capacity * 2);
+        file_complexity_stats_t *new_stats = realloc(stats->file_stats, new_capacity * sizeof(file_complexity_stats_t));
+        if (!new_stats) {
+            return -1;
+        }
+        stats->file_stats = new_stats;
+        stats->file_capacity = new_capacity;
+    }
+
+    // Initialize new file stats
+    file_complexity_stats_t *file_stat = &stats->file_stats[stats->file_count];
+    file_stat->path = strdup(file_path);
+    if (!file_stat->path) {
+        return -1;
+    }
+    file_stat->input_size = input_size;
+    file_stat->output_size = output_size;
+    file_stat->size_ratio = (input_size > 0) ? (double)output_size / input_size : 0.0;
+    file_stat->instruction_count = instruction_count;
+    file_stat->bad_byte_count = bad_byte_count;
+    file_stat->success = success;
+    stats->file_count++;
+
+    return 0;
 }
 
 // Print batch statistics
@@ -278,15 +399,124 @@ void batch_stats_print(const batch_stats_t *stats, int quiet) {
     printf("\n");
     printf("===== BATCH PROCESSING SUMMARY =====\n");
     printf("Total files:       %zu\n", stats->total_files);
-    printf("Processed:         %zu\n", stats->processed_files);
-    printf("Failed:            %zu\n", stats->failed_files);
+    printf("Successfully processed: %zu (%.1f%%)\n",
+           stats->processed_files,
+           stats->total_files > 0 ? (100.0 * stats->processed_files / stats->total_files) : 0.0);
+    printf("Failed:            %zu (%.1f%%)\n",
+           stats->failed_files,
+           stats->total_files > 0 ? (100.0 * stats->failed_files / stats->total_files) : 0.0);
     printf("Skipped:           %zu\n", stats->skipped_files);
+    printf("\n");
     printf("Total input size:  %zu bytes\n", stats->total_input_bytes);
     printf("Total output size: %zu bytes\n", stats->total_output_bytes);
 
     if (stats->total_input_bytes > 0) {
         double ratio = (double)stats->total_output_bytes / (double)stats->total_input_bytes;
-        printf("Size ratio:        %.2fx\n", ratio);
+        printf("Average size ratio: %.2fx\n", ratio);
     }
+
+    // Add bad byte information
+    printf("\n");
+    printf("Bad characters:    %d configured\n", stats->bad_byte_count);
+    if (stats->bad_byte_count > 0) {
+        printf("Configured set:    ");
+        int printed = 0;
+        for (int i = 0; i < 256; i++) {
+            if (stats->bad_byte_set[i]) {
+                if (printed > 0) printf(", ");
+                printf("0x%02x", i);
+                printed++;
+            }
+        }
+        printf("\n");
+    }
+
     printf("====================================\n");
+
+    // Show failed files list if there are any
+    if (stats->failed_files > 0 && stats->failed_file_list && stats->failed_file_count > 0) {
+        printf("\n");
+        printf("FAILED FILES (%zu):\n", stats->failed_file_count);
+        for (size_t i = 0; i < stats->failed_file_count && i < 10; i++) {
+            printf("  - %s\n", stats->failed_file_list[i]);
+        }
+        if (stats->failed_file_count > 10) {
+            printf("  ... and %zu more (use --failed-files-output to save full list)\n",
+                   stats->failed_file_count - 10);
+        }
+        printf("\n");
+    }
+
+    // Print strategy usage statistics if available
+    if (stats->strategy_count > 0) {
+        printf("\n");
+        printf("STRATEGY USAGE STATISTICS:\n");
+        printf("┌─────────────────────────────────────────┬─────────┬─────────┬──────────────┬────────────────┐\n");
+        printf("│ Strategy Name                           │ Success │ Failure │ Applications │ Avg Output Size│\n");
+        printf("├─────────────────────────────────────────┼─────────┼─────────┼──────────────┼────────────────┤\n");
+
+        for (size_t i = 0; i < stats->strategy_count; i++) {
+            const strategy_stats_t *s = &stats->strategy_stats[i];
+            int total_apps = s->success_count + s->failure_count;
+            printf("│ %-39s │ %7d │ %7d │ %12d │ %14.2f │\n",
+                   s->name, s->success_count, s->failure_count, total_apps, s->avg_output_size);
+        }
+        printf("└─────────────────────────────────────────┴─────────┴─────────┴──────────────┴────────────────┘\n");
+    }
+
+    // Print file complexity statistics if available
+    if (stats->file_count > 0) {
+        printf("\n");
+        printf("FILE COMPLEXITY ANALYSIS:\n");
+
+        // Find largest, smallest, and most complex files
+        file_complexity_stats_t *largest = NULL;
+        file_complexity_stats_t *smallest = NULL;
+        file_complexity_stats_t *most_complex = NULL;  // Based on instruction count
+        file_complexity_stats_t *worst_ratio = NULL;   // Based on size ratio (largest expansion)
+
+        for (size_t i = 0; i < stats->file_count; i++) {
+            if (!stats->file_stats[i].success) continue; // Only consider successful files
+
+            if (!largest || stats->file_stats[i].input_size > largest->input_size) {
+                largest = &stats->file_stats[i];
+            }
+            if (!smallest || stats->file_stats[i].input_size < smallest->input_size) {
+                smallest = &stats->file_stats[i];
+            }
+            if (!most_complex || stats->file_stats[i].instruction_count > most_complex->instruction_count) {
+                most_complex = &stats->file_stats[i];
+            }
+            if (!worst_ratio || stats->file_stats[i].size_ratio > worst_ratio->size_ratio) {
+                worst_ratio = &stats->file_stats[i];
+            }
+        }
+
+        printf("Most Complex Files (by instruction count):\n");
+        if (most_complex) {
+            printf("  - %s: %d instructions, %zu -> %zu bytes (%.2fx)\n",
+                   most_complex->path, most_complex->instruction_count,
+                   most_complex->input_size, most_complex->output_size, most_complex->size_ratio);
+        }
+
+        printf("Largest Files (by input size):\n");
+        if (largest) {
+            printf("  - %s: %zu bytes input, %zu bytes output (%.2fx)\n",
+                   largest->path, largest->input_size, largest->output_size, largest->size_ratio);
+        }
+
+        printf("Smallest Files (by input size):\n");
+        if (smallest) {
+            printf("  - %s: %zu bytes input, %zu bytes output (%.2fx)\n",
+                   smallest->path, smallest->input_size, smallest->output_size, smallest->size_ratio);
+        }
+
+        if (worst_ratio && worst_ratio->size_ratio > 1.0) {
+            printf("Largest Expansion (by size ratio):\n");
+            printf("  - %s: %zu -> %zu bytes (%.2fx expansion)\n",
+                   worst_ratio->path, worst_ratio->input_size, worst_ratio->output_size, worst_ratio->size_ratio);
+        }
+
+        printf("\n");
+    }
 }

@@ -16,6 +16,11 @@
 #include "utils.h"  // For create_parent_dirs
 #include "batch_processing.h"  // For batch directory processing
 #include "../decoder.h" // Include the generated decoder stub header
+#include "processing.h"  // For process_single_file
+
+#ifdef TUI_ENABLED
+#include "tui/tui_menu.h"
+#endif
 
 size_t find_entry_point(const uint8_t *shellcode, size_t size);
 
@@ -97,9 +102,9 @@ static char* format_shellcode(const uint8_t *data, size_t size, const char *form
 
 // Process a single file with the given configuration
 // Returns EXIT_SUCCESS on success, or an error code on failure
-static int process_single_file(const char *input_file, const char *output_file,
-                               byvalver_config_t *config, size_t *input_size_out,
-                               size_t *output_size_out) {
+int process_single_file(const char *input_file, const char *output_file,
+                        byvalver_config_t *config, size_t *input_size_out,
+                        size_t *output_size_out) {
     // Open input file
     FILE *file = fopen(input_file, "rb");
     if (!file) {
@@ -166,6 +171,27 @@ static int process_single_file(const char *input_file, const char *output_file,
         return EXIT_SUCCESS;
     }
 
+    // Display architecture information
+    if (!config->quiet) {
+        const char *arch_name;
+        switch (config->target_arch) {
+            case BYVAL_ARCH_X86: arch_name = "x86 (32-bit)"; break;
+            case BYVAL_ARCH_X64: arch_name = "x64 (64-bit)"; break;
+            case BYVAL_ARCH_ARM: arch_name = "ARM (32-bit)"; break;
+            case BYVAL_ARCH_ARM64: arch_name = "ARM64 (AArch64)"; break;
+            default: arch_name = "Unknown"; break;
+        }
+        fprintf(stderr, "╔════════════════════════════════════════════════════════╗\n");
+        fprintf(stderr, "║  BYVALVER BAD-BYTE ELIMINATION ENGINE                 ║\n");
+        fprintf(stderr, "╚════════════════════════════════════════════════════════╝\n");
+        fprintf(stderr, "Target Architecture: %s\n", arch_name);
+        fprintf(stderr, "Input Size: %zu bytes\n", file_size);
+        if (config->bad_bytes) {
+            fprintf(stderr, "Bad Bytes: %d distinct values\n", config->bad_bytes->bad_byte_count);
+        }
+        fprintf(stderr, "\n");
+    }
+
     // Process shellcode
     struct buffer new_shellcode;
     if (config->use_pic_generation) {
@@ -189,17 +215,17 @@ static int process_single_file(const char *input_file, const char *output_file,
 
         // Now apply null-byte elimination to the PIC shellcode
         if (config->use_biphasic) {
-            new_shellcode = biphasic_process(pic_result.data, pic_result.size);
+            new_shellcode = biphasic_process(pic_result.data, pic_result.size, config->target_arch);
         } else {
-            new_shellcode = remove_null_bytes(pic_result.data, pic_result.size);
+            new_shellcode = remove_null_bytes(pic_result.data, pic_result.size, config->target_arch);
         }
 
         // Free PIC result
         pic_free_result(&pic_result);
     } else if (config->use_biphasic) {
-        new_shellcode = biphasic_process(shellcode, file_size);
+        new_shellcode = biphasic_process(shellcode, file_size, config->target_arch);
     } else {
-        new_shellcode = remove_null_bytes(shellcode, file_size);
+        new_shellcode = remove_null_bytes(shellcode, file_size, config->target_arch);
     }
 
     // Verify the shellcode was processed successfully
@@ -248,23 +274,37 @@ static int process_single_file(const char *input_file, const char *output_file,
         *output_size_out = final_shellcode.size;
     }
 
-    // Verify that the final shellcode has no null bytes
-    int has_remaining_nulls = 0;
-    for (size_t i = 0; i < final_shellcode.size; i++) {
-        if (final_shellcode.data[i] == 0x00) {
-            has_remaining_nulls = 1;
-            break;
-        }
-    }
-
-    if (has_remaining_nulls) {
+    // Verify that the final shellcode has no bad bytes
+    if (!is_bad_byte_free_buffer(final_shellcode.data, final_shellcode.size)) {
         if (!config->quiet) {
-            fprintf(stderr, "Error: Shellcode processing completed but null bytes still remain in output\n");
+            // Count and identify remaining bad bytes
+            int bad_byte_found[256] = {0};
+            int total_bad_bytes = 0;
+            for (size_t i = 0; i < final_shellcode.size; i++) {
+                if (!is_bad_byte_free_byte(final_shellcode.data[i])) {
+                    if (!bad_byte_found[final_shellcode.data[i]]) {
+                        bad_byte_found[final_shellcode.data[i]] = 1;
+                        total_bad_bytes++;
+                    }
+                }
+            }
+
+            fprintf(stderr, "Error: Shellcode processing completed but bad bytes still remain in output\n");
+            fprintf(stderr, "       Found %d distinct bad byte(s): ", total_bad_bytes);
+            int printed = 0;
+            for (int i = 0; i < 256; i++) {
+                if (bad_byte_found[i]) {
+                    if (printed > 0) fprintf(stderr, ", ");
+                    fprintf(stderr, "0x%02x", i);
+                    printed++;
+                }
+            }
+            fprintf(stderr, "\n");
         }
         free(shellcode);
         buffer_free(&new_shellcode);
         buffer_free(&final_shellcode);
-        return EXIT_PROCESSING_FAILED;  // Return failure when null bytes remain
+        return EXIT_PROCESSING_FAILED;  // Return failure when bad bytes remain
     }
 
     // Write modified shellcode to output file
@@ -326,6 +366,10 @@ int main(int argc, char *argv[]) {
     // Parse command-line arguments
     int parse_result = parse_arguments(argc, argv, config);
 
+    // Initialize ML strategist only if ML option is enabled (after parsing arguments)
+    ml_strategist_t ml_strategist;
+    int ml_initialized = 0;
+
     // Handle special requests (help/version) first
     if (config->help_requested) {
         print_detailed_help(stdout, argv[0]);
@@ -339,9 +383,20 @@ int main(int argc, char *argv[]) {
         return EXIT_SUCCESS;
     }
 
-    // Initialize ML strategist only if ML option is enabled (after parsing arguments)
-    ml_strategist_t ml_strategist;
-    int ml_initialized = 0;
+    // Launch interactive TUI menu if requested
+    if (config->interactive_menu) {
+#ifdef TUI_ENABLED
+        int tui_result = run_tui_menu(config);
+        config_free(config);
+        if (ml_initialized) ml_strategist_cleanup(&ml_strategist);
+        return tui_result;
+#else
+        fprintf(stderr, "Error: TUI mode not compiled in. Please rebuild with TUI support enabled.\n");
+        config_free(config);
+        return EXIT_GENERAL_ERROR;
+#endif
+    }
+
     if (config->use_ml_strategist) {
         // Determine the absolute path to the ML model file
         char model_path[PATH_MAX];
@@ -413,7 +468,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize strategy registries (needed for both single and batch mode)
-    init_strategies(config->use_ml_strategist); // Pass 2: Null-byte elimination strategies
+    init_strategies(config->use_ml_strategist, config->target_arch); // Pass 2: Null-byte elimination strategies
 
     if (config->use_biphasic) {
         init_obfuscation_strategies(); // Pass 1: Obfuscation strategies
@@ -474,10 +529,23 @@ int main(int argc, char *argv[]) {
             printf("Found %zu file(s) to process\n\n", file_list.count);
         }
 
+        // Initialize bad byte context for batch processing
+        init_bad_byte_context(config->bad_bytes);
+
         // Initialize batch statistics
         batch_stats_t stats;
         batch_stats_init(&stats);
         stats.total_files = file_list.count;
+
+        // Set bad byte configuration in stats
+        bad_byte_config_t* bad_byte_config = get_bad_byte_config();
+        if (bad_byte_config) {
+            stats.bad_byte_count = bad_byte_config->bad_byte_count;
+            // Convert uint8_t to int for the batch stats
+            for (int i = 0; i < 256; i++) {
+                stats.bad_byte_set[i] = bad_byte_config->bad_bytes[i];
+            }
+        }
 
         // Process each file
         for (size_t i = 0; i < file_list.count; i++) {
@@ -503,6 +571,9 @@ int main(int argc, char *argv[]) {
                 printf("[%zu/%zu] %s\n", i + 1, file_list.count, input_path);
             }
 
+            // Set the batch stats context for strategy tracking
+            set_batch_stats_context(&stats);
+
             // Process the file
             size_t input_size = 0, output_size = 0;
             int result = process_single_file(input_path, output_path, config, &input_size, &output_size);
@@ -512,8 +583,33 @@ int main(int argc, char *argv[]) {
                 stats.total_input_bytes += input_size;
                 stats.total_output_bytes += output_size;
 
+                // Count file complexity statistics if we have both input and output
+                if (input_size > 0) {
+                    // Read the input file to count original stats
+                    FILE *input_file = fopen(input_path, "rb");
+                    if (input_file) {
+                        uint8_t *input_data = malloc(input_size);
+                        if (input_data) {
+                            if (fread(input_data, 1, input_size, input_file) == input_size) {
+                                int instr_count, bad_byte_count;
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count, config->target_arch);
+
+                                // Add file complexity stats to batch stats
+                                batch_stats_add_file_stats(&stats, input_path, input_size,
+                                                         output_size, instr_count, bad_byte_count, 1);
+                            }
+                            free(input_data);
+                        }
+                        fclose(input_file);
+                    }
+                }
+
                 if (!config->quiet && config->verbose) {
-                    printf("  ✓ Success: %zu → %zu bytes\n", input_size, output_size);
+                    printf("  ✓ Processed: %zu → %zu bytes (%.2fx)\n",
+                           input_size, output_size,
+                           input_size > 0 ? (double)output_size / (double)input_size : 0.0);
+                } else if (!config->quiet) {
+                    printf("  ✓ %zu → %zu bytes\n", input_size, output_size);
                 }
             } else {
                 stats.failed_files++;
@@ -523,6 +619,31 @@ int main(int argc, char *argv[]) {
 
                 // Add the failed file to the list if we're tracking them
                 batch_stats_add_failed_file(&stats, input_path);
+
+                // Also add file complexity stats for failed files (with success = 0)
+                // Read the input file to count original stats
+                FILE *input_file = fopen(input_path, "rb");
+                if (input_file) {
+                    fseek(input_file, 0, SEEK_END);
+                    size_t input_size = ftell(input_file);
+                    fseek(input_file, 0, SEEK_SET);
+
+                    if (input_size > 0) {
+                        uint8_t *input_data = malloc(input_size);
+                        if (input_data) {
+                            if (fread(input_data, 1, input_size, input_file) == input_size) {
+                                int instr_count, bad_byte_count;
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count, config->target_arch);
+
+                                // Add file complexity stats to batch stats (success = 0)
+                                batch_stats_add_file_stats(&stats, input_path, input_size,
+                                                         0, instr_count, bad_byte_count, 0);
+                            }
+                            free(input_data);
+                        }
+                    }
+                    fclose(input_file);
+                }
 
                 if (!config->continue_on_error) {
                     free(output_path);
@@ -574,9 +695,10 @@ int main(int argc, char *argv[]) {
             if (ml_initialized) {
                 ml_strategist_print_metrics_summary();
                 ml_strategist_print_strategy_breakdown();
+                ml_strategist_print_bad_byte_breakdown();  // Added bad byte breakdown (v3.0)
                 ml_strategist_print_learning_progress();
             } else {
-                // Provide basic statistics for batch processing even without ML
+                // Provide enhanced statistics for batch processing even without ML
                 printf("Statistics without ML Integration:\n");
                 printf("  - Batch processing completed\n");
                 printf("  - Total files: %zu\n", stats.total_files);
@@ -589,6 +711,23 @@ int main(int argc, char *argv[]) {
                     double ratio = (double)stats.total_output_bytes / (double)stats.total_input_bytes;
                     printf("  - Average size ratio: %.2f\n", ratio);
                 }
+
+                // Add bad byte information
+                printf("  - Bad character elimination: ENABLED\n");
+                printf("  - Configured bad bytes: ");
+                int printed = 0;
+                for (int i = 0; i < 256; i++) {
+                    if (stats.bad_byte_set[i]) {
+                        if (printed > 0) printf(", ");
+                        printf("0x%02x", i);
+                        printed++;
+                    }
+                }
+                if (printed == 0) {
+                    printf("0x00 (default null only)");
+                }
+                printf("\n");
+                printf("  - Total bad bytes configured: %d\n", stats.bad_byte_count);
             }
         }
 
@@ -608,6 +747,9 @@ int main(int argc, char *argv[]) {
     if (config->encode_shellcode && !config->quiet) {
         printf("Encoding shellcode with XOR key: 0x%08x\n", config->xor_key);
     }
+
+    // Initialize bad byte context for single-file processing
+    init_bad_byte_context(config->bad_bytes);
 
     // Process the single file
     size_t input_size = 0, output_size = 0;
@@ -655,9 +797,10 @@ int main(int argc, char *argv[]) {
         if (ml_initialized) {
             ml_strategist_print_metrics_summary();
             ml_strategist_print_strategy_breakdown();
+            ml_strategist_print_bad_byte_breakdown();  // Added bad byte breakdown (v3.0)
             ml_strategist_print_learning_progress();
         } else {
-            // Provide basic statistics even without ML
+            // Provide enhanced statistics even without ML, including bad byte info
             printf("Statistics without ML Integration:\n");
             printf("  - Shellcode processing completed\n");
             printf("  - Input size: %zu bytes\n", input_size);
@@ -665,6 +808,28 @@ int main(int argc, char *argv[]) {
             if (input_size > 0) {
                 double ratio = (double)output_size / (double)input_size;
                 printf("  - Size ratio: %.2f\n", ratio);
+            }
+
+            // Add bad byte information
+            bad_byte_config_t* bad_byte_config = get_bad_byte_config();
+            if (bad_byte_config) {
+                printf("  - Bad character elimination: %s\n",
+                       config->bad_bytes ? "ENABLED" : "DISABLED (default: nulls only)");
+                printf("  - Configured bad bytes: ");
+
+                int bad_byte_count = 0;
+                for (int i = 0; i < 256; i++) {
+                    if (bad_byte_config->bad_bytes[i]) {
+                        if (bad_byte_count > 0) printf(", ");
+                        printf("0x%02x", i);
+                        bad_byte_count++;
+                    }
+                }
+                if (bad_byte_count == 0) {
+                    printf("0x00 (default null only)");
+                }
+                printf("\n");
+                printf("  - Total bad bytes configured: %d\n", bad_byte_config->bad_byte_count);
             }
         }
     }

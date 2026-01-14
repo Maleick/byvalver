@@ -50,7 +50,7 @@ int can_handle_stack_string_null(cs_insn *insn) {
                 uint32_t imm = (uint32_t)op->imm;
                 
                 // Check if immediate contains null bytes
-                if (!is_null_free(imm)) {
+                if (!is_bad_byte_free(imm)) {
                     // This could be part of a stack-based string construction
                     // where an immediate value contains null bytes
                     return 1;
@@ -70,7 +70,7 @@ int can_handle_stack_string_null(cs_insn *insn) {
             // Check if destination is stack-relative
             if (dst_op->mem.base == X86_REG_ESP || dst_op->mem.base == X86_REG_EBP) {
                 uint32_t imm = (uint32_t)src_op->imm;
-                if (!is_null_free(imm)) {
+                if (!is_bad_byte_free(imm)) {
                     return 1;
                 }
             }
@@ -82,7 +82,7 @@ int can_handle_stack_string_null(cs_insn *insn) {
         cs_x86_op *op = &insn->detail->x86.operands[0];
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_null_free(target) && has_null_bytes(insn)) {
+            if (!is_bad_byte_free(target) && has_null_bytes(insn)) {
                 // CALL with immediate that has null bytes
                 return 1;
             }
@@ -172,7 +172,7 @@ void generate_stack_string_null_free(struct buffer *b, cs_insn *insn) {
         cs_x86_op *op = &insn->detail->x86.operands[0];
         if (op->type == X86_OP_IMM) {
             uint32_t target = (uint32_t)op->imm;
-            if (!is_null_free(target)) {
+            if (!is_bad_byte_free(target)) {
                 // Transform CALL immediate to CALL register to avoid nulls in immediate
                 generate_mov_eax_imm(b, target);
                 // CALL EAX

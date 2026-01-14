@@ -23,7 +23,8 @@ strategy_t call_imm_strategy = {
     .can_handle = can_handle_call_imm,
     .get_size = get_size_call_imm,
     .generate = generate_call_imm_strat,
-    .priority = 8
+    .priority = 8,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // CALL [disp32] strategy - for indirect calls with displacement containing null bytes
@@ -56,7 +57,8 @@ strategy_t call_mem_disp32_strategy = {
     .can_handle = can_handle_call_mem_disp32,
     .get_size = get_size_call_mem_disp32,
     .generate = generate_call_mem_disp32,
-    .priority = 8
+    .priority = 8,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // JMP [disp32] strategy - for indirect jumps with displacement containing null bytes
@@ -89,7 +91,8 @@ strategy_t jmp_mem_disp32_strategy = {
     .can_handle = can_handle_jmp_mem_disp32,
     .get_size = get_size_jmp_mem_disp32,
     .generate = generate_jmp_mem_disp32,
-    .priority = 8
+    .priority = 8,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Generic strategy for any instruction with memory operands having displacement containing nulls

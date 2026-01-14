@@ -69,7 +69,8 @@ strategy_t mov_neg_proper_strategy = {
     .can_handle = can_handle_mov_neg_proper,
     .get_size = get_size_mov_neg_proper,
     .generate = generate_mov_neg_proper,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: MOV with NOT (x86_NOT - F7 /2) - Handles MOV reg, imm via NOT
@@ -138,7 +139,8 @@ strategy_t mov_not_proper_strategy = {
     .can_handle = can_handle_mov_not_proper,
     .get_size = get_size_mov_not_proper,
     .generate = generate_mov_not_proper,
-    .priority = 74
+    .priority = 74,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: MOV with ADD/SUB decomposition - MOV reg, val via ADD reg, (val-base) if reg initialized to base
@@ -205,7 +207,8 @@ strategy_t mov_addsub_proper_strategy = {
     .can_handle = can_handle_mov_addsub_proper,
     .get_size = get_size_mov_addsub_proper,
     .generate = generate_mov_addsub_proper,
-    .priority = 60
+    .priority = 60,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_improved_mov_strategies() {

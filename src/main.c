@@ -171,6 +171,27 @@ int process_single_file(const char *input_file, const char *output_file,
         return EXIT_SUCCESS;
     }
 
+    // Display architecture information
+    if (!config->quiet) {
+        const char *arch_name;
+        switch (config->target_arch) {
+            case BYVAL_ARCH_X86: arch_name = "x86 (32-bit)"; break;
+            case BYVAL_ARCH_X64: arch_name = "x64 (64-bit)"; break;
+            case BYVAL_ARCH_ARM: arch_name = "ARM (32-bit)"; break;
+            case BYVAL_ARCH_ARM64: arch_name = "ARM64 (AArch64)"; break;
+            default: arch_name = "Unknown"; break;
+        }
+        fprintf(stderr, "╔════════════════════════════════════════════════════════╗\n");
+        fprintf(stderr, "║  BYVALVER BAD-BYTE ELIMINATION ENGINE                 ║\n");
+        fprintf(stderr, "╚════════════════════════════════════════════════════════╝\n");
+        fprintf(stderr, "Target Architecture: %s\n", arch_name);
+        fprintf(stderr, "Input Size: %zu bytes\n", file_size);
+        if (config->bad_bytes) {
+            fprintf(stderr, "Bad Bytes: %d distinct values\n", config->bad_bytes->bad_byte_count);
+        }
+        fprintf(stderr, "\n");
+    }
+
     // Process shellcode
     struct buffer new_shellcode;
     if (config->use_pic_generation) {
@@ -194,17 +215,17 @@ int process_single_file(const char *input_file, const char *output_file,
 
         // Now apply null-byte elimination to the PIC shellcode
         if (config->use_biphasic) {
-            new_shellcode = biphasic_process(pic_result.data, pic_result.size);
+            new_shellcode = biphasic_process(pic_result.data, pic_result.size, config->target_arch);
         } else {
-            new_shellcode = remove_null_bytes(pic_result.data, pic_result.size);
+            new_shellcode = remove_null_bytes(pic_result.data, pic_result.size, config->target_arch);
         }
 
         // Free PIC result
         pic_free_result(&pic_result);
     } else if (config->use_biphasic) {
-        new_shellcode = biphasic_process(shellcode, file_size);
+        new_shellcode = biphasic_process(shellcode, file_size, config->target_arch);
     } else {
-        new_shellcode = remove_null_bytes(shellcode, file_size);
+        new_shellcode = remove_null_bytes(shellcode, file_size, config->target_arch);
     }
 
     // Verify the shellcode was processed successfully
@@ -447,7 +468,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Initialize strategy registries (needed for both single and batch mode)
-    init_strategies(config->use_ml_strategist); // Pass 2: Null-byte elimination strategies
+    init_strategies(config->use_ml_strategist, config->target_arch); // Pass 2: Null-byte elimination strategies
 
     if (config->use_biphasic) {
         init_obfuscation_strategies(); // Pass 1: Obfuscation strategies
@@ -571,7 +592,7 @@ int main(int argc, char *argv[]) {
                         if (input_data) {
                             if (fread(input_data, 1, input_size, input_file) == input_size) {
                                 int instr_count, bad_byte_count;
-                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count, config->target_arch);
 
                                 // Add file complexity stats to batch stats
                                 batch_stats_add_file_stats(&stats, input_path, input_size,
@@ -612,7 +633,7 @@ int main(int argc, char *argv[]) {
                         if (input_data) {
                             if (fread(input_data, 1, input_size, input_file) == input_size) {
                                 int instr_count, bad_byte_count;
-                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
+                                count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count, config->target_arch);
 
                                 // Add file complexity stats to batch stats (success = 0)
                                 batch_stats_add_file_stats(&stats, input_path, input_size,

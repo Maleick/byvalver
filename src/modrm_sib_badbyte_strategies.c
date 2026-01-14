@@ -260,7 +260,8 @@ void register_modrm_sib_badbyte_strategies(void) {
         .can_handle = can_handle_mov_mem_reg_bad_modrm,
         .get_size = get_size_mov_mem_reg_bad_modrm,
         .generate = generate_mov_mem_reg_bad_modrm,
-        .priority = 88
+        .priority = 88,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_mov_mem_reg);
 
@@ -269,7 +270,8 @@ void register_modrm_sib_badbyte_strategies(void) {
         .can_handle = can_handle_mov_reg_mem_bad_modrm,
         .get_size = get_size_mov_reg_mem_bad_modrm,
         .generate = generate_mov_reg_mem_bad_modrm,
-        .priority = 88
+        .priority = 88,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_mov_reg_mem);
 }

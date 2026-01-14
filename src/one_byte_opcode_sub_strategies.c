@@ -166,7 +166,8 @@ void register_one_byte_opcode_sub_strategies(void) {
         .can_handle = can_handle_push_reg_bad_opcode,
         .get_size = get_size_push_reg_bad_opcode,
         .generate = generate_push_reg_bad_opcode,
-        .priority = 85
+        .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_push_reg);
 
@@ -175,7 +176,8 @@ void register_one_byte_opcode_sub_strategies(void) {
         .can_handle = can_handle_pop_reg_bad_opcode,
         .get_size = get_size_pop_reg_bad_opcode,
         .generate = generate_pop_reg_bad_opcode,
-        .priority = 85
+        .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_pop_reg);
 
@@ -184,7 +186,8 @@ void register_one_byte_opcode_sub_strategies(void) {
         .can_handle = can_handle_inc_reg_bad_opcode,
         .get_size = get_size_inc_reg_bad_opcode,
         .generate = generate_inc_reg_bad_opcode,
-        .priority = 85
+        .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_inc_reg);
 
@@ -193,7 +196,8 @@ void register_one_byte_opcode_sub_strategies(void) {
         .can_handle = can_handle_dec_reg_bad_opcode,
         .get_size = get_size_dec_reg_bad_opcode,
         .generate = generate_dec_reg_bad_opcode,
-        .priority = 85
+        .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_dec_reg);
 }

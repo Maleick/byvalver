@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <capstone/capstone.h>
+#include "cli.h"  // For byval_arch_t
 
 // Forward declaration to avoid circular dependency
 struct buffer;
@@ -15,14 +16,15 @@ typedef struct {
     size_t (*get_size)(cs_insn *insn);         // Function to calculate new size
     void (*generate)(struct buffer *b, cs_insn *insn);  // Function to generate new code
     int priority;                              // Priority for strategy selection (higher = more preferred)
+    byval_arch_t target_arch;                   // Target architecture for this strategy
 } strategy_t;
 
 #include "core.h"  // Now we can include core.h after strategy_t is defined
 
 // Registry management functions
 void register_strategy(strategy_t *strategy);
-strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count);
-void init_strategies(int use_ml);
+strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count, byval_arch_t arch);
+void init_strategies(int use_ml, byval_arch_t arch);
 
 // Strategy registration functions for different instruction types
 void register_mov_strategies();

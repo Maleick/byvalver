@@ -79,7 +79,8 @@ void register_stack_frame_badbyte_strategies(void) {
         .can_handle = can_handle_push_ebp_bad,
         .get_size = get_size_push_ebp_bad,
         .generate = generate_push_ebp_bad,
-        .priority = 89
+        .priority = 89,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_push);
 
@@ -88,7 +89,8 @@ void register_stack_frame_badbyte_strategies(void) {
         .can_handle = can_handle_pop_ebp_bad,
         .get_size = get_size_pop_ebp_bad,
         .generate = generate_pop_ebp_bad,
-        .priority = 89
+        .priority = 89,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_pop);
 }

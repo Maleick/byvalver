@@ -159,5 +159,6 @@ strategy_t simd_xmm_strategy = {
     .can_handle = can_handle_simd_xmm,
     .get_size = get_size_simd_xmm,
     .generate = generate_simd_xmm,
-    .priority = 89
+    .priority = 89,
+    .target_arch = BYVAL_ARCH_X86
 };

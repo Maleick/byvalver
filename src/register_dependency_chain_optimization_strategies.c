@@ -250,7 +250,8 @@ static strategy_t value_accumulation_optimization_strategy = {
     .can_handle = can_handle_value_accumulation_optimization,
     .get_size = get_size_value_accumulation_optimization,
     .generate = generate_value_accumulation_optimization,
-    .priority = 91
+    .priority = 91,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t arithmetic_sequence_recognition_strategy = {
@@ -258,7 +259,8 @@ static strategy_t arithmetic_sequence_recognition_strategy = {
     .can_handle = can_handle_arithmetic_sequence_recognition,
     .get_size = get_size_arithmetic_sequence_recognition,
     .generate = generate_arithmetic_sequence_recognition,
-    .priority = 88
+    .priority = 88,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_register_dependency_chain_optimization_strategies(void) {

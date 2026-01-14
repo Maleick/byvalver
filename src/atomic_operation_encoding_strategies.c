@@ -22,7 +22,8 @@ strategy_t atomic_operation_encoding_strategy = {
     .can_handle = can_handle_atomic_operation_encoding,
     .get_size = get_size_atomic_operation_encoding,
     .generate = generate_atomic_operation_encoding,
-    .priority = 78
+    .priority = 78,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Helper function to check if an instruction has bad bytes in its encoding

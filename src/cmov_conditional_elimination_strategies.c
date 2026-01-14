@@ -313,7 +313,8 @@ strategy_t cmov_conditional_elimination_strategy = {
     .can_handle = can_handle_cmov_elimination_strategy,
     .get_size = get_size_cmov_elimination_strategy,
     .generate = apply_cmov_elimination_strategy,
-    .priority = 92
+    .priority = 92,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Helper functions for the strategy interface

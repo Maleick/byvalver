@@ -9,6 +9,9 @@
 #include "cli.h"  // For bad_byte_config_t
 #include "batch_processing.h"  // For batch_stats_t
 
+// Capstone architecture mode selector
+void get_capstone_arch_mode(byval_arch_t arch, cs_arch *cs_arch_out, cs_mode *cs_mode_out);
+
 #ifdef DEBUG
   // C99 compliant debug macro
   #define DEBUG_LOG(...) do { fprintf(stderr, "[DEBUG] "); fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); } while(0)
@@ -57,12 +60,12 @@ void set_batch_stats_context(batch_stats_t *stats);
 void track_strategy_usage(const char *strategy_name, int success, size_t output_size);
 
 // Function to count instructions and bad bytes in shellcode
-void count_shellcode_stats(const uint8_t *shellcode, size_t size, int *instruction_count, int *bad_byte_count);
+void count_shellcode_stats(const uint8_t *shellcode, size_t size, int *instruction_count, int *bad_byte_count, byval_arch_t arch);
 
 // Core functions
-struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size);
-struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size);
-struct buffer biphasic_process(const uint8_t *shellcode, size_t size);
+struct buffer remove_null_bytes(const uint8_t *shellcode, size_t size, byval_arch_t arch);
+struct buffer apply_obfuscation(const uint8_t *shellcode, size_t size, byval_arch_t arch);
+struct buffer biphasic_process(const uint8_t *shellcode, size_t size, byval_arch_t arch);
 void buffer_init(struct buffer *b);
 void buffer_free(struct buffer *b);
 void buffer_append(struct buffer *b, const uint8_t *data, size_t size);
@@ -74,6 +77,6 @@ void fallback_mov_reg_imm(struct buffer *b, cs_insn *insn);
 void fallback_arithmetic_reg_imm(struct buffer *b, cs_insn *insn);
 void fallback_memory_operation(struct buffer *b, cs_insn *insn);
 void handle_unhandled_instruction_with_nulls(struct buffer *b, cs_insn *insn);
-struct buffer adaptive_processing(const uint8_t *input, size_t size);
+struct buffer adaptive_processing(const uint8_t *input, size_t size, byval_arch_t arch);
 
 #endif

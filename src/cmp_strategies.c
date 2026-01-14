@@ -229,7 +229,8 @@ strategy_t cmp_reg_imm_null_strategy = {
     .can_handle = can_handle_cmp_reg_imm_null,
     .get_size = get_size_cmp_reg_imm_null,
     .generate = generate_cmp_reg_imm_null,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy 2: CMP BYTE [reg], imm with null in immediate
@@ -365,7 +366,8 @@ strategy_t cmp_byte_mem_imm_null_strategy = {
     .can_handle = can_handle_cmp_byte_mem_imm_null,
     .get_size = get_size_cmp_byte_mem_imm_null,
     .generate = generate_cmp_byte_mem_imm_null,
-    .priority = 88
+    .priority = 88,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy 3: CMP [reg+disp], reg with null in displacement
@@ -494,7 +496,8 @@ strategy_t cmp_mem_reg_null_strategy = {
     .can_handle = can_handle_cmp_mem_reg_null,
     .get_size = get_size_cmp_mem_reg_null,
     .generate = generate_cmp_mem_reg_null,
-    .priority = 86
+    .priority = 86,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Registration function

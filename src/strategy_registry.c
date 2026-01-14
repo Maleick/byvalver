@@ -243,7 +243,7 @@ void register_remaining_null_elimination_strategies(); // Final strategies for r
 void register_new_strategies(); // Forward declaration - New strategies for specific null-byte patterns
 extern strategy_t delayed_string_termination_strategy;
 
-void init_strategies(int use_ml) {
+void init_strategies(int use_ml, byval_arch_t arch) {
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Initializing strategies\n");
     #endif
@@ -267,7 +267,9 @@ void init_strategies(int use_ml) {
         #endif
     }
 
-    register_advanced_transformations();  // Register advanced transformations (highest priority)
+    // Register strategies based on target architecture
+    if (arch == BYVAL_ARCH_X86 || arch == BYVAL_ARCH_X64) {
+        register_advanced_transformations();  // Register advanced transformations (highest priority)
     init_advanced_transformations();      // Initialize the can_handle functions
     register_indirect_call_strategies();  // Register indirect CALL/JMP strategies (priority 100)
     register_sldt_replacement_strategy();  // Register SLDT replacement strategy (priority 95)
@@ -434,6 +436,17 @@ void init_strategies(int use_ml) {
 
     // Register final cleanup strategies for remaining nulls
     register_remaining_null_elimination_strategies(); // Final strategies for remaining nulls (highest priority)
+    } // End x86/x64 architecture check
+
+    else if (arch == BYVAL_ARCH_ARM) {
+        #include "arm_strategies.h"
+        register_arm_strategies();
+    }
+
+    else if (arch == BYVAL_ARCH_ARM64) {
+        #include "arm64_strategies.h"
+        register_arm64_strategies();
+    }
 
     #ifdef DEBUG
     fprintf(stderr, "[DEBUG] Registered %d strategies\n", strategy_count);
@@ -450,7 +463,7 @@ void init_strategies(int use_ml) {
     }
 }
 
-strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count) {
+strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count, byval_arch_t arch) {
     DEBUG_LOG("get_strategies_for_instruction called for instruction ID: 0x%x", insn->id);
     DEBUG_LOG("Instruction: %s %s", insn->mnemonic, insn->op_str);
 
@@ -458,6 +471,10 @@ strategy_t** get_strategies_for_instruction(cs_insn *insn, int *count) {
     int applicable_count = 0;
 
     for (int i = 0; i < strategy_count; i++) {
+        // Filter by target architecture
+        if (strategies[i]->target_arch != arch) {
+            continue;
+        }
         DEBUG_LOG("  Trying strategy: %s", strategies[i]->name);
         if (strategies[i]->can_handle(insn)) {
             applicable_strategies[applicable_count++] = strategies[i];

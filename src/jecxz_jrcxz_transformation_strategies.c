@@ -132,5 +132,6 @@ strategy_t jecxz_jrcxz_strategy = {
     .can_handle = can_handle_jecxz_jrcxz,
     .get_size = get_size_jecxz_jrcxz,
     .generate = generate_jecxz_jrcxz,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };

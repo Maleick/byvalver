@@ -132,5 +132,6 @@ strategy_t bcd_arithmetic_strategy = {
     .can_handle = can_handle_bcd_arithmetic,
     .get_size = get_size_bcd_arithmetic,
     .generate = generate_bcd_arithmetic,
-    .priority = 68
+    .priority = 68,
+    .target_arch = BYVAL_ARCH_X86
 };

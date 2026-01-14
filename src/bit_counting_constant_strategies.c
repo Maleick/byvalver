@@ -237,5 +237,6 @@ strategy_t bit_counting_strategy = {
     .can_handle = can_handle_bit_counting,
     .get_size = get_size_bit_counting,
     .generate = generate_bit_counting,
-    .priority = 77
+    .priority = 77,
+    .target_arch = BYVAL_ARCH_X86
 };

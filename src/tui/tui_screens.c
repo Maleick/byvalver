@@ -1540,7 +1540,7 @@ int show_processing_screen(byvalver_config_t *config) {
         refresh();
 
         // Initialize strategy registries (needed for processing)
-        init_strategies(config->use_ml_strategist);
+        init_strategies(config->use_ml_strategist, config->target_arch);
         if (config->use_biphasic) {
             init_obfuscation_strategies();
         }
@@ -1851,7 +1851,7 @@ int show_processing_screen(byvalver_config_t *config) {
                     uint8_t *input_data = malloc(input_size);
                     if (input_data && fread(input_data, 1, input_size, input_file) == input_size) {
                         int instr_count, bad_byte_count;
-                        count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
+                        count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count, config->target_arch);
                         batch_stats_add_file_stats(&stats, input_path, input_size,
                                                  output_size, instr_count, bad_byte_count, 1);
                     }
@@ -1873,7 +1873,7 @@ int show_processing_screen(byvalver_config_t *config) {
                         uint8_t *input_data = malloc(fsize);
                         if (input_data && fread(input_data, 1, fsize, input_file) == fsize) {
                             int instr_count, bad_byte_count;
-                            count_shellcode_stats(input_data, input_size, &instr_count, &bad_byte_count);
+                            count_shellcode_stats(input_data, fsize, &instr_count, &bad_byte_count, config->target_arch);
                             batch_stats_add_file_stats(&stats, input_path, fsize,
                                                      0, instr_count, bad_byte_count, 0);
                         }
@@ -1941,7 +1941,7 @@ int show_processing_screen(byvalver_config_t *config) {
         refresh();
 
         // Initialize strategy registries (needed for processing)
-        init_strategies(config->use_ml_strategist);
+        init_strategies(config->use_ml_strategist, config->target_arch);
         if (config->use_biphasic) {
             init_obfuscation_strategies();
         }

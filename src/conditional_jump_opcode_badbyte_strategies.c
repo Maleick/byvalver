@@ -161,7 +161,8 @@ void register_conditional_jump_opcode_badbyte_strategies(void) {
         .can_handle = can_handle_jcc_bad_opcode,
         .get_size = get_size_jcc_bad_opcode,
         .generate = generate_jcc_bad_opcode,
-        .priority = 92
+        .priority = 92,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_jcc_bad_opcode);
 }

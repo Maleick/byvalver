@@ -378,7 +378,8 @@ static strategy_t lea_disp_null_strategy = {
     .can_handle = can_handle_lea_disp_null,
     .get_size = get_size_lea_disp_null,
     .generate = generate_lea_disp_null,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -615,7 +616,8 @@ static strategy_t mov_mem_disp_null_strategy = {
     .can_handle = can_handle_mov_mem_disp_null,
     .get_size = get_size_mov_mem_disp_null,
     .generate = generate_mov_mem_disp_null,
-    .priority = 83
+    .priority = 83,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -804,7 +806,8 @@ static strategy_t general_mem_disp_null_strategy = {
     .can_handle = can_handle_general_mem_disp_null,
     .get_size = get_size_general_mem_disp_null,
     .generate = generate_general_mem_disp_null,
-    .priority = 82
+    .priority = 82,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

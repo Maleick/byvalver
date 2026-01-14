@@ -99,7 +99,8 @@ strategy_t arithmetic_neg_proper_strategy = {
     .can_handle = can_handle_arithmetic_neg_proper,
     .get_size = get_size_arithmetic_neg_proper,
     .generate = generate_arithmetic_neg_proper,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: Arithmetic XOR - handles arithmetic operations with XOR-encoding
@@ -247,7 +248,8 @@ strategy_t arithmetic_xor_proper_strategy = {
     .can_handle = can_handle_arithmetic_xor_proper,
     .get_size = get_size_arithmetic_xor_proper,
     .generate = generate_arithmetic_xor_proper,
-    .priority = 78
+    .priority = 78,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Strategy: Arithmetic ADD/SUB - handles arithmetic operations with ADD/SUB immediate encoding
@@ -386,7 +388,8 @@ strategy_t arithmetic_addsub_proper_strategy = {
     .can_handle = can_handle_arithmetic_addsub_proper,
     .get_size = get_size_arithmetic_addsub_proper,
     .generate = generate_arithmetic_addsub_proper,
-    .priority = 76
+    .priority = 76,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_improved_arithmetic_strategies() {

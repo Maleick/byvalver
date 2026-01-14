@@ -90,7 +90,8 @@ strategy_t mov_mem_imm_strategy = {
     .can_handle = can_handle_mov_mem_imm,
     .get_size = get_size_mov_mem_imm,
     .generate = generate_mov_mem_imm,
-    .priority = 8
+    .priority = 8,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Memory MOV strategy for [imm32] destination
@@ -116,7 +117,8 @@ strategy_t mov_mem_dst_strategy = {
     .can_handle = can_handle_mov_mem_dst,
     .get_size = get_size_mov_mem_dst,
     .generate = generate_mov_mem_dst,
-    .priority = 8
+    .priority = 8,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // CMP [imm32], reg strategy
@@ -142,7 +144,8 @@ strategy_t cmp_mem_reg_strategy = {
     .can_handle = can_handle_cmp_mem_reg,
     .get_size = get_size_cmp_mem_reg,
     .generate = generate_cmp_mem_reg,
-    .priority = 8
+    .priority = 8,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Arithmetic operations on [disp32] with immediate
@@ -171,7 +174,8 @@ strategy_t arith_mem_imm_strategy = {
     .can_handle = can_handle_arith_mem_imm,
     .get_size = get_size_arith_mem_imm,
     .generate = generate_arith_mem_imm,
-    .priority = 7
+    .priority = 7,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // LEA reg, [disp32] strategy

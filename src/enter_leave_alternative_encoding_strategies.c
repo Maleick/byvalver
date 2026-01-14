@@ -133,5 +133,6 @@ strategy_t enter_leave_strategy = {
     .can_handle = can_handle_enter_leave,
     .get_size = get_size_enter_leave,
     .generate = generate_enter_leave,
-    .priority = 74
+    .priority = 74,
+    .target_arch = BYVAL_ARCH_X86
 };

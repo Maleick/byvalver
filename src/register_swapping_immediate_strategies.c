@@ -83,5 +83,6 @@ strategy_t register_swapping_immediate_strategy = {
     .can_handle = can_handle_register_swapping_immediate,
     .get_size = get_size_register_swapping_immediate,
     .generate = generate_register_swapping_immediate,
-    .priority = 70
+    .priority = 70,
+    .target_arch = BYVAL_ARCH_X86
 };

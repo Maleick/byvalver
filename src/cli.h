@@ -7,11 +7,19 @@
 #include <string.h>
 #include <getopt.h>
 
+// Architecture enumeration for type-safe handling
+typedef enum {
+    BYVAL_ARCH_X86 = 0,    // 32-bit x86
+    BYVAL_ARCH_X64 = 1,    // 64-bit x86-64
+    BYVAL_ARCH_ARM = 2,    // 32-bit ARM
+    BYVAL_ARCH_ARM64 = 3   // 64-bit ARM (AArch64)
+} byval_arch_t;
+
 // Application version information
-#define BYVALVER_VERSION_MAJOR 3
+#define BYVALVER_VERSION_MAJOR 4
 #define BYVALVER_VERSION_MINOR 0
 #define BYVALVER_VERSION_PATCH 0
-#define BYVALVER_VERSION_STRING "3.0.0"
+#define BYVALVER_VERSION_STRING "4.0.0"
 
 // Exit codes
 #define EXIT_SUCCESS 0
@@ -65,7 +73,7 @@ typedef struct {
     
     // Advanced options
     char *output_format;  // "raw", "c", "python", "powershell", "hexstring"
-    char *target_arch;    // "x86", "x64"
+    byval_arch_t target_arch;  // Target architecture enum
     int strategy_limit;
     size_t max_size;
     int timeout_seconds;

@@ -489,7 +489,7 @@ int ml_get_strategy_recommendation(ml_strategist_t* strategist,
 
     // Get applicable strategies for this instruction
     int applicable_count = 0;
-    strategy_t** applicable_strategies = get_strategies_for_instruction(insn, &applicable_count);
+    strategy_t** applicable_strategies = get_strategies_for_instruction(insn, &applicable_count, BYVAL_ARCH_X64);
 
     prediction->strategy_count = applicable_count;
 

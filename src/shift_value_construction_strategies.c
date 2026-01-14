@@ -124,5 +124,6 @@ strategy_t shift_value_construction_strategy = {
     .can_handle = can_handle_shift_value_construction,
     .get_size = get_size_shift_value_construction,
     .generate = generate_shift_value_construction,
-    .priority = 78
+    .priority = 78,
+    .target_arch = BYVAL_ARCH_X86
 };

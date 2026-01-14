@@ -153,7 +153,8 @@ static strategy_t retf_immediate_null_strategy = {
     .can_handle = can_handle_retf_imm_null,
     .get_size = get_size_retf_imm_null,
     .generate = generate_retf_imm_null,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 /* Registration function */

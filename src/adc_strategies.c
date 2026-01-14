@@ -136,7 +136,8 @@ strategy_t adc_modrm_null_bypass_strategy = {
     .can_handle = can_handle_adc_modrm_null,
     .get_size = get_size_adc_modrm_null,
     .generate = generate_adc_modrm_null,
-    .priority = 70
+    .priority = 70,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -303,7 +304,8 @@ strategy_t adc_immediate_null_free_strategy = {
     .can_handle = can_handle_adc_immediate_null,
     .get_size = get_size_adc_immediate_null,
     .generate = generate_adc_immediate_null,
-    .priority = 69
+    .priority = 69,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

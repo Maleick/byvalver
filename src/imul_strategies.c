@@ -108,7 +108,8 @@ strategy_t imul_modrm_null_bypass_strategy = {
     .can_handle = can_handle_imul_modrm_null,
     .get_size = get_size_imul_modrm_null,
     .generate = generate_imul_modrm_null,
-    .priority = 72
+    .priority = 72,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -209,7 +210,8 @@ strategy_t imul_immediate_null_free_strategy = {
     .can_handle = can_handle_imul_immediate_null,
     .get_size = get_size_imul_immediate_null,
     .generate = generate_imul_immediate_null,
-    .priority = 71
+    .priority = 71,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

@@ -92,7 +92,8 @@ void register_partial_immediate_badbyte_strategies(void) {
         .can_handle = can_handle_mov_imm_partial_bad,
         .get_size = get_size_mov_imm_partial_bad,
         .generate = generate_mov_imm_partial_bad,
-        .priority = 87
+        .priority = 87,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy);
 }

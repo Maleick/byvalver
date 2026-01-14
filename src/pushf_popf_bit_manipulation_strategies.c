@@ -162,5 +162,6 @@ strategy_t pushf_popf_flag_manipulation_strategy = {
     .can_handle = can_handle_pushf_popf_flag_manipulation,
     .get_size = get_size_pushf_popf_flag_manipulation,
     .generate = generate_pushf_popf_flag_manipulation,
-    .priority = 81
+    .priority = 81,
+    .target_arch = BYVAL_ARCH_X86
 };

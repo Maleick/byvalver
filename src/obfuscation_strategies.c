@@ -59,7 +59,8 @@ static strategy_t test_to_and_strategy = {
     .can_handle = can_handle_test_to_and,
     .get_size = get_test_to_and_size,
     .generate = generate_test_to_and,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_test_to_and_obfuscation() {
@@ -115,7 +116,8 @@ static strategy_t mov_push_pop_strategy = {
     .can_handle = can_handle_mov_push_pop,
     .get_size = get_mov_push_pop_size,
     .generate = generate_mov_push_pop,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_mov_push_pop_obfuscation() {
@@ -173,7 +175,8 @@ static strategy_t arithmetic_negation_strategy = {
     .can_handle = can_handle_arithmetic_negation,
     .get_size = get_arithmetic_negation_size,
     .generate = generate_arithmetic_negation,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_arithmetic_negation_obfuscation() {
@@ -222,7 +225,8 @@ static strategy_t junk_code_strategy = {
     .can_handle = can_handle_junk_code,
     .get_size = get_junk_code_size,
     .generate = generate_junk_code,
-    .priority = 90
+    .priority = 90,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_junk_code_insertion() {
@@ -278,7 +282,8 @@ static strategy_t opaque_predicate_strategy = {
     .can_handle = can_handle_opaque_predicate,
     .get_size = get_opaque_predicate_size,
     .generate = generate_opaque_predicate,
-    .priority = 95
+    .priority = 95,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_opaque_predicate_obfuscation() {
@@ -348,7 +353,8 @@ static strategy_t register_renaming_strategy = {
     .can_handle = can_handle_register_renaming,
     .get_size = get_register_renaming_size,
     .generate = generate_register_renaming,
-    .priority = 65
+    .priority = 65,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_register_renaming_obfuscation() {
@@ -406,7 +412,8 @@ static strategy_t constant_unfolding_strategy = {
     .can_handle = can_handle_constant_unfolding,
     .get_size = get_constant_unfolding_size,
     .generate = generate_constant_unfolding,
-    .priority = 70
+    .priority = 70,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_constant_unfolding() {
@@ -439,7 +446,8 @@ static strategy_t obfuscation_instruction_reordering_strategy = {
     .can_handle = can_handle_obfuscation_instruction_reordering,
     .get_size = get_obfuscation_instruction_reordering_size,
     .generate = generate_obfuscation_instruction_reordering,
-    .priority = 60
+    .priority = 60,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_instruction_reordering() {
@@ -497,7 +505,8 @@ static strategy_t stack_spill_strategy = {
     .can_handle = can_handle_stack_spill,
     .get_size = get_stack_spill_size,
     .generate = generate_stack_spill,
-    .priority = 55
+    .priority = 55,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_stack_spill_obfuscation() {

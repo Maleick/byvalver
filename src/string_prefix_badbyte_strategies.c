@@ -65,7 +65,8 @@ void register_string_prefix_badbyte_strategies(void) {
         .can_handle = can_handle_rep_prefix_bad,
         .get_size = get_size_rep_prefix_bad,
         .generate = generate_rep_prefix_bad,
-        .priority = 84
+        .priority = 84,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy);
 }

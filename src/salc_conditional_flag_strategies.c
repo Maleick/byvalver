@@ -200,5 +200,6 @@ strategy_t salc_conditional_flag_strategy = {
     .can_handle = can_handle_salc_conditional_flag,
     .get_size = get_size_salc_conditional_flag,
     .generate = generate_salc_conditional_flag,
-    .priority = 93
+    .priority = 93,
+    .target_arch = BYVAL_ARCH_X86
 };

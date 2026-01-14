@@ -168,7 +168,7 @@ int training_pipeline_generate_data(training_config_t* config,
                     if (has_nulls) {
                         // Find an applicable strategy for this instruction
                         int strategy_count;
-                        strategy_t** strategies = get_strategies_for_instruction(&insn_array[i], &strategy_count);
+                        strategy_t** strategies = get_strategies_for_instruction(&insn_array[i], &strategy_count, BYVAL_ARCH_X64);
                         
                         if (strategy_count > 0) {
                             // For demonstration, we'll create a simple transformation
@@ -374,7 +374,7 @@ int training_pipeline_execute(training_config_t* config) {
 
     // Initialize strategy registry (required for get_strategies_for_instruction)
     printf("[PIPELINE] Initializing strategy registry\n");
-    init_strategies(0);  // Initialize without ML to avoid circular dependencies
+    init_strategies(0, BYVAL_ARCH_X64);  // Initialize without ML to avoid circular dependencies
 
     // Initialize training data context
     training_data_context_t data_context;

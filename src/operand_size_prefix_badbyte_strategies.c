@@ -70,7 +70,8 @@ void register_operand_size_prefix_badbyte_strategies(void) {
         .can_handle = can_handle_operand_size_prefix_bad,
         .get_size = get_size_operand_size_prefix_bad,
         .generate = generate_operand_size_prefix_bad,
-        .priority = 83
+        .priority = 83,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy);
 }

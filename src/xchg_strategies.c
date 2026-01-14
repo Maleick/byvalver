@@ -185,7 +185,8 @@ strategy_t xchg_mem_strategy = {
     .can_handle = can_handle_xchg_mem,
     .get_size = get_size_xchg_mem,
     .generate = generate_xchg_mem,
-    .priority = 60
+    .priority = 60,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_xchg_strategies() {

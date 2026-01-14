@@ -198,5 +198,6 @@ strategy_t bit_scanning_constant_strategy = {
     .can_handle = can_handle_bit_scanning_constant,
     .get_size = get_size_bit_scanning_constant,
     .generate = generate_bit_scanning_constant,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };

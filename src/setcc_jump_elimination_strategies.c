@@ -231,7 +231,8 @@ static strategy_t setcc_jump_elimination_simple_strategy = {
     .can_handle = can_handle_setcc_jump_elimination_simple,
     .get_size = get_size_setcc_jump_elimination_simple,
     .generate = generate_setcc_jump_elimination_simple,
-    .priority = 86
+    .priority = 86,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t setcc_to_cmov_strategy = {
@@ -239,7 +240,8 @@ static strategy_t setcc_to_cmov_strategy = {
     .can_handle = can_handle_setcc_to_cmov,
     .get_size = get_size_setcc_to_cmov,
     .generate = generate_setcc_to_cmov,
-    .priority = 84
+    .priority = 84,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_setcc_jump_elimination_strategies(void) {

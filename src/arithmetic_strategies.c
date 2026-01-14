@@ -51,7 +51,8 @@ strategy_t arithmetic_original_strategy = {
     .can_handle = can_handle_arithmetic_original,
     .get_size = get_size_arithmetic_original,
     .generate = generate_arithmetic_original,
-    .priority = 10
+    .priority = 10,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Arithmetic with NEG strategy
@@ -86,7 +87,8 @@ strategy_t arithmetic_neg_strategy = {
     .can_handle = can_handle_arithmetic_neg,
     .get_size = get_size_arithmetic_neg,
     .generate = generate_arithmetic_neg,
-    .priority = 9
+    .priority = 9,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Arithmetic with NOT strategy - FIXED to only handle valid cases
@@ -110,7 +112,8 @@ strategy_t arithmetic_not_strategy = {
     .can_handle = can_handle_arithmetic_not,
     .get_size = get_size_arithmetic_not,
     .generate = generate_arithmetic_not,
-    .priority = 9
+    .priority = 9,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Arithmetic with XOR strategy
@@ -232,7 +235,8 @@ strategy_t arithmetic_xor_strategy = {
     .can_handle = can_handle_arithmetic_xor,
     .get_size = get_size_arithmetic_xor,
     .generate = generate_arithmetic_xor,
-    .priority = 7
+    .priority = 7,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Arithmetic with ADD/SUB strategy
@@ -257,7 +261,8 @@ strategy_t arithmetic_addsub_strategy = {
     .can_handle = can_handle_arithmetic_addsub,
     .get_size = get_size_arithmetic_addsub,
     .generate = generate_arithmetic_addsub,
-    .priority = 7
+    .priority = 7,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // REMOVED: arithmetic_substitution_strategy (was redundant and buggy)

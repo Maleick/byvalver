@@ -113,7 +113,7 @@ byvalver_config_t* config_create_default(void) {
     config->encode_shellcode = 0;
     config->xor_key = 0;
     config->output_format = "raw";
-    config->target_arch = "x64";
+    config->target_arch = BYVAL_ARCH_X64;
     config->strategy_limit = 0; // unlimited by default
     config->max_size = 10 * 1024 * 1024; // 10MB default max
     config->timeout_seconds = 0; // no timeout by default
@@ -234,7 +234,12 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "      --timeout SECONDS             Processing timeout (default: no timeout)\n");
     fprintf(stream, "      --dry-run                     Validate input without processing\n");
     fprintf(stream, "      --stats                       Show detailed statistics after processing\n\n");
-    
+
+    fprintf(stream, "    Architecture Options:\n");
+    fprintf(stream, "      --arch ARCH                   Target architecture\n");
+    fprintf(stream, "                                   Values: x86, x64, arm, arm64 (default: x64)\n");
+    fprintf(stream, "                                   ARM/ARM64 support is experimental\n\n");
+
     fprintf(stream, "    Output Options:\n");
     fprintf(stream, "      -o, --output FILE             Output file (alternative to positional argument)\n");
     fprintf(stream, "      --validate                    Validate output is null-byte free\n\n");
@@ -248,6 +253,9 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     
     fprintf(stream, "    With XOR encoding:\n");
     fprintf(stream, "      %s --biphasic --xor-encode 0x12345678 shellcode.bin output.bin\n\n", program_name);
+
+    fprintf(stream, "    Cross-architecture processing:\n");
+    fprintf(stream, "      %s --arch arm --bad-bytes \"00\" arm_shellcode.bin output.bin\n\n", program_name);
 
     fprintf(stream, "    Generate position-independent code:\n");
     fprintf(stream, "      %s --pic shellcode.bin output.bin\n\n", program_name);
@@ -487,11 +495,18 @@ int parse_arguments(int argc, char *argv[], byvalver_config_t *config) {
                         }
                     }
                     else if (strcmp(opt_name, "arch") == 0) {
-                        config->target_arch = optarg;
-                        // Validate architecture
-                        if (strcmp(optarg, "x86") != 0 && strcmp(optarg, "x64") != 0) {
+                        // Parse architecture string to enum
+                        if (strcmp(optarg, "x86") == 0) {
+                            config->target_arch = BYVAL_ARCH_X86;
+                        } else if (strcmp(optarg, "x64") == 0) {
+                            config->target_arch = BYVAL_ARCH_X64;
+                        } else if (strcmp(optarg, "arm") == 0) {
+                            config->target_arch = BYVAL_ARCH_ARM;
+                        } else if (strcmp(optarg, "arm64") == 0 || strcmp(optarg, "aarch64") == 0) {
+                            config->target_arch = BYVAL_ARCH_ARM64;
+                        } else {
                             fprintf(stderr, "Error: Invalid target architecture: %s\n", optarg);
-                            fprintf(stderr, "Valid architectures: x86, x64\n");
+                            fprintf(stderr, "Valid architectures: x86, x64, arm, arm64\n");
                             return EXIT_INVALID_ARGUMENTS;
                         }
                     }

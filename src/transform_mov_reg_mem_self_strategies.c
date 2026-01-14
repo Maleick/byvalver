@@ -178,7 +178,8 @@ strategy_t transform_mov_reg_mem_self_strategy = {
     .can_handle = can_handle_transform_mov_reg_mem_self,
     .get_size = get_size_transform_mov_reg_mem_self,
     .generate = generate_transform_mov_reg_mem_self,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_transform_mov_reg_mem_self_strategy() {

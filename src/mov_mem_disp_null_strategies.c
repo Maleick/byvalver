@@ -100,7 +100,8 @@ strategy_t mov_mem_disp_null_strategy = {
     .can_handle = can_handle_mov_mem_disp_null,
     .get_size = get_size_mov_mem_disp_null,
     .generate = generate_mov_mem_disp_null,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_mov_mem_disp_null_strategy() {

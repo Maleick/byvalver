@@ -79,7 +79,8 @@ void register_bitwise_immediate_badbyte_strategies(void) {
         .can_handle = can_handle_bitwise_imm_bad,
         .get_size = get_size_bitwise_imm_bad,
         .generate = generate_bitwise_imm_bad,
-        .priority = 86
+        .priority = 86,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy);
 }

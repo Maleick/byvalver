@@ -22,7 +22,8 @@ strategy_t advanced_string_operation_strategy = {
     .can_handle = can_handle_advanced_string_operation,
     .get_size = get_size_advanced_string_operation,
     .generate = generate_advanced_string_operation,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // Helper function to check if an instruction has bad bytes in its encoding

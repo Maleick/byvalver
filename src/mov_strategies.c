@@ -41,7 +41,8 @@ strategy_t mov_original_strategy = {
     .can_handle = can_handle_mov_original,
     .get_size = get_size_mov_original,
     .generate = generate_mov_original,
-    .priority = 10
+    .priority = 10,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with NEG strategy - FIXED to check operand types
@@ -123,7 +124,8 @@ strategy_t mov_neg_strategy = {
     .can_handle = can_handle_mov_neg,
     .get_size = get_size_mov_neg,
     .generate = generate_mov_neg,
-    .priority = 13
+    .priority = 13,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with NOT strategy - FIXED
@@ -174,7 +176,8 @@ strategy_t mov_not_strategy = {
     .can_handle = can_handle_mov_not,
     .get_size = get_size_mov_not,
     .generate = generate_mov_not,
-    .priority = 12
+    .priority = 12,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with XOR strategy - FIXED
@@ -237,7 +240,8 @@ strategy_t mov_xor_strategy = {
     .can_handle = can_handle_mov_xor,
     .get_size = get_size_mov_xor,
     .generate = generate_mov_xor,
-    .priority = 6
+    .priority = 6,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with shift strategy - FIXED
@@ -372,7 +376,8 @@ strategy_t mov_shift_strategy = {
     .can_handle = can_handle_mov_shift,
     .get_size = get_size_mov_shift,
     .generate = generate_mov_shift,
-    .priority = 7
+    .priority = 7,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with ADD/SUB strategy - FIXED
@@ -483,7 +488,8 @@ strategy_t mov_addsub_strategy = {
     .can_handle = can_handle_mov_addsub,
     .get_size = get_size_mov_addsub,
     .generate = generate_mov_addsub,
-    .priority = 11
+    .priority = 11,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // MOV with arithmetic equivalent - REMOVED (redundant with addsub)

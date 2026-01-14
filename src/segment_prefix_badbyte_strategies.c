@@ -43,7 +43,8 @@ void register_segment_prefix_badbyte_strategies(void) {
         .can_handle = can_handle_segment_prefix_bad,
         .get_size = get_size_segment_prefix_bad,
         .generate = generate_segment_prefix_bad,
-        .priority = 81
+        .priority = 81,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy);
 }

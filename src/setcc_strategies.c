@@ -113,7 +113,8 @@ strategy_t setcc_modrm_null_bypass_strategy = {
     .can_handle = can_handle_setcc_modrm_null,
     .get_size = get_size_setcc_modrm_null,
     .generate = generate_setcc_modrm_null,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================
@@ -221,7 +222,8 @@ strategy_t setcc_conditional_mov_strategy = {
     .can_handle = can_handle_setcc_conditional_mov,
     .get_size = get_size_setcc_conditional_mov,
     .generate = generate_setcc_conditional_mov,
-    .priority = 70
+    .priority = 70,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 // ============================================================================

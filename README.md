@@ -9,8 +9,9 @@
 <div align="center">
   <img src="https://img.shields.io/badge/C-%2300599C.svg?style=for-the-badge&logo=c&logoColor=white" alt="C">
   <img src="https://img.shields.io/badge/shellcode-scrubbing-%238300FF.svg?style=for-the-badge" alt="shellcode scrubbing">
-  <img src="https://img.shields.io/badge/cross--platform-windows%20%7C%20linux%20%7C%20macOS-%230071C5.svg?style=for-the-badge" alt="cross-platform">
-  <img src="https://img.shields.io/badge/build-clean-%23000000.svg?style=for-the-badge" alt="build clean">
+   <img src="https://img.shields.io/badge/cross--platform-windows%20%7C%20linux%20%7C%20macOS-%230071C5.svg?style=for-the-badge" alt="cross-platform">
+   <img src="https://img.shields.io/badge/Architectures-x86%7Cx64%7CARM%7CARM64-%230071C5.svg?style=for-the-badge" alt="architectures">
+   <img src="https://img.shields.io/badge/build-clean-%23000000.svg?style=for-the-badge" alt="build clean">
   <a href="https://github.com/sponsors/umpolungfish"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=github-sponsors&logoColor=white" alt="sponsor on gitHub"></a>
   <a href="https://ko-fi.com/umpolungfish"><img src="https://img.shields.io/badge/ko--fi-support-%23FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="support on ko-fi"></a>
 </div>
@@ -40,7 +41,14 @@
 
 ## Overview
 
-`byvalver` is a CLI tool built in `C` for automatically eliminating (or **"banishing"**) `bad-bytes` from x86/x64 shellcode while maintaining complete functional equivalence  
+`byvalver` is a CLI tool built in `C` for automatically eliminating (or **"banishing"**) `bad-bytes` from x86/x64/ARM/ARM64 shellcode while maintaining complete functional equivalence
+
+**🔥 NEW in v4.0: Cross-Architecture Support**
+- **x86** (32-bit Intel/AMD): Full production support (150+ strategies)
+- **x64** (64-bit Intel/AMD): Full production support (150+ strategies) - default
+- **ARM** (32-bit): Experimental support (7 core strategies implemented)
+- **ARM64** (AArch64): Framework ready (basic strategies implemented)
+- Automatic Capstone mode selection via `--arch` flag  
 
 The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 153+ ranked transformation strategies to replace `bad-byte`-containing code with equivalent alternatives  
 
@@ -138,6 +146,35 @@ python3 verify_denulled.py --bad-bytes "00,0a,0d" output.bin
 # Verify functional equivalence
 python3 verify_functionality.py input.bin output.bin
 ```
+
+### CROSS-ARCHITECTURE SUPPORT
+
+`byvalver` supports multiple architectures via the `--arch` flag:
+
+**x86 (32-bit Intel/AMD)** - Fully supported with 150+ strategies
+```bash
+byvalver --arch x86 --bad-bytes "00" x86_shellcode.bin output.bin
+```
+
+**x64 (64-bit Intel/AMD)** - Fully supported (default)
+```bash
+byvalver --arch x64 --bad-bytes "00,0a,0d" x64_shellcode.bin output.bin
+```
+
+**ARM (32-bit)** - Experimental support with basic strategies
+```bash
+byvalver --arch arm --bad-bytes "00" arm_shellcode.bin output.bin
+```
+
+**ARM64 (AArch64)** - Experimental support with basic strategies
+```bash
+byvalver --arch arm64 --bad-bytes "00,0a" arm64_shellcode.bin output.bin
+```
+
+**Notes:**
+- ARM/ARM64 support focuses on core instructions (MOV, arithmetic, loads/stores)
+- Use simpler bad-byte profiles for ARM (e.g., null-byte only)
+- Automatic architecture detection is planned for future releases
 
 ### BATCH PROCESSING
 
@@ -460,7 +497,7 @@ For detailed profile documentation, see [docs/BAD_BYTE_PROFILES.md](docs/BAD_BYT
 > This success rate applies specifically to null-byte (`\x00`) elimination, which has been extensively tested and optimized.
 
 ### ADVANCED TRANSFORMATION ENGINE
-163+ strategy implementations covering virtually all common null-byte sources and general bad-byte patterns (multiple new strategy families added in v3.0, v3.6, v3.7, and v3.8):
+163+ strategy implementations covering virtually all common null-byte sources and general bad-byte patterns (multiple new strategy families added in v3.0, v3.6, v3.7, v3.8, and v4.0):
 - `CALL/POP` and stack-based immediate loading
 - `PEB` traversal with hashed API resolution
 - Advanced hash-based API resolution with complex algorithms
@@ -497,14 +534,20 @@ For detailed profile documentation, see [docs/BAD_BYTE_PROFILES.md](docs/BAD_BYT
 - **NEW in v3.7**: Segment register bad-byte detection (FS/GS prefix detection)
 - **NEW in v3.8**: Profile-aware SIB generation system (eliminates hardcoded 0x20 SIB byte)
 - **NEW in v3.8**: Critical fixes for conditional jump handling and partial register optimization
-- **NEW in v3.9**: Polymorphic NOP insertion with multiple NOP equivalents
-- **NEW in v3.9**: Constant unfolding for immediate value obfuscation
-- **NEW in v3.9**: Register renaming obfuscation with XCHG patterns
-- **NEW in v3.9**: Stack spill obfuscation for arithmetic operations
-- **NEW in v3.9**: Instruction reordering with NOP insertion
-- **NEW in v3.9**: Runtime self-modification strategy (basic implementation)
-- **NEW in v3.9**: Overlapping instruction generation
-- Comprehensive support for `MOV`, `ADD/SUB`, `XOR`, `LEA`, `CMP`, `PUSH`, and more
+ - **NEW in v3.9**: Polymorphic NOP insertion with multiple NOP equivalents
+ - **NEW in v3.9**: Constant unfolding for immediate value obfuscation
+ - **NEW in v3.9**: Register renaming obfuscation with XCHG patterns
+ - **NEW in v3.9**: Stack spill obfuscation for arithmetic operations
+ - **NEW in v3.9**: Instruction reordering with NOP insertion
+ - **NEW in v3.9**: Runtime self-modification strategy (basic implementation)
+ - **NEW in v3.9**: Overlapping instruction generation
+ - **NEW in v4.0**: ARM/ARM64 cross-architecture support with Capstone dynamic mode selection
+ - **NEW in v4.0**: ARM immediate encoding with MVN transformations
+ - **NEW in v4.0**: ARM MOV strategies (original, MVN-based null avoidance)
+ - **NEW in v4.0**: ARM arithmetic strategies (ADD with SUB transformations)
+ - **NEW in v4.0**: ARM memory strategies (LDR/STR pass-through)
+ - **NEW in v4.0**: ARM branch strategies (B/BL pass-through)
+ - Comprehensive support for `MOV`, `ADD/SUB`, `XOR`, `LEA`, `CMP`, `PUSH`, and more
 
 The engine employs multi-pass processing (obfuscation → denulling) with robust fallback mechanisms for edge cases
 

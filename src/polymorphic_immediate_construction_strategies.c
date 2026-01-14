@@ -336,7 +336,8 @@ static strategy_t polymorphic_immediate_xor_strategy = {
     .can_handle = can_handle_polymorphic_immediate_xor,
     .get_size = get_size_polymorphic_immediate_xor,
     .generate = generate_polymorphic_immediate_xor,
-    .priority = 90
+    .priority = 90,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t polymorphic_immediate_add_sub_strategy = {
@@ -344,7 +345,8 @@ static strategy_t polymorphic_immediate_add_sub_strategy = {
     .can_handle = can_handle_polymorphic_immediate_add_sub,
     .get_size = get_size_polymorphic_immediate_add_sub,
     .generate = generate_polymorphic_immediate_add_sub,
-    .priority = 89
+    .priority = 89,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t polymorphic_immediate_shift_or_strategy = {
@@ -352,7 +354,8 @@ static strategy_t polymorphic_immediate_shift_or_strategy = {
     .can_handle = can_handle_polymorphic_immediate_shift_or,
     .get_size = get_size_polymorphic_immediate_shift_or,
     .generate = generate_polymorphic_immediate_shift_or,
-    .priority = 88
+    .priority = 88,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_polymorphic_immediate_construction_strategies(void) {

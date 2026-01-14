@@ -86,5 +86,6 @@ strategy_t peb_api_hashing_strategy = {
     .can_handle = can_handle_peb_api_hashing,
     .get_size = get_size_peb_api_hashing,
     .generate = generate_peb_api_hashing,
-    .priority = 95
+    .priority = 95,
+    .target_arch = BYVAL_ARCH_X86
 };

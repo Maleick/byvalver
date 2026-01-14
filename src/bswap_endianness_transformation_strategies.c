@@ -152,5 +152,6 @@ strategy_t bswap_endianness_transformation_strategy = {
     .can_handle = can_handle_bswap_endianness_transformation,
     .get_size = get_size_bswap_endianness_transformation,
     .generate = generate_bswap_endianness_transformation,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };

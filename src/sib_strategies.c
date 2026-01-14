@@ -342,7 +342,8 @@ static strategy_t sib_null_strategy = {
     .can_handle = can_handle_sib_null,
     .get_size = get_size_sib_null,
     .generate = generate_sib_null,
-    .priority = 65
+    .priority = 65,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 /* Registration function */

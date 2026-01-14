@@ -173,5 +173,6 @@ strategy_t loop_comprehensive_strategy = {
     .can_handle = can_handle_loop_comprehensive,
     .get_size = get_size_loop_comprehensive,
     .generate = generate_loop_comprehensive,
-    .priority = 79
+    .priority = 79,
+    .target_arch = BYVAL_ARCH_X86
 };

@@ -142,7 +142,8 @@ static strategy_t arpl_modrm_null_strategy = {
     .can_handle = can_handle_arpl_modrm_null,
     .get_size = get_size_arpl_modrm_null,
     .generate = generate_arpl_modrm_null,
-    .priority = 75
+    .priority = 75,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 /* Registration function */

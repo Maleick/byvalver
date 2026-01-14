@@ -195,7 +195,8 @@ void register_reg_to_reg_badbyte_strategies(void) {
         .can_handle = can_handle_mov_reg_reg_bad_opcode,
         .get_size = get_size_mov_reg_reg_bad_opcode,
         .generate = generate_mov_reg_reg_bad_opcode,
-        .priority = 90
+        .priority = 90,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_mov_reg_reg);
 
@@ -204,7 +205,8 @@ void register_reg_to_reg_badbyte_strategies(void) {
         .can_handle = can_handle_xchg_reg_reg_bad_opcode,
         .get_size = get_size_xchg_reg_reg_bad_opcode,
         .generate = generate_xchg_reg_reg_bad_opcode,
-        .priority = 90
+        .priority = 90,
+    .target_arch = BYVAL_ARCH_X86
     };
     register_strategy(&strategy_xchg_reg_reg);
 }

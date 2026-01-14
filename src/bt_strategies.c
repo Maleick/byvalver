@@ -119,7 +119,8 @@ strategy_t bt_imm_null_strategy = {
     .can_handle = can_handle_bt_imm_null,
     .get_size = get_size_bt_imm_null,
     .generate = generate_bt_imm_null,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_bt_strategies() {

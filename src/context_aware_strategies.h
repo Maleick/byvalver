@@ -14,8 +14,8 @@
 void register_context_aware_strategies();
 
 /* Context-aware strategy selection function */
-strategy_t** get_context_aware_strategies_for_instruction(cs_insn *insn, int *count, 
+strategy_t** get_context_aware_strategies_for_instruction(cs_insn *insn, int *count,
                                                         struct instruction_node *current_node,
-                                                        struct instruction_node *head);
+                                                        struct instruction_node *head, byval_arch_t arch);
 
 #endif /* CONTEXT_AWARE_STRATEGIES_H */

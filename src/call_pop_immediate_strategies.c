@@ -99,5 +99,6 @@ strategy_t call_pop_immediate_strategy = {
     .can_handle = can_handle_call_pop_immediate,
     .get_size = get_size_call_pop_immediate,
     .generate = generate_call_pop_immediate,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };

@@ -283,7 +283,8 @@ static strategy_t syscall_number_al_load_strategy = {
     .can_handle = can_handle_syscall_number_al_load,
     .get_size = get_size_syscall_number_al_load,
     .generate = generate_syscall_number_al_load,
-    .priority = 88
+    .priority = 88,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t syscall_number_push_pop_strategy = {
@@ -291,7 +292,8 @@ static strategy_t syscall_number_push_pop_strategy = {
     .can_handle = can_handle_syscall_number_push_pop,
     .get_size = get_size_syscall_number_push_pop,
     .generate = generate_syscall_number_push_pop,
-    .priority = 87
+    .priority = 87,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t syscall_number_lea_strategy = {
@@ -299,7 +301,8 @@ static strategy_t syscall_number_lea_strategy = {
     .can_handle = can_handle_syscall_number_lea,
     .get_size = get_size_syscall_number_lea,
     .generate = generate_syscall_number_lea,
-    .priority = 86
+    .priority = 86,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 static strategy_t syscall_number_inc_chain_strategy = {
@@ -307,7 +310,8 @@ static strategy_t syscall_number_inc_chain_strategy = {
     .can_handle = can_handle_syscall_number_inc_chain,
     .get_size = get_size_syscall_number_inc_chain,
     .generate = generate_syscall_number_inc_chain,
-    .priority = 85
+    .priority = 85,
+    .target_arch = BYVAL_ARCH_X86
 };
 
 void register_syscall_number_obfuscation_strategies(void) {

@@ -113,5 +113,6 @@ strategy_t lea_arithmetic_substitution_strategy = {
     .can_handle = can_handle_lea_arithmetic_substitution,
     .get_size = get_size_lea_arithmetic_substitution,
     .generate = generate_lea_arithmetic_substitution,
-    .priority = 80
+    .priority = 80,
+    .target_arch = BYVAL_ARCH_X86
 };

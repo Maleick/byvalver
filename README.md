@@ -48,7 +48,14 @@
 - **x64** (64-bit Intel/AMD): Full production support (150+ strategies) - default
 - **ARM** (32-bit): Experimental support (7 core strategies implemented)
 - **ARM64** (AArch64): Framework ready (basic strategies implemented)
-- Automatic Capstone mode selection via `--arch` flag  
+- Automatic Capstone mode selection via `--arch` flag
+
+**🛠️ v4.0.1 Bug Fixes:**
+- Fixed ARM SUB instruction encoding (correct opcode 0x2 with I=1 bit)
+- Fixed ARM64 strategy `can_handle` logic for pass-through strategies
+- Added experimental warnings when ARM/ARM64 architecture is selected
+- Added architecture mismatch detection heuristics
+- Improved code organization (includes moved to file scope)
 
 The tool uses the `Capstone` disassembly framework to analyze instructions and applies over 153+ ranked transformation strategies to replace `bad-byte`-containing code with equivalent alternatives  
 
@@ -174,6 +181,8 @@ byvalver --arch arm64 --bad-bytes "00,0a" arm64_shellcode.bin output.bin
 **Notes:**
 - ARM/ARM64 support focuses on core instructions (MOV, arithmetic, loads/stores)
 - Use simpler bad-byte profiles for ARM (e.g., null-byte only)
+- Experimental warnings are displayed when ARM/ARM64 is selected
+- Basic architecture mismatch detection warns if shellcode appears to be wrong architecture
 - Automatic architecture detection is planned for future releases
 
 ### BATCH PROCESSING

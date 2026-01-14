@@ -1,254 +1,168 @@
-feat: Implement comprehensive cross-architecture support for x86/x64/ARM/ARM64 (v4.0)
+fix: Critical bug fixes for ARM/ARM64 cross-architecture support (v4.0.1)
 
 PROBLEM STATEMENT
 =================
 
-BYVALVER was limited to x86/x64 architectures only, preventing analysis of shellcode
-targeting ARM-based systems (mobile devices, embedded systems, IoT devices). The
-architecture flag (--arch) was accepted but completely ignored, with hardcoded x86
-mode in Capstone disassembly and x86-only strategies throughout the codebase.
+Code review of the v4.0 cross-architecture implementation identified several bugs
+and code quality issues that could cause incorrect behavior or confusion when
+processing ARM/ARM64 shellcode:
+
+1. ARM64 `can_handle` logic was inverted - pass-through strategy returned true for
+   instructions WITH bad bytes instead of clean instructions
+2. ARM SUB instruction encoding used wrong opcode (0xE0400000 instead of 0xE2400000)
+3. #include directives placed inside function body (unconventional, potential issues)
+4. No warnings for experimental ARM/ARM64 support
+5. No detection of potential architecture mismatch
 
 SOLUTION
 ========
 
-Implemented complete cross-architecture support enabling BYVALVER to process shellcode
-for multiple CPU architectures with proper Capstone mode selection and architecture-
-specific bad-byte elimination strategies.
-
-Key Components Implemented:
-
-1. **Type-Safe Architecture Infrastructure**
-   - Added `byval_arch_t` enum with x86/x64/ARM/ARM64 support
-   - Implemented `get_capstone_arch_mode()` for dynamic Capstone configuration
-   - Updated CLI parsing to accept `--arch x86|x64|arm|arm64` with validation
-   - Set x64 as backward-compatible default
-
-2. **Core Function Threading**
-   - Updated all core processing functions with `byval_arch_t arch` parameter
-   - Replaced hardcoded CS_MODE_32 with dynamic Capstone mode selection
-   - Threaded architecture parameter through remove_null_bytes, apply_obfuscation,
-     biphasic_process, adaptive_processing, and count_shellcode_stats
-
-3. **Strategy System Architecture Awareness**
-   - Added `target_arch` field to `strategy_t` struct for architecture filtering
-   - Implemented architecture-aware strategy filtering (only loads relevant strategies)
-   - Conditional strategy registration based on target architecture
-   - Bulk updated 139 strategy files with x86 target architecture field
-
-4. **ARM Strategy Implementation**
-   - Created ARM infrastructure files (arm_*.h/.c) with immediate encoding helpers
-   - Implemented 7 core ARM strategies:
-     - arm_mov_original: Pass-through clean MOV instructions
-     - arm_mov_mvn: MOV → MVN transformation for bad-byte avoidance
-     - arm_add_original: Pass-through clean ADD instructions
-     - arm_add_sub: ADD → SUB transformation with negative immediates
-     - arm_ldr_original: Pass-through clean LDR instructions
-     - arm_str_original: Pass-through clean STR instructions
-     - arm_branch_original: Pass-through clean B/BL instructions
-   - ARM immediate encoding with MVN transformations for null-byte avoidance
-   - Basic ARM64 strategy framework with mov_original strategy
-
-5. **Testing & Validation**
-   - Created comprehensive test suite for ARM functionality
-   - Validated Capstone ARM mode selection and disassembly
-   - Tested ARM immediate encoding/decoding with MVN transformations
-   - Verified cross-architecture strategy filtering (x86 vs ARM isolation)
-   - ARM strategy logic tested with null-byte avoidance scenarios
-
-6. **Documentation & UX**
-   - Updated CLI help text with architecture options and examples
-   - Added architecture status messages during processing
-   - Updated README with cross-architecture examples and ARM strategy details
-   - Created test ARM shellcode binary for validation
+Implemented targeted fixes for all identified issues while maintaining backward
+compatibility and clean build status.
 
 CHANGES MADE
 ============
 
-Core Infrastructure (12 files):
-- src/core.h: Added byval_arch_t enum and get_capstone_arch_mode() declaration
-- src/core.c: Implemented Capstone mode selector and updated core functions
-- src/cli.h: Added architecture enum and updated config struct
-- src/cli.c: Updated CLI parsing and validation for --arch flag
-- src/main.c: Added architecture status messages and threaded parameters
+1. **Fixed ARM64 can_handle Logic** (src/arm64_strategies.c:17-22)
+   - BEFORE: `return !is_bad_byte_free_buffer(...)` - returned true when BAD bytes present
+   - AFTER:  `return is_bad_byte_free_buffer(...)` - returns true when instruction is CLEAN
+   - Impact: ARM64 pass-through strategy now correctly handles clean instructions only
 
-Strategy System (142 files):
-- src/strategy.h: Added target_arch field to strategy_t struct
-- src/strategy_registry.c: Implemented architecture-aware strategy registration
-- src/*_strategies.c (139 files): Added .target_arch = BYVAL_ARCH_X86 field
+2. **Fixed ARM SUB Instruction Encoding** (src/arm_strategies.c:199-202)
+   - BEFORE: `0xE0400000` - incorrect (I=0, opcode=EOR)
+   - AFTER:  `0xE2400000` - correct (I=1, opcode=SUB=0x2)
+   - Encoding breakdown:
+     - Bits 31-28: 1110 (0xE = AL condition)
+     - Bit 25: 1 (I = immediate operand)
+     - Bits 24-21: 0010 (SUB opcode = 0x2)
+     - Bit 20: 0 (S = don't set flags)
+   - Updated comment to correctly document the encoding
 
-ARM Support (6 new files):
-- src/arm_immediate_encoding.h/.c: ARM immediate encoding with MVN transformations
-- src/arm_strategies.h/.c: 7 core ARM strategies with bad-byte avoidance
-- src/arm64_strategies.h/.c: Basic ARM64 strategy framework
+3. **Moved Includes to File Scope** (src/strategy_registry.c:65-66)
+   - BEFORE: `#include "arm_strategies.h"` inside `init_strategies()` function body
+   - AFTER: Includes at file scope with other headers
+   - Removed duplicate includes from inside conditional blocks
+   - Follows C best practices for header inclusion
 
-Testing (4 files):
-- test_arch_parsing.c: CLI architecture parsing validation
-- test_arm_simple.c: Capstone ARM mode and disassembly testing
-- test_arm_encoding.c: ARM immediate encoding/decoding validation
-- test_arm_strategies.c: ARM strategy logic and transformation testing
-- test_cross_arch.c: Cross-architecture strategy filtering verification
+4. **Added Experimental Architecture Warnings** (src/main.c:193-205)
+   - ARM: "WARNING: ARM support is EXPERIMENTAL - Only 7 core strategies implemented"
+   - ARM64: "WARNING: ARM64 support is EXPERIMENTAL - Only basic pass-through strategies"
+   - Advises users to use simpler bad-byte profiles for ARM
 
-Documentation (2 files):
-- README.md: Updated with cross-architecture support details and examples
-- commit.txt: This implementation documentation
+5. **Added Architecture Mismatch Detection** (src/main.c:207-237)
+   - Heuristic checks for common x86/x64 patterns (PUSH EBP, REX.W prefix, SUB ESP)
+   - Heuristic checks for ARM patterns (4-byte alignment, condition code in MSB)
+   - Warns user if shellcode appears to be wrong architecture
+   - Non-blocking warning - processing continues but user is informed
 
-IMPACT AND RESULTS
-==================
+6. **Version Bump** (src/cli.h:18-22)
+   - Updated from v4.0.0 to v4.0.1
+   - Updated version string constant
 
-Architecture Support Matrix:
----------------------------
-- **x86** (32-bit): ✅ Production ready (139 strategies, 100% backward compatible)
-- **x64** (64-bit): ✅ Production ready (139 strategies, default architecture)
-- **ARM** (32-bit): ✅ Experimental (7 strategies, functional bad-byte elimination)
-- **ARM64** (AArch64): ✅ Framework (1 strategy, ready for expansion)
-
-Bad-Byte Elimination Capabilities:
----------------------------------
-- **x86/x64**: Complete null-byte and multi-byte elimination (unchanged)
-- **ARM**: Null-byte elimination with MVN transformations and arithmetic alternatives
-- **ARM64**: Framework ready for immediate encoding and transformation strategies
-
-Performance Characteristics:
----------------------------
-- **Overhead**: Minimal (<1% for x86/x64, ~5% for ARM due to simpler strategy set)
-- **Memory**: No significant increase (architecture field adds ~4 bytes per strategy)
-- **Compatibility**: 100% backward compatible - existing usage unchanged
-
-Build Quality:
--------------
-- ✅ Zero compilation errors on all files
-- ✅ Zero compilation warnings (except expected unused parameter)
-- ✅ Clean build with all new ARM files integrated
-- ✅ Cross-platform compatibility maintained
-
-Validation Results:
-------------------
-- ✅ Architecture parsing: x86/x64/arm/arm64 correctly recognized
-- ✅ Capstone mode selection: Dynamic CS_MODE_32/64/ARM/LITTLE_ENDIAN
-- ✅ Strategy filtering: x86 strategies isolated from ARM strategies
-- ✅ ARM disassembly: Correct instruction parsing and operand extraction
-- ✅ ARM encoding: Immediate values properly encoded with rotation/MVN
-- ✅ ARM strategies: MOV/MVN transformations avoid null bytes successfully
-
-TECHNICAL DETAILS
-=================
-
-Architecture Enum Design:
-------------------------
-```c
-typedef enum {
-    BYVAL_ARCH_X86 = 0,     // 32-bit Intel/AMD
-    BYVAL_ARCH_X64 = 1,     // 64-bit Intel/AMD
-    BYVAL_ARCH_X64 = 2,     // 32-bit ARM
-    BYVAL_ARCH_ARM64 = 3    // 64-bit ARM (AArch64)
-} byval_arch_t;
-```
-
-Capstone Mode Selection:
------------------------
-- x86 → CS_ARCH_X86 + CS_MODE_32
-- x64 → CS_ARCH_X86 + CS_MODE_64
-- ARM → CS_ARCH_ARM + CS_MODE_ARM
-- ARM64 → CS_ARCH_ARM64 + CS_MODE_LITTLE_ENDIAN
-
-ARM Immediate Encoding:
-----------------------
-- 8-bit value rotated right by even amounts (0-30 bits)
-- MVN (bitwise NOT) transformations for values that can't be directly encoded
-- Example: MOV R0, #0xFF stays as-is; MOV R0, #0 → MVN R0, #0xFFFFFF00
-
-Strategy Architecture Filtering:
--------------------------------
-- Each strategy tagged with target_arch field
-- get_strategies_for_instruction() filters by architecture before can_handle()
-- Ensures only compatible strategies evaluated for each target architecture
+7. **Documentation Updates** (README.md)
+   - Added v4.0.1 bug fixes section in overview
+   - Updated cross-architecture notes with warning information
+   - Documented architecture mismatch detection feature
 
 FILES CHANGED
 =============
 
-New Files (6):
-- src/arm_immediate_encoding.h/.c
-- src/arm_strategies.h/.c
-- src/arm64_strategies.h/.c
+Modified Files (5):
+- src/arm64_strategies.c: Fixed can_handle boolean logic
+- src/arm_strategies.c: Fixed ARM SUB instruction encoding
+- src/strategy_registry.c: Moved includes to file scope
+- src/main.c: Added experimental warnings and mismatch detection
+- src/cli.h: Version bump to 4.0.1
+- README.md: Updated documentation with v4.0.1 changes
 
-Modified Files (12):
-- src/core.h: Added enum and function declarations
-- src/core.c: Implemented Capstone selector, updated core functions
-- src/cli.h: Added architecture enum, updated config struct
-- src/cli.c: Updated CLI parsing and validation
-- src/main.c: Added architecture status messages
-- src/strategy.h: Added target_arch field to strategy_t
-- src/strategy_registry.c: Architecture-aware registration and filtering
-- README.md: Updated with cross-architecture support
-- src/cli.h: Version bumped to 4.0.0
+TECHNICAL DETAILS
+=================
 
-Bulk Modified (139):
-- src/*_strategies.c: Added .target_arch = BYVAL_ARCH_X86 field
+ARM SUB Encoding Fix:
+--------------------
+ARM data processing instruction format (32-bit):
+```
+31-28: Condition (0xE = AL = always execute)
+27-26: 00 (data processing)
+   25: I (1 = immediate operand, 0 = register)
+24-21: Opcode (0010 = SUB, 0100 = ADD, 1111 = MVN, etc.)
+   20: S (1 = set flags, 0 = don't set)
+19-16: Rn (first operand register)
+15-12: Rd (destination register)
+ 11-0: Operand2 (shifter operand / immediate)
 
-Test Files (4):
-- test_arch_parsing.c, test_arm_simple.c, test_arm_encoding.c, test_cross_arch.c
+SUB Rd, Rn, #imm encoding:
+1110 0010 0100 NNNN DDDD iiii iiii iiii = 0xE24_____
+```
+
+ARM64 can_handle Fix:
+--------------------
+Pass-through strategies should only handle instructions that are ALREADY clean
+(no bad bytes). The `is_bad_byte_free_buffer()` function returns:
+- true: if buffer contains NO bad bytes (clean)
+- false: if buffer contains ANY bad bytes
+
+For pass-through: `can_handle` should return true when instruction is clean,
+so we use `is_bad_byte_free_buffer()` directly without negation.
+
+Architecture Mismatch Heuristics:
+--------------------------------
+x86/x64 indicators:
+- 0x55: PUSH EBP/RBP (common function prologue)
+- 0x48: REX.W prefix (x64 64-bit operand)
+- 0x83 0xEC: SUB ESP, imm8 (stack allocation)
+
+ARM indicators:
+- File size divisible by 4 (ARM instructions are 4 bytes)
+- Condition code 0xE in MSB of first instruction (AL = always)
+
+IMPACT
+======
+
+Bug Severity Assessment:
+-----------------------
+- ARM64 can_handle: HIGH - would cause incorrect strategy selection
+- ARM SUB encoding: HIGH - would generate incorrect machine code
+- Include placement: LOW - code style issue, worked but unconventional
+- Missing warnings: MEDIUM - user experience improvement
+- Missing detection: LOW - convenience feature
+
+Risk Assessment:
+---------------
+- x86/x64 processing: NO CHANGE - fully backward compatible
+- ARM processing: IMPROVED - correct SUB encoding
+- ARM64 processing: IMPROVED - correct pass-through behavior
 
 TESTING
 =======
 
 Build Verification:
-------------------
-- make clean && make → Success (0 errors, 1 expected warning)
-- All ARM files compile and integrate correctly
+- make clean && make: SUCCESS (0 errors)
+- All modified files compile without warnings
 - No breaking changes to existing functionality
 
-Functionality Testing:
----------------------
-- Architecture parsing: ./test_arch_parsing --arch arm → "arm"
-- Capstone ARM mode: Correct disassembly of MOV/ADD instructions
-- ARM encoding: Immediate values encoded with proper rotation/MVN
-- Strategy filtering: x86 and ARM strategies properly isolated
-- ARM transformations: MOV R0, #0 → MVN R0, #0xFFFFFF00 (null avoidance)
-
-Integration Testing:
--------------------
-- Core processing pipeline accepts architecture parameter
-- Strategy system loads architecture-appropriate strategies
-- Capstone dynamically switches modes based on --arch flag
-- Backward compatibility maintained (default x64 behavior)
-
-RELATED WORK
-============
-
-Complements Previous Versions:
-- v3.0: Generic bad-byte elimination framework
-- v3.6: Advanced strategies and performance improvements
-- v3.7: Conditional jump and register transfer strategies
-- v3.8: Profile-aware SIB system and critical bug fixes
-- v3.9: Complete obfuscation strategy suite
-
-Extends Capabilities:
-- Multi-architecture shellcode analysis
-- ARM mobile/IoT device shellcode support
-- Cross-platform exploit development research
+Manual Testing:
+- ARM SUB encoding verified against ARM Architecture Reference Manual
+- ARM64 can_handle logic verified with test cases
+- Warning messages display correctly for ARM/ARM64
+- Mismatch detection triggers appropriately
 
 CONCLUSION
 ==========
 
-v4.0 introduces groundbreaking cross-architecture support to BYVALVER, transforming it
-from an x86/x64-only tool into a comprehensive multi-architecture shellcode analysis
-platform. The implementation provides solid foundations for ARM/ARM64 processing while
-maintaining full backward compatibility and performance.
+v4.0.1 addresses critical bugs in the ARM/ARM64 cross-architecture support
+introduced in v4.0. The ARM SUB encoding fix ensures correct machine code
+generation, and the ARM64 can_handle fix ensures correct strategy selection.
 
-Key achievements:
-- Complete architecture abstraction with type-safe enums
-- Dynamic Capstone integration across all architectures
-- Architecture-aware strategy system with clean isolation
-- Functional ARM bad-byte elimination with MVN transformations
-- Comprehensive testing and validation suite
-- Clean build with zero errors and minimal warnings
+Additional improvements include user-facing warnings for experimental features
+and basic architecture mismatch detection to help users avoid configuration
+errors.
 
-The modular design ensures easy expansion to additional architectures (MIPS, RISC-V,
-PowerPC) and enhanced ARM/ARM64 strategy coverage in future versions.
+All fixes maintain full backward compatibility with existing x86/x64 usage.
 
 VERSION
 =======
 
-BYVALVER v4.0.0 (2026-01-13)
+BYVALVER v4.0.1 (2026-01-13)
 
-Cross-architecture support milestone achieved.
+Critical bug fixes for cross-architecture support.

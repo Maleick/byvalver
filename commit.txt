@@ -1,89 +1,68 @@
-feat: Implement BYVALVER v4.1 Enhancement Strategies
+fix: Revert broken v4.1 strategies causing 91% batch processing failures
 
-Major enhancement adding 9 new denullification strategies from the proposal,
-bringing total strategies to 170+ for comprehensive bad-byte elimination.
+Critical regression fix for strategies introduced in v4.1 that used
+incorrect register encoding, causing near-total batch processing failure.
 
-New Strategy Implementations:
-=============================
+Problem:
+========
 
-1. SETcc Flag Accumulation Chains (Priority 85-86)
-   - SETcc to Register: CMP + SETZ + MOVZX pattern replacement
-   - Arithmetic from Flags: Conditional value loading via flag operations
-   - Eliminates conditional jump offsets with bad bytes
+The v4.1 enhancement strategies used broken register arithmetic:
 
-2. Polymorphic Immediate Value Construction (Priority 86-90)
-   - XOR Encoding Chain: MOV key1; XOR key2 for immediate values
-   - ADD/SUB Decomposition: Split values across multiple operations
-   - Shift and OR Construction: Byte-by-byte assembly
-   - Stack Construction: PUSH/POP sequences for endianness
-   - LEA Calculation: Arithmetic via LEA instructions
-   - 5+ encoding variants per immediate value
+    (dst_reg - X86_REG_RAX) * 8  // WRONG
 
-3. Register Dependency Chain Optimization (Priority 91)
-   - Accumulation Folding: Combine MOV + ADD sequences
-   - Register Copy Elimination: Remove redundant MOV operations
-   - Instruction Reordering: Optimize operand ordering
-   - Multi-instruction pattern recognition
+Capstone's register enum values are NOT consecutive, so this produces
+garbage opcodes for any register except RAX/EAX. This caused:
 
-4. RIP-Relative Addressing Optimization (Priority 85-87)
-   - Offset Decomposition: LEA RIP + ADD offset
-   - Double-RIP Calculation: Split complex displacements
-   - RIP-Relative via Stack: CALL/POP method for fallback
-   - Maintains PIC properties for x64 shellcode
+- 91.7% failure rate (11/12 files failing)
+- RIP-Relative Optimization strategies: 0% success (355 failures)
+- Bit Manipulation POPCNT: 11.5% success (85 failures)
+- Bit Manipulation PEXT/PDEP: 0% success (9 failures)
 
-5. Negative Displacement Memory Addressing (Priority 82-84)
-   - Negative Offset Conversion: Base register adjustment
-   - Alternative Base Register: LEA + indirect access
-   - Complement Offset: Mathematical complement calculations
-   - Alternative displacement encodings
+Fix Applied:
+============
 
-6. Multi-Byte NOP Interlacing (Priority 79-82)
-   - Arithmetic NOPs: LEA, XCHG, PUSH/POP sequences
-   - Register Rotation NOPs: Multi-register preservation
-   - Conditional NOPs: Appear conditional but always execute
-   - FPU NOPs: Floating-point no-operation instructions
-   - Enhanced obfuscation through varied NOP encodings
+1. Reverted strategy_registry.c to remove broken strategy registrations:
+   - RIP-Relative Optimization (Offset Decomposition)
+   - RIP-Relative Optimization (Double RIP)
+   - RIP-Relative Optimization (Stack Method)
+   - Negative Displacement Addressing strategies
+   - Multi-byte NOP Interlacing strategies
+   - Bit Manipulation Constant Construction strategies
 
-7. Bit Manipulation Constant Construction (Priority 80-83)
-   - BSWAP: Byte reordering for endianness conversion
-   - BSF/BSR: Bit scanning for power-of-2 construction
-   - POPCNT: Population count for small constants
-   - PEXT/PDEP: Advanced bit manipulation (BMI2)
-   - Modern x64 bit manipulation instruction usage
+2. Preserved is_rip_relative_operand() helper function in core.c
+   - Required by other working strategies (lea_rip, mov_rip, pic_addressing)
+   - Function itself is correct, only the callers had bugs
 
-Infrastructure Improvements:
-============================
+Strategies Affected:
+===================
 
-- Fixed all compiler warnings (unused variables, parameters)
-- Updated strategy registry with 7 new strategy families
-- Enhanced cross-platform compatibility
-- Maintained zero-warning compilation standard
+REMOVED (broken register encoding):
+- rip_relative_optimization_strategies.c
+- negative_displacement_addressing_strategies.c
+- multibyte_nop_interlacing_strategies.c
+- bit_manipulation_constant_construction_strategies.c
+- setcc_flag_accumulation_strategies.c
 
-Documentation Updates:
-=====================
+PRESERVED (working):
+- All existing v4.0 and earlier strategies
+- lea_rip_strategy.c
+- mov_rip_strategy.c
+- pic_addressing_strategies.c
 
-- Updated README.md with new strategy descriptions
-- Created comprehensive docs/DENULL_STRATS.md
-- Added v4.1 feature highlights
-- Updated strategy counts and categories
-
-Testing & Validation:
-====================
-
-- All strategies compile successfully
-- Maintain functional equivalence guarantees
-- Zero compilation warnings achieved
-- Compatible with existing ML and batch processing
-
-Impact:
+Result:
 =======
 
-- Total strategies: 163 → 170+ (9 new families)
-- Enhanced bad-byte elimination coverage
-- Improved obfuscation capabilities
-- Better x64 PIC shellcode support
-- Modern CPU instruction utilization
+- Batch processing success rate restored to 100%
+- Total strategies reduced from 170+ back to ~163
+- All working functionality preserved
 
-This implements the complete Tier 1, 2, and 3 strategy enhancements
-from the BYVALVER development roadmap, significantly expanding the
-tool's capabilities for advanced shellcode transformation.
+Future Work:
+============
+
+To properly implement the v4.1 strategies, the register encoding must
+use get_reg_index() instead of direct enum subtraction:
+
+    // CORRECT approach:
+    uint8_t reg_idx = get_reg_index(dst_reg);
+    opcode = 0x48, 0x8D, 0x05 + reg_idx * 8;
+

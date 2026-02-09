@@ -39,15 +39,53 @@
 
 <hr>
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick-Start](#quick-start)
+  - [Installation](#installation)
+  - [Basic Usage](#basic-usage)
+  - [Verification](#verification)
+  - [Cross-Architecture Support](#cross-architecture-support)
+  - [Batch Processing](#batch-processing)
+- [Interactive TUI](#interactive-tui)
+- [Targeted Bad-Byte Banishment](#targeted-bad-byte-banishment)
+- [Bad-Byte Profiles](#bad-byte-profiles)
+- [Features](#features)
+  - [Advanced Transformation Engine](#advanced-transformation-engine)
+  - [Performance Metrics](#performance-metrics)
+  - [Obfuscation Layer](#obfuscation-layer)
+  - [ML-Powered Strategy Selection](#ml-powered-strategy-selection)
+  - [Output Options](#output-options)
+  - [Verification Suite](#verification-suite)
+- [Architecture](#architecture)
+- [System Requirements](#system-requirements)
+- [Dependencies](#dependencies)
+- [Building](#building)
+- [Installation](#installation-1)
+- [Usage](#usage)
+- [Obfuscation Strategies](#obfuscation-strategies)
+- [Denullification Strategies](#denullification-strategies)
+- [ML Training & Validation](#ml-training--validation)
+- [Development](#development)
+- [Documentation](#documentation)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
+<hr>
+
 ## Overview
 
 `byvalver` is a CLI tool built in `C` for automatically eliminating (or **"banishing"**) `bad-bytes` from x86/x64/ARM/ARM64 shellcode while maintaining complete functional equivalence
 
 **NEW in v4.0: Cross-Architecture Support**
-- **x86** (32-bit Intel/AMD): Full production support (150+ strategies)
-- **x64** (64-bit Intel/AMD): Full production support (150+ strategies) - default
-- **ARM** (32-bit): Experimental support (7 core strategies implemented)
-- **ARM64** (AArch64): Framework ready (basic strategies implemented)
+
+| Architecture | Maturity | Strategies | Notes |
+|---|---|---|---|
+| **x86** (32-bit Intel/AMD) | Stable v4.2 | 150+ | Production-tested, full coverage |
+| **x64** (64-bit Intel/AMD) | Stable v4.2 | 150+ | Default architecture, production-tested |
+| **ARM** (32-bit) | Experimental v0.1 | 7 core | Limited testing, core instructions only |
+| **ARM64** (AArch64) | Experimental v0.1 | Basic | Framework ready, minimal strategies |
 - Automatic Capstone mode selection via `--arch` flag
 
 **v4.0.1 Bug Fixes:**
@@ -689,6 +727,9 @@ Zero-Attempt:            5                   █░░░░░░░░░░�
 - VM detection techniques
 
 ### ML-POWERED STRATEGY SELECTION
+
+> **Maturity: Beta v2.0** — Trained on null-byte elimination datasets. Needs retraining for generic bad-byte use cases.
+
 **Architecture**:
 - **One-hot instruction encoding** (51 dims) replaces scalar instruction IDs
 - **Context window** with sliding buffer of 4 instructions (current + 3 previous)
@@ -1108,9 +1149,29 @@ cat ml_metrics.log
 ## DEVELOPMENT
 
 - Modern `C` with modularity
-- Test suite: `python3 test_all_bins.py`
-- Code style: Clang-Format
+- Test suite: `bash tests/run_tests.sh` (see [tests/README.md](tests/README.md))
+- Code style: Clang-Format (config: [.clang-format](.clang-format)), run `make format`
 - Analysis: Cppcheck, Valgrind
+- Docker: `docker build -t byvalver .` (see [Dockerfile](Dockerfile))
+- Contributing: See [CONTRIBUTING.md](CONTRIBUTING.md)
+- Roadmap: See [ROADMAP.md](ROADMAP.md)
+
+## DOCUMENTATION
+
+Full documentation is available in the [docs/](docs/) directory:
+
+| Document | Description |
+|---|---|
+| [docs/USAGE.md](docs/USAGE.md) | Comprehensive usage guide with examples |
+| [docs/BUILD.md](docs/BUILD.md) | Build instructions and platform-specific notes |
+| [docs/TUI_README.md](docs/TUI_README.md) | Interactive TUI documentation |
+| [docs/DENULL_STRATS.md](docs/DENULL_STRATS.md) | Denullification strategy catalog |
+| [docs/OBFUSCATION_STRATS.md](docs/OBFUSCATION_STRATS.md) | Obfuscation technique documentation |
+| [docs/BAD_BYTE_PROFILES.md](docs/BAD_BYTE_PROFILES.md) | Bad-byte profile reference |
+| [docs/BADBYTEELIM_STRATS.md](docs/BADBYTEELIM_STRATS.md) | Extended elimination strategies |
+| [docs/STRATEGY_HIERARCHY.md](docs/STRATEGY_HIERARCHY.md) | Strategy organization and priority |
+| [docs/ADVANCED_STRATEGIES.md](docs/ADVANCED_STRATEGIES.md) | Advanced transformation techniques |
+| [docs/WHITEPAPER.md](docs/WHITEPAPER.md) | Technical whitepaper |
 
 ## TROUBLESHOOTING
 

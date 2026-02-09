@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make nasm xxd pkg-config libcapstone-dev libncurses-dev python3
+
+      - name: Check dependencies
+        run: make check-deps
+
+      - name: Build
+        run: make
+
+      - name: Verify executable
+        run: |
+          test -x bin/byvalver
+          bin/byvalver --help
+          bin/byvalver --version
+
+      - name: Run test suite
+        run: bash tests/run_tests.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: byvalver-linux-x64
+          path: bin/byvalver

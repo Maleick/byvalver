@@ -1,0 +1,13 @@
+# byvalver verification tool dependencies
+#
+# The verification scripts (verify_denulled.py, verify_functionality.py,
+# verify_semantic.py) use only Python standard library modules.
+#
+# Minimum Python version: 3.6+
+#
+# System tool dependencies (used by verify_functionality.py):
+#   - objdump (from binutils) — for shellcode disassembly validation
+#
+# No pip packages required. This file exists to document the Python
+# environment requirements and serve as a placeholder for future
+# dependencies.

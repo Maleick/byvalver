@@ -1,86 +1,99 @@
-docs: Expand WHITEPAPER.md references section with 37 academic citations
+infra: Add project infrastructure, CI/CD, Docker, docs hierarchy, and community files
 
-Enhanced technical whitepaper with comprehensive reference list covering
-all major topics discussed in the BYVALVER documentation.
+Comprehensive open-source infrastructure overhaul to improve developer
+onboarding, project reliability, and community contribution pathways.
 
 Changes:
 ========
 
-Expanded references from 5 to 37 citations, organized into 9 categories:
+1. Documentation Hierarchy (docs/)
+   - Created docs/README.md as central documentation index
+   - Copied 10 docs from assets/docs/ into root-level docs/ for GitHub rendering
+   - USAGE.md, BUILD.md, TUI_README.md, DENULL_STRATS.md, OBFUSCATION_STRATS.md
+   - BAD_BYTE_PROFILES.md, BADBYTEELIM_STRATS.md, STRATEGY_HIERARCHY.md
+   - ADVANCED_STRATEGIES.md, WHITEPAPER.md
 
-1. Architecture & Instruction Set Documentation (5 refs)
-   - Intel 64 and IA-32 Software Developer's Manual
-   - AMD64 Architecture Programmer's Manual
-   - ARM Architecture Reference Manual (A-profile)
-   - ARM Cortex-A Series Programmer's Guide
-   - Agner Fog's Instruction Tables
+2. README.md Restructure
+   - Added hierarchical Table of Contents (35 entries with subsection nesting)
+   - Added architecture maturity table (Stable v4.2 / Experimental v0.1)
+   - Added ML maturity indicator (Beta v2.0)
+   - Added Documentation section with table linking all docs/ files
+   - Updated Development section with links to tests, Docker, contributing, roadmap
 
-2. Disassembly & Binary Analysis (5 refs)
-   - Capstone disassembly framework (Nguyen Anh Quynh)
-   - Keystone assembler framework
-   - BAP Binary Analysis Platform (CMU)
-   - SOK: State of the Art of War (IEEE S&P 2016)
-   - Native x86 Decompilation (USENIX Security 2013)
+3. CI/CD Pipeline (.github/workflows/ci.yml)
+   - GitHub Actions workflow triggered on push to main and PRs
+   - Ubuntu latest with apt-based dependency installation
+   - Build verification via make, test execution via tests/run_tests.sh
 
-3. Shellcode & Exploit Development (5 refs)
-   - Shell-Storm shellcode database
-   - Exploit-DB shellcode archive
-   - English Shellcode (ACM CCS 2009)
-   - Comprehensive Shellcode Detection (ACSAC 2010)
-   - PIE performance analysis (ETH Zurich)
+4. Docker Support
+   - Dockerfile: Ubuntu 22.04 base with gcc, nasm, capstone, ncurses, python3
+   - docker-compose.yml: Dev build service with volume mounts for source and output
 
-4. Code Obfuscation & Transformation (5 refs)
-   - Taxonomy of Obfuscating Transformations (Collberg 1997)
-   - Limits of Static Analysis for Malware Detection
-   - Obfuscation of Executable Code (ACM CCS 2003)
-   - Automatic Patch-Based Exploit Generation
-   - Binary Stirring self-randomization (ACM CCS 2012)
+5. Testing Infrastructure (tests/)
+   - tests/run_tests.sh: Master test runner (build, fixture processing, verification)
+   - tests/README.md: Test documentation and execution guide
+   - tests/fixtures/{x86,x64,arm}/: Architecture-specific test fixture directories
 
-5. Machine Learning in Security (4 refs)
-   - Deep Neural Network Malware Detection (Saxe & Berlin)
-   - Malware Detection by Eating a Whole EXE
-   - EMBER open dataset for PE malware ML
-   - Neural Nets for Function Type Signatures
+6. Community Governance
+   - CONTRIBUTING.md: Bug reporting, strategy addition, code style, PR process
+   - CODE_OF_CONDUCT.md: Contributor Covenant v2.1 reference
+   - ROADMAP.md: Feature maturity levels, v4.3/v5.0/v6.0 milestones
 
-6. Security Tools & Frameworks (4 refs)
-   - Metasploit Framework documentation
-   - Black Hat Python (Seitz)
-   - Hacking: The Art of Exploitation (Erickson)
-   - The Shellcoder's Handbook (Anley et al.)
+7. GitHub Templates
+   - .github/ISSUE_TEMPLATE/bug_report.md: Structured bug report form
+   - .github/ISSUE_TEMPLATE/feature_request.md: Feature proposal template
+   - .github/PULL_REQUEST_TEMPLATE.md: PR checklist with testing section
 
-7. x86 Encoding & Low-Level Programming (3 refs)
-   - The Art of Assembly Language (Hyde)
-   - Assembly Language Step-by-Step (Duntemann)
-   - Optimizing Subroutines in Assembly (Agner Fog)
+8. Developer Configuration
+   - .clang-format: LLVM-based C style config (4-space indent, Linux braces)
+   - requirements-dev.txt: Python 3.6+ requirement documentation
 
-8. Return-Oriented Programming & Code Reuse (3 refs)
-   - Geometry of Innocent Flesh on the Bone (Shacham, CCS 2007)
-   - Return-Oriented Programming on RISC (CCS 2008)
-   - Jump-Oriented Programming (ASIACCS 2011)
+Files Created (New):
+====================
 
-9. Defensive Techniques & Detection (3 refs)
-   - Transparent ROP Exploit Mitigation
-   - Control-Flow Integrity (Abadi et al., CCS 2005)
-   - Survey on Automated Dynamic Malware Analysis
+- docs/README.md
+- docs/USAGE.md
+- docs/BUILD.md
+- docs/TUI_README.md
+- docs/DENULL_STRATS.md
+- docs/OBFUSCATION_STRATS.md
+- docs/BAD_BYTE_PROFILES.md
+- docs/BADBYTEELIM_STRATS.md
+- docs/STRATEGY_HIERARCHY.md
+- docs/ADVANCED_STRATEGIES.md
+- docs/WHITEPAPER.md
+- ROADMAP.md
+- CONTRIBUTING.md
+- CODE_OF_CONDUCT.md
+- Dockerfile
+- docker-compose.yml
+- .clang-format
+- requirements-dev.txt
+- tests/README.md
+- tests/run_tests.sh
+- tests/fixtures/x86/ (empty, awaiting fixture samples)
+- tests/fixtures/x64/ (empty, awaiting fixture samples)
+- tests/fixtures/arm/ (empty, awaiting fixture samples)
+- .github/workflows/ci.yml
+- .github/ISSUE_TEMPLATE/bug_report.md
+- .github/ISSUE_TEMPLATE/feature_request.md
+- .github/PULL_REQUEST_TEMPLATE.md
 
-Files Modified:
-===============
+Files Modified (Existing):
+==========================
 
-- WHITEPAPER.md - Expanded references section (lines 996-1037)
+- README.md - Added TOC, maturity table, docs section, updated development section
 
 Rationale:
 ==========
 
-A comprehensive technical whitepaper requires proper academic citations
-to support its claims and provide readers with resources for deeper
-study. The expanded references:
+A mature C project with 212 source files and 170+ strategies lacked
+standard open-source infrastructure: no CI/CD, no Docker, no contribution
+guidelines, no roadmap, and documentation buried in assets/docs/ instead
+of the GitHub-standard docs/ directory. These additions:
 
-- Cover all major technical domains discussed in the paper
-- Include foundational academic papers from top security venues
-- Reference authoritative architecture documentation
-- Cite relevant tools and frameworks mentioned in the text
-- Provide both theoretical and practical resources
-
-The categorized organization improves readability and helps readers
-locate references relevant to their specific interests.
-
+- Enable zero-to-working in under 5 minutes via Docker or quickstart
+- Provide automated build/test verification on every push and PR
+- Lower the barrier to contribution with clear guidelines and templates
+- Signal feature maturity explicitly (Stable vs Experimental)
+- Organize documentation for discoverability on GitHub

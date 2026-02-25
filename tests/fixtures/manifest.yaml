@@ -23,6 +23,15 @@ fixtures:
     ci_representative: true
     profiles: null-only
 
+  - fixture_id: rep-arm-addsub-split
+    arch: arm
+    path: assets/tests/test_bins/arm_addsub_split.bin
+    expected_outcome: transformed_without_bad_bytes
+    owner: phase-03
+    notes: Deterministic ARM arithmetic fixture for ADD/SUB immediate split rewrite regressions.
+    ci_representative: true
+    profiles: null-only
+
   - fixture_id: rep-x64-xor-output
     arch: x64
     path: assets/tests/xor_output.bin

@@ -60,6 +60,28 @@ int find_arm_mvn_immediate(uint32_t target, uint32_t *mvn_val_out) {
     return 0;
 }
 
+int find_arm_addsub_split_immediate(uint32_t target, uint32_t *part1_out, uint32_t *part2_out) {
+    if (!part1_out || !part2_out) {
+        return 0;
+    }
+    if (target == 0 || is_arm_immediate_encodable(target)) {
+        return 0;
+    }
+
+    for (uint32_t part1 = 1; part1 < target; part1++) {
+        uint32_t part2 = target - part1;
+        if (!is_bad_byte_free(part1) || !is_bad_byte_free(part2)) {
+            continue;
+        }
+        if (is_arm_immediate_encodable(part1) && is_arm_immediate_encodable(part2)) {
+            *part1_out = part1;
+            *part2_out = part2;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 uint8_t get_arm_reg_index(arm_reg reg) {
     switch (reg) {
         case ARM_REG_R0: return 0;
@@ -187,6 +209,18 @@ void test_arm_strategies() {
             uint32_t result = *(uint32_t*)output.data;
             printf("Generated instruction: 0x%08X\n", result);
             printf("Has bad bytes: %d\n", !is_bad_byte_free(result));
+        }
+    }
+
+    // Split-immediate helper smoke check (target selected for non-trivial split)
+    {
+        uint32_t split_part1 = 0;
+        uint32_t split_part2 = 0;
+        uint32_t split_target = 0x123;
+        int can_split = find_arm_addsub_split_immediate(split_target, &split_part1, &split_part2);
+        printf("find_arm_addsub_split_immediate(0x%X): %d\n", split_target, can_split);
+        if (can_split) {
+            printf("split parts: 0x%X + 0x%X = 0x%X\n", split_part1, split_part2, split_part1 + split_part2);
         }
     }
 

@@ -677,6 +677,10 @@ static strategy_t arm_branch_original_strategy = {
 /**
  * Strategy: ARM branch conditional alternative
  * Transform B<cond> target -> B<invcond> skip ; B<cond> target
+ *
+ * Phase 3 scope guard:
+ * - branch-first conditional alternatives only
+ * - predicated ALU/memory conditional rewrites are deferred
  */
 static int can_handle_arm_branch_conditional_alt(cs_insn *insn) {
     uint32_t raw_instruction;
@@ -685,7 +689,7 @@ static int can_handle_arm_branch_conditional_alt(cs_insn *insn) {
     uint32_t skip_instruction, branch_instruction;
     extern bad_byte_context_t g_bad_byte_context;
 
-    if (insn->id != ARM_INS_B) return 0;
+    if (insn->id != ARM_INS_B) return 0;  // branch-first only (no BL/predicated ALU or memory)
     if (insn->size < 4) return 0;
     if (insn->detail->arm.op_count != 1 || insn->detail->arm.operands[0].type != ARM_OP_IMM) {
         return 0;
@@ -789,6 +793,7 @@ void register_arm_memory_strategies(void) {
 }
 
 void register_arm_jump_strategies(void) {
+    // Keep Phase 3 conditional scope branch-first; broader conditional families are deferred.
     register_strategy(&arm_branch_conditional_alt_strategy);
     register_strategy(&arm_branch_original_strategy);
 }

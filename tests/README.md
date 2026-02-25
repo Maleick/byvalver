@@ -64,6 +64,16 @@ Suggested triage order:
 2. Open the corresponding raw log (`verify-...log`) for the failed fixture/check pair.
 3. Reproduce locally with `bash tests/run_tests.sh --mode verify-denulled|verify-equivalence --arch <arch>`.
 
+## ARM Conditional Scope (Phase 3)
+
+Phase 3 ARM conditional rewrites are intentionally limited to branch-first alternatives.
+Covered scope is conditional `B<cond>` rewrite variants that preserve target and fall-through semantics.
+
+Deferred scope in this phase:
+- Predicated ALU conditional rewrites.
+- Predicated memory conditional rewrites.
+- Broader non-branch conditional families beyond branch-first alternatives.
+
 ## Test Categories
 
 ### Build Verification

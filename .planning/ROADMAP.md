@@ -59,9 +59,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Implement and test ADD/SUB immediate splitting rewrite paths.
-- [ ] 03-02: Implement and test LDR/STR displacement rewrite paths.
-- [ ] 03-03: Implement conditional-instruction alternative strategy set with regression fixtures.
+- [x] 03-01: Implement and test ADD/SUB immediate splitting rewrite paths.
+- [x] 03-02: Implement and test LDR/STR displacement rewrite paths.
+- [x] 03-03: Implement conditional-instruction alternative strategy set with regression fixtures.
 
 ### Phase 4: ARM Diagnostic Safety Nets
 **Goal**: ARM transformation outcomes are safer through correct branch handling and clearer diagnostics.
@@ -100,6 +100,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. CI Foundation and Fixture Canonicalization | 3/3 | Complete    | 2026-02-25 |
 | 2. Verification Automation and Reporting | 3/3 | Complete    | 2026-02-25 |
-| 3. ARM Strategy Expansion | 0/3 | Complete    | 2026-02-25 |
+| 3. ARM Strategy Expansion | 3/3 | Complete   | 2026-02-25 |
 | 4. ARM Diagnostic Safety Nets | 0/2 | Not started | - |
 | 5. Reproducible Release Gate | 0/2 | Not started | - |

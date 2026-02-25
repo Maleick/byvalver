@@ -453,6 +453,194 @@ static strategy_t arm_str_original_strategy = {
     .target_arch = BYVAL_ARCH_ARM
 };
 
+/**
+ * Strategy: ARM LDR displacement split
+ * Transform LDR Rd, [Rn, #disp] -> ADD/SUB Rd, Rn, #pre ; LDR Rd, [Rd, #residual]
+ */
+static int can_handle_arm_ldr_displacement_split(cs_insn *insn) {
+    int32_t displacement, pre_adjust, residual;
+    uint32_t pre_magnitude;
+    uint8_t pre_opcode, cond, rd, rn;
+    uint32_t instruction1, instruction2;
+    extern bad_byte_context_t g_bad_byte_context;
+
+    if (insn->id != ARM_INS_LDR) return 0;
+    if (insn->detail->arm.op_count != 2) return 0;
+    if (insn->detail->arm.writeback) return 0;  // conservative scope
+    if (insn->detail->arm.operands[0].type != ARM_OP_REG ||
+        insn->detail->arm.operands[1].type != ARM_OP_MEM) {
+        return 0;
+    }
+    if (!arm_has_bad_bytes(insn, &g_bad_byte_context.config)) {
+        return 0;
+    }
+
+    displacement = (int32_t)insn->detail->arm.operands[1].mem.disp;
+    if (displacement == 0) return 0;
+
+    rd = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].mem.base);
+    if (rd == rn) return 0;  // avoid clobbering base in same register case
+
+    if (!plan_arm_displacement_rewrite(displacement, &pre_adjust, &residual, &pre_magnitude, &pre_opcode)) {
+        return 0;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    if (!encode_arm_dp_immediate(cond, pre_opcode, rn, rd, pre_magnitude, 0, &instruction1)) return 0;
+    if (!encode_arm_ldr_str_immediate(cond, 1, rd, rd, residual, &instruction2)) return 0;
+
+    return is_bad_byte_free(instruction1) && is_bad_byte_free(instruction2);
+}
+
+static size_t get_size_arm_ldr_displacement_split(cs_insn *insn) {
+    (void)insn;
+    return 8;
+}
+
+static void generate_arm_ldr_displacement_split(struct buffer *b, cs_insn *insn) {
+    int32_t displacement, pre_adjust, residual;
+    uint32_t pre_magnitude;
+    uint8_t pre_opcode, cond, rd, rn;
+    uint32_t instruction1, instruction2;
+
+    displacement = (int32_t)insn->detail->arm.operands[1].mem.disp;
+    rd = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].mem.base);
+    if (rd == rn) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    if (!plan_arm_displacement_rewrite(displacement, &pre_adjust, &residual, &pre_magnitude, &pre_opcode)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    if (!encode_arm_dp_immediate(cond, pre_opcode, rn, rd, pre_magnitude, 0, &instruction1) ||
+        !encode_arm_ldr_str_immediate(cond, 1, rd, rd, residual, &instruction2) ||
+        !is_bad_byte_free(instruction1) ||
+        !is_bad_byte_free(instruction2)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    buffer_append(b, (uint8_t*)&instruction1, 4);
+    buffer_append(b, (uint8_t*)&instruction2, 4);
+}
+
+static strategy_t arm_ldr_displacement_split_strategy = {
+    .name = "arm_ldr_displacement_split",
+    .can_handle = can_handle_arm_ldr_displacement_split,
+    .get_size = get_size_arm_ldr_displacement_split,
+    .generate = generate_arm_ldr_displacement_split,
+    .priority = 14,
+    .target_arch = BYVAL_ARCH_ARM
+};
+
+/**
+ * Strategy: ARM STR displacement split with scratch register preservation
+ * Transform STR Rt, [Rn, #disp] ->
+ *   ADD/SUB R12, Rn, #pre
+ *   STR Rt, [R12, #residual]
+ *   SUB/ADD R12, R12, #pre
+ */
+static int can_handle_arm_str_displacement_split(cs_insn *insn) {
+    int32_t displacement, pre_adjust, residual;
+    uint32_t pre_magnitude;
+    uint8_t pre_opcode, restore_opcode, cond, rt, rn;
+    uint32_t instruction1, instruction2, instruction3;
+    const uint8_t scratch = 12;  // R12/IP
+    extern bad_byte_context_t g_bad_byte_context;
+
+    if (insn->id != ARM_INS_STR) return 0;
+    if (insn->detail->arm.op_count != 2) return 0;
+    if (insn->detail->arm.writeback) return 0;  // conservative scope
+    if (insn->detail->arm.operands[0].type != ARM_OP_REG ||
+        insn->detail->arm.operands[1].type != ARM_OP_MEM) {
+        return 0;
+    }
+    if (!arm_has_bad_bytes(insn, &g_bad_byte_context.config)) {
+        return 0;
+    }
+
+    displacement = (int32_t)insn->detail->arm.operands[1].mem.disp;
+    if (displacement == 0) return 0;
+
+    rt = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].mem.base);
+    if (rt == scratch || rn == scratch) {
+        return 0;
+    }
+
+    if (!plan_arm_displacement_rewrite(displacement, &pre_adjust, &residual, &pre_magnitude, &pre_opcode)) {
+        return 0;
+    }
+
+    restore_opcode = (pre_opcode == 0x4) ? 0x2 : 0x4;
+    cond = arm_condition_from_insn(insn);
+
+    if (!encode_arm_dp_immediate(cond, pre_opcode, rn, scratch, pre_magnitude, 0, &instruction1)) return 0;
+    if (!encode_arm_ldr_str_immediate(cond, 0, scratch, rt, residual, &instruction2)) return 0;
+    if (!encode_arm_dp_immediate(cond, restore_opcode, scratch, scratch, pre_magnitude, 0, &instruction3)) return 0;
+
+    return is_bad_byte_free(instruction1) &&
+           is_bad_byte_free(instruction2) &&
+           is_bad_byte_free(instruction3);
+}
+
+static size_t get_size_arm_str_displacement_split(cs_insn *insn) {
+    (void)insn;
+    return 12;
+}
+
+static void generate_arm_str_displacement_split(struct buffer *b, cs_insn *insn) {
+    int32_t displacement, pre_adjust, residual;
+    uint32_t pre_magnitude;
+    uint8_t pre_opcode, restore_opcode, cond, rt, rn;
+    uint32_t instruction1, instruction2, instruction3;
+    const uint8_t scratch = 12;
+
+    displacement = (int32_t)insn->detail->arm.operands[1].mem.disp;
+    rt = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].mem.base);
+    if (rt == scratch || rn == scratch) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    if (!plan_arm_displacement_rewrite(displacement, &pre_adjust, &residual, &pre_magnitude, &pre_opcode)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    restore_opcode = (pre_opcode == 0x4) ? 0x2 : 0x4;
+    cond = arm_condition_from_insn(insn);
+    if (!encode_arm_dp_immediate(cond, pre_opcode, rn, scratch, pre_magnitude, 0, &instruction1) ||
+        !encode_arm_ldr_str_immediate(cond, 0, scratch, rt, residual, &instruction2) ||
+        !encode_arm_dp_immediate(cond, restore_opcode, scratch, scratch, pre_magnitude, 0, &instruction3) ||
+        !is_bad_byte_free(instruction1) ||
+        !is_bad_byte_free(instruction2) ||
+        !is_bad_byte_free(instruction3)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    buffer_append(b, (uint8_t*)&instruction1, 4);
+    buffer_append(b, (uint8_t*)&instruction2, 4);
+    buffer_append(b, (uint8_t*)&instruction3, 4);
+}
+
+static strategy_t arm_str_displacement_split_strategy = {
+    .name = "arm_str_displacement_split",
+    .can_handle = can_handle_arm_str_displacement_split,
+    .get_size = get_size_arm_str_displacement_split,
+    .generate = generate_arm_str_displacement_split,
+    .priority = 14,
+    .target_arch = BYVAL_ARCH_ARM
+};
+
 // ============================================================================
 // ARM Branch Strategies
 // ============================================================================
@@ -505,6 +693,8 @@ void register_arm_arithmetic_strategies(void) {
 void register_arm_memory_strategies(void) {
     register_strategy(&arm_ldr_original_strategy);
     register_strategy(&arm_str_original_strategy);
+    register_strategy(&arm_ldr_displacement_split_strategy);
+    register_strategy(&arm_str_displacement_split_strategy);
 }
 
 void register_arm_jump_strategies(void) {

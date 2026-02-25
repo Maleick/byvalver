@@ -118,7 +118,7 @@ SRCS = $(filter-out $(EXCLUDE_FILES), $(ALL_SRCS))
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))
 
 # Phony targets
-.PHONY: all clean clean-all info test ci-baseline debug release train generate generate-x86 generate-dry agent-setup
+.PHONY: all clean clean-all info test ci-baseline release-gate debug release train generate generate-x86 generate-dry agent-setup
 
 # Default target
 all: decoder.h $(BIN_DIR)/$(TARGET)
@@ -231,6 +231,18 @@ ci-baseline:
 		bash tests/run_tests.sh --mode baseline --arch all --verbose; \
 	else \
 		bash tests/run_tests.sh --mode baseline --arch all; \
+	fi
+
+RELEASE_GATE_ARTIFACTS ?= ci-artifacts/release-gate
+
+release-gate:
+	@echo "[RELEASE-GATE] Running strict release gate checks..."
+	@$(MAKE) check-deps
+	@mkdir -p "$(RELEASE_GATE_ARTIFACTS)"
+	@if [ "$(VERBOSE)" = "1" ]; then \
+		bash tests/run_tests.sh --mode release-gate --arch all --artifacts-dir "$(RELEASE_GATE_ARTIFACTS)" --verbose; \
+	else \
+		bash tests/run_tests.sh --mode release-gate --arch all --artifacts-dir "$(RELEASE_GATE_ARTIFACTS)"; \
 	fi
 
 # Check dependencies

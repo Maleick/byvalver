@@ -23,7 +23,13 @@ first. Expected outcomes and ownership are tracked in `tests/fixtures/manifest.y
 ## Running Tests
 
 ```bash
-# Run the full test suite
+# Canonical CI-parity local baseline path
+make ci-baseline
+
+# Verbose CI-parity baseline output
+VERBOSE=1 make ci-baseline
+
+# Run the full test suite directly
 bash tests/run_tests.sh
 
 # Run individual verification scripts from the project root
@@ -31,6 +37,9 @@ python3 verify_denulled.py output.bin
 python3 verify_functionality.py input.bin output.bin
 python3 verify_semantic.py input.bin output.bin
 ```
+
+The canonical contributor baseline runbook is documented in
+`docs/CONTRIBUTOR_BASELINE.md`.
 
 ## Test Categories
 

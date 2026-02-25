@@ -82,6 +82,23 @@ The build process follows this sequence:
 3. **Source Compilation**: All C source files in `src/` are compiled to object files
 4. **Linking**: Object files are linked together with Capstone library to create the final executable
 
+### CI-Parity Contributor Baseline
+
+Use this command to run the same local baseline gate sequence expected by CI:
+
+```bash
+make ci-baseline
+```
+
+For full command output during troubleshooting:
+
+```bash
+VERBOSE=1 make ci-baseline
+```
+
+See `docs/CONTRIBUTOR_BASELINE.md` for baseline behavior, expected outputs, and
+troubleshooting guidance.
+
 ### Build Variants
 
 #### Debug Build

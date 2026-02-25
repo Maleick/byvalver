@@ -439,7 +439,7 @@ select_profiles_for_fixture() {
 
 run_verify_denulled_mode() {
   local mode_failed=0
-  local target_arch fixture_rows fixture_row fixture_id fixture_path fixture_profiles
+  local target_arch fixture_output fixture_rows fixture_row fixture_id fixture_path fixture_profiles
   local fixture_abs safe_id output transform_log required_profiles selected_profiles
   local profile verify_log
 
@@ -451,13 +451,19 @@ run_verify_denulled_mode() {
   : > "$RESULT_ROWS_FILE"
 
   for target_arch in "${TARGET_ARCHES[@]}"; do
-    mapfile -t fixture_rows < <(manifest_representatives_for_arch "$target_arch") || {
+    fixture_output="$(manifest_representatives_for_arch "$target_arch" 2>&1)" || {
       log_fail "manifest representative selection failed for arch=$target_arch"
-      record_verify_result "verify-denulled" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "manifest representative selection failed"
+      record_verify_result "verify-denulled" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "manifest representative selection failed: $fixture_output"
       emit_arch_mode_summary "$target_arch" "verify-denulled"
       mode_failed=1
       continue
     }
+
+    fixture_rows=()
+    while IFS= read -r fixture_row; do
+      [[ -n "$fixture_row" ]] || continue
+      fixture_rows+=("$fixture_row")
+    done <<<"$fixture_output"
 
     if [[ ${#fixture_rows[@]} -eq 0 ]]; then
       log_fail "no representative fixtures found for arch=$target_arch"
@@ -545,7 +551,7 @@ functionality_arch_for() {
 
 run_verify_equivalence_mode() {
   local mode_failed=0
-  local target_arch fixture_rows fixture_row fixture_id fixture_path fixture_profiles
+  local target_arch fixture_output fixture_rows fixture_row fixture_id fixture_path fixture_profiles
   local fixture_abs safe_id output transform_log func_log sem_log func_arch
 
   echo ""
@@ -556,13 +562,19 @@ run_verify_equivalence_mode() {
   : > "$RESULT_ROWS_FILE"
 
   for target_arch in "${TARGET_ARCHES[@]}"; do
-    mapfile -t fixture_rows < <(manifest_representatives_for_arch "$target_arch") || {
+    fixture_output="$(manifest_representatives_for_arch "$target_arch" 2>&1)" || {
       log_fail "manifest representative selection failed for arch=$target_arch"
-      record_verify_result "verify-equivalence" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "manifest representative selection failed"
+      record_verify_result "verify-equivalence" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "manifest representative selection failed: $fixture_output"
       emit_arch_mode_summary "$target_arch" "verify-equivalence"
       mode_failed=1
       continue
     }
+
+    fixture_rows=()
+    while IFS= read -r fixture_row; do
+      [[ -n "$fixture_row" ]] || continue
+      fixture_rows+=("$fixture_row")
+    done <<<"$fixture_output"
 
     if [[ ${#fixture_rows[@]} -eq 0 ]]; then
       log_fail "no representative fixtures found for arch=$target_arch"
@@ -629,11 +641,25 @@ run_verify_equivalence_mode() {
   return "$mode_failed"
 }
 
+extract_embedded_summary_from_log() {
+  local log_path="$1"
+  local output_path="$2"
+
+  awk '
+    /^__GSD_PARITY_SUMMARY_BEGIN__$/ { capture=1; next }
+    /^__GSD_PARITY_SUMMARY_END__$/   { capture=0; exit }
+    capture { print }
+  ' "$log_path" > "$output_path"
+
+  [[ -s "$output_path" ]]
+}
+
 run_verify_parity_mode() {
   local mode_failed=0
-  local artifacts_root artifacts_rel host_artifacts docker_artifacts compare_artifacts docker_artifacts_rel
+  local artifacts_root host_artifacts docker_artifacts compare_artifacts
   local verify_mode target_arch host_summary docker_summary compare_json
   local host_mode_log docker_mode_log docker_build_log
+  local summary_path docker_mode_cmd
 
   echo ""
   echo "[1/1] Host-vs-Docker verification parity"
@@ -643,30 +669,27 @@ run_verify_parity_mode() {
     artifacts_root="$PROJECT_ROOT/$artifacts_root"
   fi
 
-  if [[ "$artifacts_root" != "$PROJECT_ROOT"* ]]; then
+  case "$artifacts_root" in
+    "$PROJECT_ROOT"|"$PROJECT_ROOT"/*)
+      ;;
+    *)
     log_fail "verify-parity requires --artifacts-dir under project root"
     echo "  received: $artifacts_root"
     echo "  expected prefix: $PROJECT_ROOT"
     return 1
-  fi
-
-  if [[ "$artifacts_root" == "$PROJECT_ROOT" ]]; then
-    artifacts_rel="."
-  else
-    artifacts_rel="${artifacts_root#"$PROJECT_ROOT"/}"
-  fi
+      ;;
+  esac
 
   host_artifacts="$artifacts_root/parity-host"
   docker_artifacts="$artifacts_root/parity-docker"
   compare_artifacts="$artifacts_root/parity-compare"
-  docker_artifacts_rel="$artifacts_rel/parity-docker"
 
   mkdir -p "$host_artifacts" "$docker_artifacts" "$compare_artifacts"
   resolve_target_arches
 
   if [[ ! -x "$BIN" ]]; then
     host_mode_log="$artifacts_root/parity-host-build.log"
-    if run_cmd_logged "$host_mode_log" make -C "$PROJECT_ROOT"; then
+    if run_cmd_logged "$host_mode_log" /bin/bash -lc "mkdir -p \"$PROJECT_ROOT/bin/tui\" && make -C \"$PROJECT_ROOT\""; then
       log_pass "host binary built for parity mode"
     else
       log_fail "failed to build host binary for parity mode (see $host_mode_log)"
@@ -674,55 +697,60 @@ run_verify_parity_mode() {
     fi
   fi
 
-  for verify_mode in verify-denulled verify-equivalence; do
-    host_mode_log="$artifacts_root/parity-host-${verify_mode}.log"
-    host_cmd=(bash "$PROJECT_ROOT/tests/run_tests.sh" --mode "$verify_mode" --arch "$ARCH" --artifacts-dir "$host_artifacts")
-    if [[ -n "$PROFILE_SET" ]]; then
-      host_cmd+=(--profiles "$PROFILE_SET")
-    fi
-    if [[ "$VERBOSE" -eq 1 ]]; then
-      host_cmd+=(--verbose)
-    fi
-
-    if run_cmd_logged "$host_mode_log" "${host_cmd[@]}"; then
-      log_pass "host $verify_mode completed"
-    else
-      log_fail "host $verify_mode failed (see $host_mode_log)"
-      mode_failed=1
-    fi
-  done
-
   docker_build_log="$artifacts_root/parity-docker-build.log"
-  if run_cmd_logged "$docker_build_log" docker compose run --rm -T --entrypoint /bin/bash parity -lc "make -C /workspace"; then
+  if run_cmd_logged "$docker_build_log" docker compose run --rm -T --entrypoint /bin/bash parity -lc "mkdir -p /opt/byvalver/bin/tui && make -C /opt/byvalver"; then
     log_pass "docker parity environment built project binary"
   else
     log_fail "docker parity environment build failed (see $docker_build_log)"
     mode_failed=1
   fi
 
-  for verify_mode in verify-denulled verify-equivalence; do
-    docker_mode_log="$artifacts_root/parity-docker-${verify_mode}.log"
-    docker_cmd=(docker compose run --rm -T --entrypoint /bin/bash parity tests/run_tests.sh --mode "$verify_mode" --arch "$ARCH" --artifacts-dir "$docker_artifacts_rel")
-    if [[ -n "$PROFILE_SET" ]]; then
-      docker_cmd+=(--profiles "$PROFILE_SET")
-    fi
-    if [[ "$VERBOSE" -eq 1 ]]; then
-      docker_cmd+=(--verbose)
-    fi
-
-    if run_cmd_logged "$docker_mode_log" "${docker_cmd[@]}"; then
-      log_pass "docker $verify_mode completed"
-    else
-      log_fail "docker $verify_mode failed (see $docker_mode_log)"
-      mode_failed=1
-    fi
-  done
-
   for target_arch in "${TARGET_ARCHES[@]}"; do
     for verify_mode in verify-denulled verify-equivalence; do
+      host_mode_log="$artifacts_root/parity-host-${target_arch}-${verify_mode}.log"
+      host_cmd=(bash "$PROJECT_ROOT/tests/run_tests.sh" --mode "$verify_mode" --arch "$target_arch" --artifacts-dir "$host_artifacts")
+      if [[ -n "$PROFILE_SET" ]]; then
+        host_cmd+=(--profiles "$PROFILE_SET")
+      fi
+      if [[ "$VERBOSE" -eq 1 ]]; then
+        host_cmd+=(--verbose)
+      fi
+
+      if run_cmd_logged "$host_mode_log" "${host_cmd[@]}"; then
+        log_pass "host $verify_mode completed for arch=$target_arch"
+      else
+        log_fail "host $verify_mode failed for arch=$target_arch (see $host_mode_log)"
+        mode_failed=1
+      fi
+
+      docker_mode_log="$artifacts_root/parity-docker-${target_arch}-${verify_mode}.log"
+      docker_mode_cmd="tests/run_tests.sh --mode ${verify_mode} --arch ${target_arch} --artifacts-dir /tmp/parity-docker"
+      if [[ -n "$PROFILE_SET" ]]; then
+        docker_mode_cmd+=" --profiles ${PROFILE_SET}"
+      fi
+      if [[ "$VERBOSE" -eq 1 ]]; then
+        docker_mode_cmd+=" --verbose"
+      fi
+      docker_mode_cmd+="; rc=\$?; summary=/tmp/parity-docker/summary-${target_arch}-${verify_mode}.json; if [ -f \"\$summary\" ]; then printf '__GSD_PARITY_SUMMARY_BEGIN__\n'; cat \"\$summary\"; printf '\n__GSD_PARITY_SUMMARY_END__\n'; fi; exit \$rc"
+
+      if run_cmd_logged "$docker_mode_log" docker compose run --rm -T --entrypoint /bin/bash parity -lc "$docker_mode_cmd"; then
+        log_pass "docker $verify_mode completed for arch=$target_arch"
+      else
+        log_fail "docker $verify_mode failed for arch=$target_arch (see $docker_mode_log)"
+        mode_failed=1
+      fi
+
       host_summary="$host_artifacts/summary-${target_arch}-${verify_mode}.json"
       docker_summary="$docker_artifacts/summary-${target_arch}-${verify_mode}.json"
       compare_json="$compare_artifacts/summary-${target_arch}-${verify_mode}-parity.json"
+      summary_path="$docker_artifacts/summary-${target_arch}-${verify_mode}.json"
+
+      if extract_embedded_summary_from_log "$docker_mode_log" "$summary_path"; then
+        log_pass "extracted docker summary for arch=$target_arch mode=$verify_mode"
+      else
+        log_fail "missing embedded docker summary for arch=$target_arch mode=$verify_mode (see $docker_mode_log)"
+        mode_failed=1
+      fi
 
       if python3 - "$host_summary" "$docker_summary" "$compare_json" <<'PY'
 import json
@@ -837,12 +865,14 @@ fi
 if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" || "$MODE" == "verify-parity" ]]; then
   echo ""
   echo "[1/4] Verification-mode prerequisites"
-  if verify_binary_available; then
-    :
-  else
-    echo ""
-    echo "Verification mode prerequisites failed -- cannot continue."
-    exit 1
+  if [[ "$MODE" != "verify-parity" ]]; then
+    if verify_binary_available; then
+      :
+    else
+      echo ""
+      echo "Verification mode prerequisites failed -- cannot continue."
+      exit 1
+    fi
   fi
 
   if [[ "$MODE" == "verify-parity" ]]; then

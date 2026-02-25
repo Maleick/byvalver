@@ -467,7 +467,7 @@ run_verify_denulled_mode() {
 
       safe_id="$(sanitize_name "$fixture_id")"
       output="$TMPDIR/${target_arch}_${safe_id}.bin"
-      transform_log="$ARTIFACTS_DIR/verify-${target_arch}-transform-${safe_id}.log"
+      transform_log="$ARTIFACTS_DIR/verify-${target_arch}-denulled-transform-${safe_id}.log"
 
       if run_cmd_logged "$transform_log" "$BIN" --arch "$target_arch" "$fixture_abs" "$output"; then
         log_pass "fixture_id=$fixture_id arch=$target_arch transformed"

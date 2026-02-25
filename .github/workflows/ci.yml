@@ -92,7 +92,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: baseline-${{ matrix.arch }}
+          name: verification-${{ matrix.arch }}
           path: |
             ci-artifacts/baseline-${{ matrix.arch }}.log
             ci-artifacts/verify-denulled-${{ matrix.arch }}.log
@@ -108,7 +108,7 @@ jobs:
           {
             echo "## Baseline (${{ matrix.arch }})"
             echo "- Result: ${{ job.status }}"
-            echo "- Artifact: baseline-${{ matrix.arch }}"
+            echo "- Artifact: verification-${{ matrix.arch }}"
             echo "- Bad-byte summary: ci-artifacts/summary-${{ matrix.arch }}-verify-denulled.json"
             echo "- Equivalence summary: ci-artifacts/summary-${{ matrix.arch }}-verify-equivalence.json"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -124,7 +124,7 @@ jobs:
           {
             echo "## Baseline Aggregate Result"
             echo "- Matrix result: ${{ needs.baseline.result }}"
-            echo "- Per-architecture artifacts: baseline-x86, baseline-x64, baseline-arm"
+            echo "- Per-architecture artifacts: verification-x86, verification-x64, verification-arm"
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ needs.baseline.result }}" != "success" ]; then
             echo "At least one architecture baseline run failed."

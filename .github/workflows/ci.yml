@@ -96,8 +96,10 @@ jobs:
           path: |
             ci-artifacts/baseline-${{ matrix.arch }}.log
             ci-artifacts/verify-denulled-${{ matrix.arch }}.log
+            ci-artifacts/verify-equivalence-${{ matrix.arch }}.log
             ci-artifacts/verify-${{ matrix.arch }}-*.log
             ci-artifacts/summary-${{ matrix.arch }}-verify-denulled.json
+            ci-artifacts/summary-${{ matrix.arch }}-verify-equivalence.json
             bin/byvalver
 
       - name: Publish per-arch summary
@@ -108,6 +110,7 @@ jobs:
             echo "- Result: ${{ job.status }}"
             echo "- Artifact: baseline-${{ matrix.arch }}"
             echo "- Bad-byte summary: ci-artifacts/summary-${{ matrix.arch }}-verify-denulled.json"
+            echo "- Equivalence summary: ci-artifacts/summary-${{ matrix.arch }}-verify-equivalence.json"
           } >> "$GITHUB_STEP_SUMMARY"
 
   baseline-summary:

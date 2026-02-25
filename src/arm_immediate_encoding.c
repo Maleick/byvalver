@@ -136,6 +136,32 @@ int find_arm_displacement_split(int32_t displacement, int32_t *pre_adjust_out, i
     return 0;
 }
 
+int plan_arm_displacement_rewrite(int32_t displacement, int32_t *pre_adjust_out, int32_t *residual_out,
+                                  uint32_t *pre_magnitude_out, uint8_t *pre_opcode_out) {
+    int32_t pre_adjust, residual;
+    uint32_t magnitude;
+    uint8_t opcode;
+
+    if (!pre_adjust_out || !residual_out || !pre_magnitude_out || !pre_opcode_out) {
+        return 0;
+    }
+    if (!find_arm_displacement_split(displacement, &pre_adjust, &residual)) {
+        return 0;
+    }
+
+    opcode = (pre_adjust >= 0) ? 0x4U : 0x2U;  // ADD or SUB
+    magnitude = (uint32_t)(pre_adjust >= 0 ? pre_adjust : -pre_adjust);
+    if (!is_arm_immediate_encodable(magnitude) || !is_bad_byte_free(magnitude)) {
+        return 0;
+    }
+
+    *pre_adjust_out = pre_adjust;
+    *residual_out = residual;
+    *pre_magnitude_out = magnitude;
+    *pre_opcode_out = opcode;
+    return 1;
+}
+
 int encode_arm_dp_immediate(uint8_t cond, uint8_t opcode, uint8_t rn, uint8_t rd,
                             uint32_t imm, int set_flags, uint32_t *instruction_out) {
     int encoded_imm;

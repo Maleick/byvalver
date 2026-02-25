@@ -33,6 +33,11 @@ int is_arm_displacement_encodable(int32_t displacement);
 // Returns 1 if found, 0 otherwise. Stores values in outputs.
 int find_arm_displacement_split(int32_t displacement, int32_t *pre_adjust_out, int32_t *residual_out);
 
+// Build a displacement rewrite plan with opcode/magnitude metadata for pre-adjust step.
+// pre_opcode_out: ADD=0x4 for positive pre-adjust, SUB=0x2 for negative.
+int plan_arm_displacement_rewrite(int32_t displacement, int32_t *pre_adjust_out, int32_t *residual_out,
+                                  uint32_t *pre_magnitude_out, uint8_t *pre_opcode_out);
+
 // Encode ARM data-processing immediate instruction (I=1 form)
 // opcode: ADD=4, SUB=2, etc. cond: 0xE for AL.
 int encode_arm_dp_immediate(uint8_t cond, uint8_t opcode, uint8_t rn, uint8_t rd,

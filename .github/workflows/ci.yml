@@ -49,6 +49,34 @@ jobs:
           mkdir -p ci-artifacts
           bash tests/run_tests.sh --mode baseline --arch "${{ matrix.arch }}" | tee "ci-artifacts/baseline-${{ matrix.arch }}.log"
 
+      - name: Select bad-byte verification profiles
+        id: badbyte_profiles
+        run: |
+          case "${{ matrix.arch }}" in
+            x86|x64)
+              echo "profiles=null-only,http-newline" >> "$GITHUB_OUTPUT"
+              ;;
+            arm)
+              echo "profiles=null-only" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported architecture in matrix: ${{ matrix.arch }}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Run profile-aware bad-byte verification
+        if: always()
+        run: |
+          set -o pipefail
+          mkdir -p ci-artifacts
+          bash tests/run_tests.sh \
+            --mode verify-denulled \
+            --arch "${{ matrix.arch }}" \
+            --profiles "${{ steps.badbyte_profiles.outputs.profiles }}" \
+            --artifacts-dir ci-artifacts \
+            | tee "ci-artifacts/verify-denulled-${{ matrix.arch }}.log"
+
       - name: Upload per-arch baseline artifacts
         uses: actions/upload-artifact@v4
         if: always()

@@ -19,7 +19,7 @@ Requirements for the next stabilization release (v4.3 track).
 
 - [x] **ARM-01**: ARM ADD/SUB immediate rewrite paths handle bad-byte avoidance without breaking instruction semantics.
 - [x] **ARM-02**: ARM LDR/STR displacement rewrite paths preserve addressing behavior after transformation.
-- [ ] **ARM-03**: ARM branch offset recalculation remains correct after instruction expansion and relocation.
+- [x] **ARM-03**: ARM branch offset recalculation remains correct after instruction expansion and relocation.
 - [x] **ARM-04**: ARM conditional-instruction alternatives are implemented for common transformation cases.
 - [ ] **ARM-05**: Architecture mismatch heuristics surface actionable warnings when input likely targets a different architecture.
 - [ ] **ARM-06**: ARM execution path emits explicit experimental-mode guidance and fallback recommendations.
@@ -64,7 +64,7 @@ Which phases cover which requirements.
 | TEST-05 | Phase 2 | Complete |
 | ARM-01 | Phase 3 | Complete |
 | ARM-02 | Phase 3 | Complete |
-| ARM-03 | Phase 4 | Pending |
+| ARM-03 | Phase 4 | Complete |
 | ARM-04 | Phase 3 | Complete |
 | ARM-05 | Phase 4 | Pending |
 | ARM-06 | Phase 4 | Pending |

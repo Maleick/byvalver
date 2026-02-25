@@ -105,13 +105,54 @@ jobs:
       - name: Publish per-arch summary
         if: always()
         run: |
-          {
-            echo "## Baseline (${{ matrix.arch }})"
-            echo "- Result: ${{ job.status }}"
-            echo "- Artifact: verification-${{ matrix.arch }}"
-            echo "- Bad-byte summary: ci-artifacts/summary-${{ matrix.arch }}-verify-denulled.json"
-            echo "- Equivalence summary: ci-artifacts/summary-${{ matrix.arch }}-verify-equivalence.json"
-          } >> "$GITHUB_STEP_SUMMARY"
+          ARCH="${{ matrix.arch }}"
+          BAD_SUMMARY="ci-artifacts/summary-${ARCH}-verify-denulled.json"
+          EQ_SUMMARY="ci-artifacts/summary-${ARCH}-verify-equivalence.json"
+          STEP_SUMMARY_MD="ci-artifacts/step-summary-${ARCH}.md"
+
+          python3 - "$ARCH" "$BAD_SUMMARY" "$EQ_SUMMARY" > "$STEP_SUMMARY_MD" <<'PY'
+          import json
+          import os
+          import sys
+
+          arch, bad_summary_path, eq_summary_path = sys.argv[1:4]
+
+          def load_summary(path):
+              if not os.path.exists(path):
+                  return {"checks": 0, "pass": 0, "fail": 0, "status": "MISSING", "path": path}
+
+              with open(path, "r", encoding="utf-8") as handle:
+                  payload = json.load(handle)
+
+              totals = payload.get("totals", {})
+              checks = int(totals.get("checks", 0))
+              passes = int(totals.get("pass", 0))
+              fails = int(totals.get("fail", 0))
+
+              if fails > 0:
+                  status = "FAIL"
+              elif checks == 0:
+                  status = "NO-CHECKS"
+              else:
+                  status = "PASS"
+
+              return {"checks": checks, "pass": passes, "fail": fails, "status": status, "path": path}
+
+          bad = load_summary(bad_summary_path)
+          eq = load_summary(eq_summary_path)
+          overall = "PASS" if bad["status"] == "PASS" and eq["status"] == "PASS" else "FAIL"
+
+          print(f"## Verification ({arch})")
+          print(f"- Result: {overall}")
+          print(f"- Artifact: verification-{arch}")
+          print("")
+          print("| Check Group | Status | Pass | Fail | Summary |")
+          print("|---|---|---:|---:|---|")
+          print(f"| bad-byte profiles | {bad['status']} | {bad['pass']} | {bad['fail']} | `{bad['path']}` |")
+          print(f"| functionality + semantic | {eq['status']} | {eq['pass']} | {eq['fail']} | `{eq['path']}` |")
+          PY
+
+          cat "$STEP_SUMMARY_MD" >> "$GITHUB_STEP_SUMMARY"
 
   baseline-summary:
     runs-on: ubuntu-latest

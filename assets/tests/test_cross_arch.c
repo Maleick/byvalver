@@ -66,14 +66,14 @@ strategy_t arm64_strategy = {
     .target_arch = BYVAL_ARCH_ARM64
 };
 
-void init_test_strategies() {
+void init_test_strategies(void) {
     register_strategy(&x86_strategy);
     register_strategy(&x64_strategy);
     register_strategy(&arm_strategy);
     register_strategy(&arm64_strategy);
 }
 
-void test_architecture_filtering() {
+void test_architecture_filtering(void) {
     printf("Testing architecture-based strategy filtering...\n");
 
     init_test_strategies();
@@ -108,8 +108,88 @@ void test_architecture_filtering() {
     printf("ARM64 count == 1: %d\n", arm64_count == 1);
 }
 
-int main() {
+int should_warn_arch_mismatch(double target_coverage,
+                              double suggested_coverage,
+                              size_t suggested_insn_count) {
+    if (suggested_insn_count < 2) {
+        return 0;
+    }
+    if (suggested_coverage < 0.55) {
+        return 0;
+    }
+    if ((suggested_coverage - target_coverage) < 0.30) {
+        return 0;
+    }
+    return 1;
+}
+
+int test_mismatch_warning_policy(void) {
+    struct {
+        const char *name;
+        double target_coverage;
+        double suggested_coverage;
+        size_t suggested_insn_count;
+        int expected_warn;
+    } cases[] = {
+        {
+            .name = "warn when alternate decode is significantly better",
+            .target_coverage = 0.20,
+            .suggested_coverage = 0.82,
+            .suggested_insn_count = 8,
+            .expected_warn = 1
+        },
+        {
+            .name = "do not warn when delta is too small",
+            .target_coverage = 0.52,
+            .suggested_coverage = 0.70,
+            .suggested_insn_count = 8,
+            .expected_warn = 0
+        },
+        {
+            .name = "do not warn for weak alternate coverage",
+            .target_coverage = 0.05,
+            .suggested_coverage = 0.40,
+            .suggested_insn_count = 8,
+            .expected_warn = 0
+        },
+        {
+            .name = "do not warn with insufficient alternate instruction signal",
+            .target_coverage = 0.01,
+            .suggested_coverage = 0.95,
+            .suggested_insn_count = 1,
+            .expected_warn = 0
+        }
+    };
+
+    int failures = 0;
+
+    printf("\nTesting architecture mismatch warning policy...\n");
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        int warn = should_warn_arch_mismatch(
+            cases[i].target_coverage,
+            cases[i].suggested_coverage,
+            cases[i].suggested_insn_count
+        );
+        int passed = (warn == cases[i].expected_warn);
+        printf("%s: %s\n", cases[i].name, passed ? "PASS" : "FAIL");
+        if (!passed) {
+            failures++;
+        }
+    }
+
+    return failures;
+}
+
+int main(void) {
+    int failures = 0;
+
     test_architecture_filtering();
+    failures += test_mismatch_warning_policy();
     printf("\nCross-architecture filtering test completed!\n");
+
+    if (failures != 0) {
+        printf("Encountered %d mismatch warning policy failure(s)\n", failures);
+        return 1;
+    }
     return 0;
 }

@@ -64,6 +64,24 @@ Suggested triage order:
 2. Open the corresponding raw log (`verify-...log`) for the failed fixture/check pair.
 3. Reproduce locally with `bash tests/run_tests.sh --mode verify-denulled|verify-equivalence --arch <arch>`.
 
+## Architecture Diagnostics (Phase 4)
+
+When `byvalver` emits a pre-transform architecture mismatch warning, treat it as
+an actionable signal, not a hard failure. Default behavior is warn-and-continue.
+
+Interpretation:
+- Warning indicates decode coverage looked significantly better for another architecture.
+- Processing still ran with the selected `--arch`; output must be validated before use.
+
+Recommended follow-up:
+1. Re-run preflight without mutation:
+   `./bin/byvalver --arch <suggested-arch> --dry-run <input.bin>`
+2. Re-run transformation with explicit architecture selection:
+   `./bin/byvalver --arch <suggested-arch> <input.bin> <output.bin>`
+3. Validate output artifacts:
+   `python3 verify_denulled.py <output.bin>`
+   `python3 verify_functionality.py <input.bin> <output.bin>`
+
 ## ARM Conditional Scope (Phase 3)
 
 Phase 3 ARM conditional rewrites are intentionally limited to branch-first alternatives.

@@ -26,9 +26,9 @@ Requirements for the next stabilization release (v4.3 track).
 
 ### Release and Reproducibility
 
-- [ ] **REL-01**: Project ships a reproducible Docker workflow that runs `byvalver` end-to-end against sample inputs.
+- [x] **REL-01**: Project ships a reproducible Docker workflow that runs `byvalver` end-to-end against sample inputs.
 - [x] **REL-02**: Contributor workflow provides a single documented command path for local build + verification.
-- [ ] **REL-03**: Release checklist enforces bad-byte and functional-equivalence verification before tagging.
+- [x] **REL-03**: Release checklist enforces bad-byte and functional-equivalence verification before tagging.
 
 ## v2 Requirements
 
@@ -68,9 +68,9 @@ Which phases cover which requirements.
 | ARM-04 | Phase 3 | Complete |
 | ARM-05 | Phase 4 | Complete |
 | ARM-06 | Phase 4 | Complete |
-| REL-01 | Phase 5 | Pending |
+| REL-01 | Phase 5 | Complete |
 | REL-02 | Phase 1 | Complete |
-| REL-03 | Phase 5 | Pending |
+| REL-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total

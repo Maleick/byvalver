@@ -49,8 +49,20 @@ int encode_arm_ldr_str_immediate(uint8_t cond, int is_load, uint8_t rn, uint8_t 
                                  int32_t displacement, uint32_t *instruction_out);
 
 // Decode/encode ARM B-style branch offsets (24-bit signed word offset)
+#define ARM_BRANCH_WORD_OFFSET_MIN (-8388608)
+#define ARM_BRANCH_WORD_OFFSET_MAX (8388607)
+
+// Check if a branch word offset fits signed imm24 range.
+int is_arm_branch_word_offset_encodable(int32_t word_offset);
 int decode_arm_branch_offset(uint32_t instruction, int32_t *word_offset_out);
 int encode_arm_branch_instruction(uint8_t cond, int32_t word_offset, uint32_t *instruction_out);
+
+// Plan offsets for conditional alternative rewrite:
+// B<cond> target -> B<invcond> skip ; B<cond> target
+// Returns 1 on success, 0 if unsafe/out-of-bounds.
+int plan_arm_branch_conditional_alt_offsets(int32_t original_word_offset,
+                                            int32_t *skip_word_offset_out,
+                                            int32_t *taken_word_offset_out);
 
 // Invert a condition code (EQ<->NE, LT<->GE, etc). Returns 1 on success.
 int invert_arm_condition(uint8_t cond, uint8_t *inverted_out);

@@ -225,21 +225,55 @@ int decode_arm_branch_offset(uint32_t instruction, int32_t *word_offset_out) {
         imm24 |= (int32_t)0xFF000000U;
     }
 
+    if (!is_arm_branch_word_offset_encodable(imm24)) {
+        return 0;
+    }
+
     *word_offset_out = imm24;
     return 1;
+}
+
+int is_arm_branch_word_offset_encodable(int32_t word_offset) {
+    return word_offset >= ARM_BRANCH_WORD_OFFSET_MIN &&
+           word_offset <= ARM_BRANCH_WORD_OFFSET_MAX;
 }
 
 int encode_arm_branch_instruction(uint8_t cond, int32_t word_offset, uint32_t *instruction_out) {
     if (!instruction_out || cond > 0xF) {
         return 0;
     }
-    if (word_offset < -(1 << 23) || word_offset > ((1 << 23) - 1)) {
+    if (!is_arm_branch_word_offset_encodable(word_offset)) {
         return 0;
     }
 
     *instruction_out = ((uint32_t)cond << 28) |
                        0x0A000000U |
                        ((uint32_t)word_offset & 0x00FFFFFFU);
+    return 1;
+}
+
+int plan_arm_branch_conditional_alt_offsets(int32_t original_word_offset,
+                                            int32_t *skip_word_offset_out,
+                                            int32_t *taken_word_offset_out) {
+    int32_t rewritten_word_offset;
+
+    if (!skip_word_offset_out || !taken_word_offset_out) {
+        return 0;
+    }
+    if (!is_arm_branch_word_offset_encodable(original_word_offset)) {
+        return 0;
+    }
+    if (original_word_offset <= ARM_BRANCH_WORD_OFFSET_MIN) {
+        return 0;
+    }
+
+    rewritten_word_offset = original_word_offset - 1;
+    if (!is_arm_branch_word_offset_encodable(rewritten_word_offset)) {
+        return 0;
+    }
+
+    *skip_word_offset_out = 0;
+    *taken_word_offset_out = rewritten_word_offset;
     return 1;
 }
 

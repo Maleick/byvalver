@@ -41,6 +41,15 @@ fixtures:
     ci_representative: true
     profiles: null-only
 
+  - fixture_id: rep-arm-branch-conditional
+    arch: arm
+    path: assets/tests/test_bins/arm_branch_conditional_alt.bin
+    expected_outcome: transformed_without_bad_bytes
+    owner: phase-03
+    notes: Deterministic ARM conditional branch fixture for branch-first alternative rewrite regressions.
+    ci_representative: true
+    profiles: null-only
+
   - fixture_id: rep-x64-xor-output
     arch: x64
     path: assets/tests/xor_output.bin

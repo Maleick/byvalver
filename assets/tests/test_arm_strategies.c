@@ -108,6 +108,79 @@ int find_arm_displacement_split(int32_t displacement, int32_t *pre_adjust_out, i
     return 0;
 }
 
+int decode_arm_branch_offset(uint32_t instruction, int32_t *word_offset_out) {
+    int32_t imm24;
+    if (!word_offset_out) {
+        return 0;
+    }
+
+    imm24 = (int32_t)(instruction & 0x00FFFFFFU);
+    if (imm24 & 0x00800000) {
+        imm24 |= (int32_t)0xFF000000U;
+    }
+    *word_offset_out = imm24;
+    return 1;
+}
+
+int encode_arm_branch_instruction(uint8_t cond, int32_t word_offset, uint32_t *instruction_out) {
+    if (!instruction_out || cond > 0xF) {
+        return 0;
+    }
+    if (word_offset < -(1 << 23) || word_offset > ((1 << 23) - 1)) {
+        return 0;
+    }
+
+    *instruction_out = ((uint32_t)cond << 28) |
+                       0x0A000000U |
+                       ((uint32_t)word_offset & 0x00FFFFFFU);
+    return 1;
+}
+
+int invert_arm_condition(uint8_t cond, uint8_t *inverted_out) {
+    if (!inverted_out) {
+        return 0;
+    }
+
+    switch (cond & 0xF) {
+        case 0x0: *inverted_out = 0x1; return 1;
+        case 0x1: *inverted_out = 0x0; return 1;
+        case 0x2: *inverted_out = 0x3; return 1;
+        case 0x3: *inverted_out = 0x2; return 1;
+        case 0x4: *inverted_out = 0x5; return 1;
+        case 0x5: *inverted_out = 0x4; return 1;
+        case 0x6: *inverted_out = 0x7; return 1;
+        case 0x7: *inverted_out = 0x6; return 1;
+        case 0x8: *inverted_out = 0x9; return 1;
+        case 0x9: *inverted_out = 0x8; return 1;
+        case 0xA: *inverted_out = 0xB; return 1;
+        case 0xB: *inverted_out = 0xA; return 1;
+        case 0xC: *inverted_out = 0xD; return 1;
+        case 0xD: *inverted_out = 0xC; return 1;
+        default: return 0;
+    }
+}
+
+int build_arm_branch_conditional_alt(uint32_t original_branch, uint32_t *skip_out, uint32_t *branch_out) {
+    uint8_t cond, inverted_cond;
+    int32_t word_offset;
+
+    if (!skip_out || !branch_out) {
+        return 0;
+    }
+
+    cond = (uint8_t)((original_branch >> 28) & 0xF);
+    if (!invert_arm_condition(cond, &inverted_cond)) {
+        return 0;
+    }
+    if (!decode_arm_branch_offset(original_branch, &word_offset)) {
+        return 0;
+    }
+    if (!encode_arm_branch_instruction(inverted_cond, 0, skip_out)) {
+        return 0;
+    }
+    return encode_arm_branch_instruction(cond, word_offset - 1, branch_out);
+}
+
 uint8_t get_arm_reg_index(arm_reg reg) {
     switch (reg) {
         case ARM_REG_R0: return 0;
@@ -259,6 +332,24 @@ void test_arm_strategies() {
         printf("find_arm_displacement_split(0x%X): %d\n", displacement, can_split_disp);
         if (can_split_disp) {
             printf("displacement split: %d + %d = %d\n", pre_adjust, residual, pre_adjust + residual);
+        }
+    }
+
+    // Branch-first conditional alternative smoke check
+    {
+        uint32_t original_branch = 0x1A000004;  // BNE with a small forward offset
+        uint32_t skip_branch = 0;
+        uint32_t taken_branch = 0;
+        int32_t original_offset = 0;
+        int32_t taken_offset = 0;
+        int can_build_branch_alt = build_arm_branch_conditional_alt(original_branch, &skip_branch, &taken_branch);
+        printf("build_arm_branch_conditional_alt(0x%X): %d\n", original_branch, can_build_branch_alt);
+        if (can_build_branch_alt) {
+            decode_arm_branch_offset(original_branch, &original_offset);
+            decode_arm_branch_offset(taken_branch, &taken_offset);
+            printf("branch alt skip: 0x%08X\n", skip_branch);
+            printf("branch alt taken: 0x%08X\n", taken_branch);
+            printf("branch offsets (orig/taken): %d -> %d\n", original_offset, taken_offset);
         }
     }
 

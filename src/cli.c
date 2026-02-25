@@ -238,7 +238,9 @@ void print_detailed_help(FILE *stream, const char *program_name) {
     fprintf(stream, "    Architecture Options:\n");
     fprintf(stream, "      --arch ARCH                   Target architecture\n");
     fprintf(stream, "                                   Values: x86, x64, arm, arm64 (default: x64)\n");
-    fprintf(stream, "                                   ARM/ARM64 support is experimental\n\n");
+    fprintf(stream, "                                   ARM/ARM64 path is experimental (warn-and-continue)\n");
+    fprintf(stream, "                                   Recommended: run --dry-run first, then verify output\n");
+    fprintf(stream, "                                   Fallback: retry with explicit --arch if mismatch warnings appear\n\n");
 
     fprintf(stream, "    Output Options:\n");
     fprintf(stream, "      -o, --output FILE             Output file (alternative to positional argument)\n");
@@ -256,6 +258,10 @@ void print_detailed_help(FILE *stream, const char *program_name) {
 
     fprintf(stream, "    Cross-architecture processing:\n");
     fprintf(stream, "      %s --arch arm --bad-bytes \"00\" arm_shellcode.bin output.bin\n\n", program_name);
+    fprintf(stream, "    ARM experimental safety checks:\n");
+    fprintf(stream, "      %s --arch arm --dry-run arm_shellcode.bin\n", program_name);
+    fprintf(stream, "      python3 verify_denulled.py output.bin\n");
+    fprintf(stream, "      python3 verify_functionality.py arm_shellcode.bin output.bin\n\n");
 
     fprintf(stream, "    Generate position-independent code:\n");
     fprintf(stream, "      %s --pic shellcode.bin output.bin\n\n", program_name);

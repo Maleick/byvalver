@@ -207,6 +207,11 @@ int process_single_file(const char *input_file, const char *output_file,
         if (config->bad_bytes) {
             fprintf(stderr, "Bad Bytes: %d distinct values\n", config->bad_bytes->bad_byte_count);
         }
+        if (config->target_arch == BYVAL_ARCH_ARM || config->target_arch == BYVAL_ARCH_ARM64) {
+            fprintf(stderr, "Warning: %s mode is experimental and may not cover all rewrite families.\n", arch_name);
+            fprintf(stderr, "  recommendation: run --dry-run first, then verify with verify_denulled.py and verify_functionality.py.\n");
+            fprintf(stderr, "  fallback: if mismatch warnings appear, retry with explicit --arch x86 or --arch x64.\n");
+        }
         fprintf(stderr, "\n");
     }
 

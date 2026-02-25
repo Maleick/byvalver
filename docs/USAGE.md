@@ -6,6 +6,27 @@ BYVALVER is an advanced command-line tool for automated removal of null bytes fr
 
 **NEW in v3.0:** BYVALVER now supports generic bad-byte elimination via the `--bad-bytes` option, allowing users to specify arbitrary bytes to eliminate beyond just null bytes. This feature is functional but newly implemented - the 122+ transformation strategies were originally designed and optimized specifically for null-byte elimination.
 
+## ARM Experimental Diagnostics and Fallbacks (Phase 4)
+
+ARM (`--arch arm`) and ARM64 (`--arch arm64`) execution paths remain experimental. byvalver now emits pre-transform warnings when input bytes decode much more consistently as another architecture.
+
+Default policy is warn-and-continue (no hard fail). Recommended operator workflow:
+
+1. Run a non-destructive preflight:
+   ```bash
+   byvalver --arch arm --dry-run input.bin
+   ```
+2. If warnings suggest a mismatch, retry with explicit architecture selection:
+   ```bash
+   byvalver --arch x86 input.bin output.bin
+   byvalver --arch x64 input.bin output.bin
+   ```
+3. Validate transformed output before use:
+   ```bash
+   python3 verify_denulled.py output.bin
+   python3 verify_functionality.py input.bin output.bin
+   ```
+
 ## What's New in v4.3 — Agent Menagerie (February 2026)
 
 ### Auto-Technique Generator Pipeline

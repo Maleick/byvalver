@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
+    binutils \
     gcc \
     make \
     nasm \
@@ -19,15 +20,10 @@ RUN apt-get update && apt-get install -y \
 
 # Copy source
 WORKDIR /opt/byvalver
-COPY Makefile decoder.asm ./
-COPY src/ src/
+COPY . .
 
 # Build
-RUN make release
-
-# Copy remaining project files needed at runtime
-COPY ml_models/ ml_models/
-COPY verify_denulled.py verify_functionality.py verify_semantic.py ./
+RUN make clean && make release
 
 ENTRYPOINT ["./bin/byvalver"]
 CMD ["--help"]

@@ -4,11 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    volumes:
-      - ./src:/opt/byvalver/src:ro
-      - ./ml_models:/opt/byvalver/ml_models:ro
-      - ./input:/data/input
-      - ./output:/data/output
     working_dir: /opt/byvalver
     entrypoint: ["./bin/byvalver"]
 
@@ -17,10 +12,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    volumes:
-      - ./tests/fixtures:/data/fixtures:ro
-      - ./verify_denulled.py:/opt/byvalver/verify_denulled.py:ro
-      - ./verify_functionality.py:/opt/byvalver/verify_functionality.py:ro
-      - ./verify_semantic.py:/opt/byvalver/verify_semantic.py:ro
-    entrypoint: ["python3"]
-    command: ["verify_denulled.py", "--batch", "/data/fixtures"]
+    working_dir: /opt/byvalver
+    entrypoint: []
+    command: ["python3", "verify_denulled.py", "--batch", "tests/fixtures"]
+
+  # Host-vs-Docker parity execution surface
+  parity:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /opt/byvalver

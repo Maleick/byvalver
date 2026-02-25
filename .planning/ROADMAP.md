@@ -101,5 +101,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. CI Foundation and Fixture Canonicalization | 3/3 | Complete    | 2026-02-25 |
 | 2. Verification Automation and Reporting | 3/3 | Complete    | 2026-02-25 |
 | 3. ARM Strategy Expansion | 3/3 | Complete   | 2026-02-25 |
-| 4. ARM Diagnostic Safety Nets | 2/2 | Complete   | 2026-02-25 |
+| 4. ARM Diagnostic Safety Nets | 2/2 | Complete    | 2026-02-25 |
 | 5. Reproducible Release Gate | 0/2 | Not started | - |

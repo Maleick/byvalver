@@ -10,7 +10,7 @@ This roadmap hardens byvalver's existing transformation engine by making verific
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: CI Foundation and Fixture Canonicalization** - Standardize fixtures and baseline CI entry points.
+- [x] **Phase 1: CI Foundation and Fixture Canonicalization** - Standardize fixtures and baseline CI entry points. (completed 2026-02-25)
 - [ ] **Phase 2: Verification Automation and Reporting** - Automate bad-byte and semantic checks in CI with clear artifacts.
 - [ ] **Phase 3: ARM Strategy Expansion** - Implement missing high-impact ARM rewrite strategies.
 - [ ] **Phase 4: ARM Diagnostic Safety Nets** - Improve branch correctness and architecture mismatch diagnostics.
@@ -29,9 +29,9 @@ This roadmap hardens byvalver's existing transformation engine by making verific
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md - Canonicalize fixture taxonomy, metadata sidecars, and fixture governance rules.
-- [ ] 01-02-PLAN.md - Implement fail-late architecture CI baseline matrix using canonical fixture paths.
-- [ ] 01-03-PLAN.md - Publish one-command local CI-parity baseline runbook and make target.
+- [x] 01-01-PLAN.md - Canonicalize fixture taxonomy, metadata sidecars, and fixture governance rules.
+- [x] 01-02-PLAN.md - Implement fail-late architecture CI baseline matrix using canonical fixture paths.
+- [x] 01-03-PLAN.md - Publish one-command local CI-parity baseline runbook and make target.
 
 ### Phase 2: Verification Automation and Reporting
 **Goal**: PRs provide objective evidence that transformations remain bad-byte-safe and semantically equivalent.
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. CI Foundation and Fixture Canonicalization | 2/3 | In progress | - |
+| 1. CI Foundation and Fixture Canonicalization | 3/3 | Complete    | 2026-02-25 |
 | 2. Verification Automation and Reporting | 0/3 | Not started | - |
 | 3. ARM Strategy Expansion | 0/3 | Not started | - |
 | 4. ARM Diagnostic Safety Nets | 0/2 | Not started | - |

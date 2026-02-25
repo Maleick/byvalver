@@ -19,6 +19,8 @@ tests/
 
 The canonical fixture catalog lives under `tests/fixtures/` and is architecture
 first. Expected outcomes and ownership are tracked in `tests/fixtures/manifest.yaml`.
+Canonical architecture roots are `tests/fixtures/x86`, `tests/fixtures/x64`, and
+`tests/fixtures/arm`.
 
 ## Running Tests
 

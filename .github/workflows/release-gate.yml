@@ -1,0 +1,66 @@
+name: Release Gate
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make nasm xxd pkg-config libcapstone-dev libncurses-dev python3
+
+      - name: Check dependencies
+        run: make check-deps
+
+      - name: Run release gate checks
+        run: |
+          set -o pipefail
+          mkdir -p ci-artifacts/release-gate
+          bash tests/run_tests.sh --mode release-gate --arch all --artifacts-dir ci-artifacts/release-gate | tee ci-artifacts/release-gate/release-gate.log
+
+      - name: Upload release gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-artifacts
+          path: |
+            ci-artifacts/release-gate/release-gate.log
+            ci-artifacts/release-gate/parity-host/**
+            ci-artifacts/release-gate/parity-docker/**
+            ci-artifacts/release-gate/parity-compare/**
+
+      - name: Publish parity comparison summary
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob
+          import json
+          import os
+
+          files = sorted(glob.glob("ci-artifacts/release-gate/parity-compare/*.json"))
+
+          print("## Release Gate Parity Summary")
+          if not files:
+              print("- No parity comparison files were generated.")
+              raise SystemExit(0)
+
+          print("| Artifact | Status | Mismatches |")
+          print("|---|---|---:|")
+
+          for path in files:
+              with open(path, "r", encoding="utf-8") as handle:
+                  payload = json.load(handle)
+              status = payload.get("status", "UNKNOWN")
+              mismatch_count = len(payload.get("mismatches", []))
+              print(f"| `{os.path.basename(path)}` | {status} | {mismatch_count} |")
+          PY

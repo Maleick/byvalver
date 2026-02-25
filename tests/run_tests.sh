@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # byvalver test runner
-# Usage: bash tests/run_tests.sh [--mode full|baseline|verify-denulled|verify-equivalence|verify-parity] [--arch x86|x64|arm|all] [--verbose]
+# Usage: bash tests/run_tests.sh [--mode full|baseline|verify-denulled|verify-equivalence|verify-parity|release-gate] [--arch x86|x64|arm|all] [--verbose]
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ usage() {
 Usage: bash tests/run_tests.sh [options]
 
 Options:
-  --mode MODE             full (default), baseline, verify-denulled, verify-equivalence, or verify-parity
+  --mode MODE             full (default), baseline, verify-denulled, verify-equivalence, verify-parity, or release-gate
   --arch ARCH             x86 | x64 | arm | all (default)
   --profiles CSV          profile override (e.g. null-only,http-newline)
   --artifacts-dir PATH    output directory for verification logs (default: ci-artifacts)
@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$MODE" != "full" && "$MODE" != "baseline" && "$MODE" != "verify-denulled" && "$MODE" != "verify-equivalence" && "$MODE" != "verify-parity" ]]; then
+if [[ "$MODE" != "full" && "$MODE" != "baseline" && "$MODE" != "verify-denulled" && "$MODE" != "verify-equivalence" && "$MODE" != "verify-parity" && "$MODE" != "release-gate" ]]; then
   echo "Invalid --mode value: $MODE"
   exit 1
 fi
@@ -862,10 +862,10 @@ else
   exit 1
 fi
 
-if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" || "$MODE" == "verify-parity" ]]; then
+if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" || "$MODE" == "verify-parity" || "$MODE" == "release-gate" ]]; then
   echo ""
   echo "[1/4] Verification-mode prerequisites"
-  if [[ "$MODE" != "verify-parity" ]]; then
+  if [[ "$MODE" != "verify-parity" && "$MODE" != "release-gate" ]]; then
     if verify_binary_available; then
       :
     else
@@ -875,7 +875,7 @@ if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" || "$MODE"
     fi
   fi
 
-  if [[ "$MODE" == "verify-parity" ]]; then
+  if [[ "$MODE" == "verify-parity" || "$MODE" == "release-gate" ]]; then
     if verify_docker_compose_available; then
       :
     else
@@ -893,6 +893,9 @@ if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" || "$MODE"
       run_verify_equivalence_mode
       ;;
     verify-parity)
+      run_verify_parity_mode
+      ;;
+    release-gate)
       run_verify_parity_mode
       ;;
     *)

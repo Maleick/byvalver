@@ -118,7 +118,7 @@ SRCS = $(filter-out $(EXCLUDE_FILES), $(ALL_SRCS))
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BIN_DIR)/%.o, $(SRCS))
 
 # Phony targets
-.PHONY: all clean clean-all info test debug release train generate generate-x86 generate-dry agent-setup
+.PHONY: all clean clean-all info test ci-baseline debug release train generate generate-x86 generate-dry agent-setup
 
 # Default target
 all: decoder.h $(BIN_DIR)/$(TARGET)
@@ -220,6 +220,17 @@ test: all
 	else \
 		echo "[FAIL] Executable not found"; \
 		exit 1; \
+	fi
+
+# Canonical local baseline (CI parity)
+ci-baseline:
+	@echo "[BASELINE] Running CI-parity baseline checks..."
+	@$(MAKE) check-deps
+	@$(MAKE)
+	@if [ "$(VERBOSE)" = "1" ]; then \
+		bash tests/run_tests.sh --mode baseline --arch all --verbose; \
+	else \
+		bash tests/run_tests.sh --mode baseline --arch all; \
 	fi
 
 # Check dependencies

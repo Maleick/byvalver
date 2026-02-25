@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. CI Foundation and Fixture Canonicalization | 1/3 | In progress | - |
+| 1. CI Foundation and Fixture Canonicalization | 2/3 | In progress | - |
 | 2. Verification Automation and Reporting | 0/3 | Not started | - |
 | 3. ARM Strategy Expansion | 0/3 | Not started | - |
 | 4. ARM Diagnostic Safety Nets | 0/2 | Not started | - |

@@ -11,7 +11,7 @@ This roadmap hardens byvalver's existing transformation engine by making verific
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: CI Foundation and Fixture Canonicalization** - Standardize fixtures and baseline CI entry points. (completed 2026-02-25)
-- [ ] **Phase 2: Verification Automation and Reporting** - Automate bad-byte and semantic checks in CI with clear artifacts.
+- [x] **Phase 2: Verification Automation and Reporting** - Automate bad-byte and semantic checks in CI with clear artifacts. (completed 2026-02-25)
 - [ ] **Phase 3: ARM Strategy Expansion** - Implement missing high-impact ARM rewrite strategies.
 - [ ] **Phase 4: ARM Diagnostic Safety Nets** - Improve branch correctness and architecture mismatch diagnostics.
 - [ ] **Phase 5: Reproducible Release Gate** - Lock in Docker-based reproducibility and release verification checks.
@@ -44,9 +44,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Integrate `verify_denulled.py` into matrix jobs and parameterize bad-byte profiles.
-- [ ] 02-02: Integrate semantic/functionality verification scripts with stable fixture selection.
-- [ ] 02-03: Emit summarized artifacts and annotate workflow output per architecture.
+- [x] 02-01: Integrate `verify_denulled.py` into matrix jobs and parameterize bad-byte profiles.
+- [x] 02-02: Integrate semantic/functionality verification scripts with stable fixture selection.
+- [x] 02-03: Emit summarized artifacts and annotate workflow output per architecture.
 
 ### Phase 3: ARM Strategy Expansion
 **Goal**: ARM users can transform common arithmetic/load-store/conditional patterns with higher success rates.
@@ -99,7 +99,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. CI Foundation and Fixture Canonicalization | 3/3 | Complete    | 2026-02-25 |
-| 2. Verification Automation and Reporting | 0/3 | Not started | - |
+| 2. Verification Automation and Reporting | 3/3 | Complete    | 2026-02-25 |
 | 3. ARM Strategy Expansion | 0/3 | Not started | - |
 | 4. ARM Diagnostic Safety Nets | 0/2 | Not started | - |
 | 5. Reproducible Release Gate | 0/2 | Not started | - |

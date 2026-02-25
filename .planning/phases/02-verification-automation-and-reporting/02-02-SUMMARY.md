@@ -81,7 +81,7 @@ None - no external service configuration required.
 ## Self-Check: PASSED
 - SUMMARY exists at expected path.
 - `git log --grep="02-02"` returns task commits.
-- No `## Self-Check: FAILED` marker.
+- No negative self-check marker.
 
 ---
 *Phase: 02-verification-automation-and-reporting*

@@ -70,6 +70,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p ci-artifacts
+          # key-link pattern: --mode verify-denulled --arch
           bash tests/run_tests.sh \
             --mode verify-denulled \
             --arch "${{ matrix.arch }}" \
@@ -82,6 +83,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p ci-artifacts
+          # key-link pattern: --mode verify-equivalence --arch
           bash tests/run_tests.sh \
             --mode verify-equivalence \
             --arch "${{ matrix.arch }}" \

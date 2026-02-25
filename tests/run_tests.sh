@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # byvalver test runner
-# Usage: bash tests/run_tests.sh [--mode full|baseline|verify-denulled|verify-equivalence] [--arch x86|x64|arm|all] [--verbose]
+# Usage: bash tests/run_tests.sh [--mode full|baseline|verify-denulled|verify-equivalence|verify-parity] [--arch x86|x64|arm|all] [--verbose]
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ usage() {
 Usage: bash tests/run_tests.sh [options]
 
 Options:
-  --mode MODE             full (default), baseline, verify-denulled, or verify-equivalence
+  --mode MODE             full (default), baseline, verify-denulled, verify-equivalence, or verify-parity
   --arch ARCH             x86 | x64 | arm | all (default)
   --profiles CSV          profile override (e.g. null-only,http-newline)
   --artifacts-dir PATH    output directory for verification logs (default: ci-artifacts)
@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$MODE" != "full" && "$MODE" != "baseline" && "$MODE" != "verify-denulled" && "$MODE" != "verify-equivalence" ]]; then
+if [[ "$MODE" != "full" && "$MODE" != "baseline" && "$MODE" != "verify-denulled" && "$MODE" != "verify-equivalence" && "$MODE" != "verify-parity" ]]; then
   echo "Invalid --mode value: $MODE"
   exit 1
 fi
@@ -354,6 +354,23 @@ verify_binary_available() {
   return 1
 }
 
+verify_docker_compose_available() {
+  if ! command -v docker > /dev/null 2>&1; then
+    log_fail "docker is required for verify-parity mode"
+    echo "  install hint: install Docker Desktop or docker engine."
+    return 1
+  fi
+
+  if ! docker compose version > /dev/null 2>&1; then
+    log_fail "docker compose plugin is required for verify-parity mode"
+    echo "  install hint: install docker compose v2 plugin."
+    return 1
+  fi
+
+  log_pass "docker + docker compose available for verify-parity"
+  return 0
+}
+
 required_profiles_for_arch() {
   local target_arch="$1"
 
@@ -612,6 +629,188 @@ run_verify_equivalence_mode() {
   return "$mode_failed"
 }
 
+run_verify_parity_mode() {
+  local mode_failed=0
+  local artifacts_root artifacts_rel host_artifacts docker_artifacts compare_artifacts docker_artifacts_rel
+  local verify_mode target_arch host_summary docker_summary compare_json
+  local host_mode_log docker_mode_log docker_build_log
+
+  echo ""
+  echo "[1/1] Host-vs-Docker verification parity"
+
+  artifacts_root="$ARTIFACTS_DIR"
+  if [[ "$artifacts_root" != /* ]]; then
+    artifacts_root="$PROJECT_ROOT/$artifacts_root"
+  fi
+
+  if [[ "$artifacts_root" != "$PROJECT_ROOT"* ]]; then
+    log_fail "verify-parity requires --artifacts-dir under project root"
+    echo "  received: $artifacts_root"
+    echo "  expected prefix: $PROJECT_ROOT"
+    return 1
+  fi
+
+  if [[ "$artifacts_root" == "$PROJECT_ROOT" ]]; then
+    artifacts_rel="."
+  else
+    artifacts_rel="${artifacts_root#"$PROJECT_ROOT"/}"
+  fi
+
+  host_artifacts="$artifacts_root/parity-host"
+  docker_artifacts="$artifacts_root/parity-docker"
+  compare_artifacts="$artifacts_root/parity-compare"
+  docker_artifacts_rel="$artifacts_rel/parity-docker"
+
+  mkdir -p "$host_artifacts" "$docker_artifacts" "$compare_artifacts"
+  resolve_target_arches
+
+  if [[ ! -x "$BIN" ]]; then
+    host_mode_log="$artifacts_root/parity-host-build.log"
+    if run_cmd_logged "$host_mode_log" make -C "$PROJECT_ROOT"; then
+      log_pass "host binary built for parity mode"
+    else
+      log_fail "failed to build host binary for parity mode (see $host_mode_log)"
+      return 1
+    fi
+  fi
+
+  for verify_mode in verify-denulled verify-equivalence; do
+    host_mode_log="$artifacts_root/parity-host-${verify_mode}.log"
+    host_cmd=(bash "$PROJECT_ROOT/tests/run_tests.sh" --mode "$verify_mode" --arch "$ARCH" --artifacts-dir "$host_artifacts")
+    if [[ -n "$PROFILE_SET" ]]; then
+      host_cmd+=(--profiles "$PROFILE_SET")
+    fi
+    if [[ "$VERBOSE" -eq 1 ]]; then
+      host_cmd+=(--verbose)
+    fi
+
+    if run_cmd_logged "$host_mode_log" "${host_cmd[@]}"; then
+      log_pass "host $verify_mode completed"
+    else
+      log_fail "host $verify_mode failed (see $host_mode_log)"
+      mode_failed=1
+    fi
+  done
+
+  docker_build_log="$artifacts_root/parity-docker-build.log"
+  if run_cmd_logged "$docker_build_log" docker compose run --rm -T --entrypoint /bin/bash parity -lc "make -C /workspace"; then
+    log_pass "docker parity environment built project binary"
+  else
+    log_fail "docker parity environment build failed (see $docker_build_log)"
+    mode_failed=1
+  fi
+
+  for verify_mode in verify-denulled verify-equivalence; do
+    docker_mode_log="$artifacts_root/parity-docker-${verify_mode}.log"
+    docker_cmd=(docker compose run --rm -T --entrypoint /bin/bash parity tests/run_tests.sh --mode "$verify_mode" --arch "$ARCH" --artifacts-dir "$docker_artifacts_rel")
+    if [[ -n "$PROFILE_SET" ]]; then
+      docker_cmd+=(--profiles "$PROFILE_SET")
+    fi
+    if [[ "$VERBOSE" -eq 1 ]]; then
+      docker_cmd+=(--verbose)
+    fi
+
+    if run_cmd_logged "$docker_mode_log" "${docker_cmd[@]}"; then
+      log_pass "docker $verify_mode completed"
+    else
+      log_fail "docker $verify_mode failed (see $docker_mode_log)"
+      mode_failed=1
+    fi
+  done
+
+  for target_arch in "${TARGET_ARCHES[@]}"; do
+    for verify_mode in verify-denulled verify-equivalence; do
+      host_summary="$host_artifacts/summary-${target_arch}-${verify_mode}.json"
+      docker_summary="$docker_artifacts/summary-${target_arch}-${verify_mode}.json"
+      compare_json="$compare_artifacts/summary-${target_arch}-${verify_mode}-parity.json"
+
+      if python3 - "$host_summary" "$docker_summary" "$compare_json" <<'PY'
+import json
+import os
+import sys
+
+host_path, docker_path, out_path = sys.argv[1:4]
+mismatches = []
+
+def load(path, label):
+    if not os.path.exists(path):
+        mismatches.append(f"{label} summary missing: {path}")
+        return None
+    with open(path, "r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+def normalize(payload):
+    totals = payload.get("totals", {})
+    normalized_totals = {
+        "checks": int(totals.get("checks", 0)),
+        "pass": int(totals.get("pass", 0)),
+        "fail": int(totals.get("fail", 0)),
+        "skip": int(totals.get("skip", 0)),
+    }
+
+    checks = []
+    for check in payload.get("checks", []):
+        checks.append(
+            {
+                "check": str(check.get("check", "")),
+                "profile": str(check.get("profile", "")),
+                "fixture_id": str(check.get("fixture_id", "")),
+                "status": str(check.get("status", "")).upper(),
+            }
+        )
+
+    checks.sort(key=lambda item: (item["check"], item["profile"], item["fixture_id"], item["status"]))
+    return {"totals": normalized_totals, "checks": checks}
+
+host_payload = load(host_path, "host")
+docker_payload = load(docker_path, "docker")
+
+result = {
+    "host_summary": host_path,
+    "docker_summary": docker_path,
+    "status": "FAIL",
+    "mismatches": [],
+}
+
+if host_payload is not None and docker_payload is not None:
+    host = normalize(host_payload)
+    docker = normalize(docker_payload)
+
+    if host["totals"] != docker["totals"]:
+        mismatches.append(f"totals differ: host={host['totals']} docker={docker['totals']}")
+
+    if host["checks"] != docker["checks"]:
+        host_set = {json.dumps(item, sort_keys=True) for item in host["checks"]}
+        docker_set = {json.dumps(item, sort_keys=True) for item in docker["checks"]}
+        only_host = [json.loads(item) for item in sorted(host_set - docker_set)]
+        only_docker = [json.loads(item) for item in sorted(docker_set - host_set)]
+        if only_host:
+            mismatches.append(f"check results only in host: {only_host}")
+        if only_docker:
+            mismatches.append(f"check results only in docker: {only_docker}")
+
+    if not mismatches:
+        result["status"] = "PASS"
+
+result["mismatches"] = mismatches
+os.makedirs(os.path.dirname(out_path), exist_ok=True)
+with open(out_path, "w", encoding="utf-8") as handle:
+    json.dump(result, handle, indent=2)
+
+sys.exit(0 if result["status"] == "PASS" else 1)
+PY
+      then
+        log_pass "parity matched for arch=$target_arch mode=$verify_mode"
+      else
+        log_fail "parity mismatch for arch=$target_arch mode=$verify_mode (see $compare_json)"
+        mode_failed=1
+      fi
+    done
+  done
+
+  return "$mode_failed"
+}
+
 echo "========================================"
 echo " byvalver test suite"
 echo "========================================"
@@ -635,7 +834,7 @@ else
   exit 1
 fi
 
-if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" ]]; then
+if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" || "$MODE" == "verify-parity" ]]; then
   echo ""
   echo "[1/4] Verification-mode prerequisites"
   if verify_binary_available; then
@@ -646,12 +845,25 @@ if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" ]]; then
     exit 1
   fi
 
+  if [[ "$MODE" == "verify-parity" ]]; then
+    if verify_docker_compose_available; then
+      :
+    else
+      echo ""
+      echo "verify-parity prerequisites failed -- cannot continue."
+      exit 1
+    fi
+  fi
+
   case "$MODE" in
     verify-denulled)
       run_verify_denulled_mode
       ;;
     verify-equivalence)
       run_verify_equivalence_mode
+      ;;
+    verify-parity)
+      run_verify_parity_mode
       ;;
     *)
       log_fail "unexpected verification mode: $MODE"

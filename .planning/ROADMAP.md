@@ -13,7 +13,7 @@ This roadmap hardens byvalver's existing transformation engine by making verific
 - [x] **Phase 1: CI Foundation and Fixture Canonicalization** - Standardize fixtures and baseline CI entry points. (completed 2026-02-25)
 - [x] **Phase 2: Verification Automation and Reporting** - Automate bad-byte and semantic checks in CI with clear artifacts. (completed 2026-02-25)
 - [x] **Phase 3: ARM Strategy Expansion** - Implement missing high-impact ARM rewrite strategies. (completed 2026-02-25)
-- [ ] **Phase 4: ARM Diagnostic Safety Nets** - Improve branch correctness and architecture mismatch diagnostics.
+- [x] **Phase 4: ARM Diagnostic Safety Nets** - Improve branch correctness and architecture mismatch diagnostics. (completed 2026-02-25)
 - [ ] **Phase 5: Reproducible Release Gate** - Lock in Docker-based reproducibility and release verification checks.
 
 ## Phase Details
@@ -101,5 +101,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. CI Foundation and Fixture Canonicalization | 3/3 | Complete    | 2026-02-25 |
 | 2. Verification Automation and Reporting | 3/3 | Complete    | 2026-02-25 |
 | 3. ARM Strategy Expansion | 3/3 | Complete   | 2026-02-25 |
-| 4. ARM Diagnostic Safety Nets | 1/2 | In Progress|  |
+| 4. ARM Diagnostic Safety Nets | 2/2 | Complete   | 2026-02-25 |
 | 5. Reproducible Release Gate | 0/2 | Not started | - |

@@ -43,6 +43,27 @@ python3 verify_semantic.py input.bin output.bin
 The canonical contributor baseline runbook is documented in
 `docs/CONTRIBUTOR_BASELINE.md`.
 
+## Verification Artifacts (CI Triage)
+
+Phase 2 CI verification publishes per-architecture artifacts with stable names so
+failures can be diagnosed without rerunning locally first.
+
+- Artifact bundle name: `verification-<arch>` (for example `verification-x86`)
+- Bad-byte logs: `ci-artifacts/verify-<arch>-denulled-<profile>-<fixture_id>.log`
+- Functionality logs: `ci-artifacts/verify-<arch>-functionality-<fixture_id>.log`
+- Semantic logs: `ci-artifacts/verify-<arch>-semantic-<fixture_id>.log`
+- Bad-byte summary JSON: `ci-artifacts/summary-<arch>-verify-denulled.json`
+- Equivalence summary JSON: `ci-artifacts/summary-<arch>-verify-equivalence.json`
+
+Per-architecture step summaries in GitHub Actions report both verification groups:
+- `bad-byte profiles` (`null-only`, `http-newline` where applicable)
+- `functionality + semantic`
+
+Suggested triage order:
+1. Check `summary-<arch>-verify-denulled.json` and `summary-<arch>-verify-equivalence.json` for failing check groups.
+2. Open the corresponding raw log (`verify-...log`) for the failed fixture/check pair.
+3. Reproduce locally with `bash tests/run_tests.sh --mode verify-denulled|verify-equivalence --arch <arch>`.
+
 ## Test Categories
 
 ### Build Verification
@@ -51,8 +72,9 @@ The canonical contributor baseline runbook is documented in
 
 ### Transformation Verification
 - Processes test fixtures through byvalver
-- Checks output contains no null bytes (via `verify_denulled.py`)
+- Checks bad-byte profile compliance (via `verify_denulled.py`)
 - Validates functional equivalence (via `verify_functionality.py`)
+- Validates semantic preservation (via `verify_semantic.py`)
 
 ### Batch Processing
 - Runs batch mode on the fixture corpus

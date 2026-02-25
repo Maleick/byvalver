@@ -674,6 +674,97 @@ static strategy_t arm_branch_original_strategy = {
     .target_arch = BYVAL_ARCH_ARM
 };
 
+/**
+ * Strategy: ARM branch conditional alternative
+ * Transform B<cond> target -> B<invcond> skip ; B<cond> target
+ */
+static int can_handle_arm_branch_conditional_alt(cs_insn *insn) {
+    uint32_t raw_instruction;
+    int32_t original_word_offset, rewritten_word_offset;
+    uint8_t cond, inverted_cond;
+    uint32_t skip_instruction, branch_instruction;
+    extern bad_byte_context_t g_bad_byte_context;
+
+    if (insn->id != ARM_INS_B) return 0;
+    if (insn->size < 4) return 0;
+    if (insn->detail->arm.op_count != 1 || insn->detail->arm.operands[0].type != ARM_OP_IMM) {
+        return 0;
+    }
+
+    if (!arm_has_bad_bytes(insn, &g_bad_byte_context.config)) {
+        return 0;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    if (!invert_arm_condition(cond, &inverted_cond)) {
+        return 0;
+    }
+
+    raw_instruction = (uint32_t)insn->bytes[0] |
+                      ((uint32_t)insn->bytes[1] << 8) |
+                      ((uint32_t)insn->bytes[2] << 16) |
+                      ((uint32_t)insn->bytes[3] << 24);
+    if (!decode_arm_branch_offset(raw_instruction, &original_word_offset)) {
+        return 0;
+    }
+
+    rewritten_word_offset = original_word_offset - 1;
+    if (!encode_arm_branch_instruction(inverted_cond, 0, &skip_instruction) ||
+        !encode_arm_branch_instruction(cond, rewritten_word_offset, &branch_instruction)) {
+        return 0;
+    }
+
+    return is_bad_byte_free(skip_instruction) && is_bad_byte_free(branch_instruction);
+}
+
+static size_t get_size_arm_branch_conditional_alt(cs_insn *insn) {
+    (void)insn;
+    return 8;
+}
+
+static void generate_arm_branch_conditional_alt(struct buffer *b, cs_insn *insn) {
+    uint32_t raw_instruction;
+    int32_t original_word_offset, rewritten_word_offset;
+    uint8_t cond, inverted_cond;
+    uint32_t skip_instruction, branch_instruction;
+
+    cond = arm_condition_from_insn(insn);
+    if (!invert_arm_condition(cond, &inverted_cond)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    raw_instruction = (uint32_t)insn->bytes[0] |
+                      ((uint32_t)insn->bytes[1] << 8) |
+                      ((uint32_t)insn->bytes[2] << 16) |
+                      ((uint32_t)insn->bytes[3] << 24);
+    if (!decode_arm_branch_offset(raw_instruction, &original_word_offset)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    rewritten_word_offset = original_word_offset - 1;
+    if (!encode_arm_branch_instruction(inverted_cond, 0, &skip_instruction) ||
+        !encode_arm_branch_instruction(cond, rewritten_word_offset, &branch_instruction) ||
+        !is_bad_byte_free(skip_instruction) ||
+        !is_bad_byte_free(branch_instruction)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    buffer_append(b, (uint8_t*)&skip_instruction, 4);
+    buffer_append(b, (uint8_t*)&branch_instruction, 4);
+}
+
+static strategy_t arm_branch_conditional_alt_strategy = {
+    .name = "arm_branch_conditional_alt",
+    .can_handle = can_handle_arm_branch_conditional_alt,
+    .get_size = get_size_arm_branch_conditional_alt,
+    .generate = generate_arm_branch_conditional_alt,
+    .priority = 14,
+    .target_arch = BYVAL_ARCH_ARM
+};
+
 // ============================================================================
 // Registration Functions
 // ============================================================================
@@ -698,6 +789,7 @@ void register_arm_memory_strategies(void) {
 }
 
 void register_arm_jump_strategies(void) {
+    register_strategy(&arm_branch_conditional_alt_strategy);
     register_strategy(&arm_branch_original_strategy);
 }
 

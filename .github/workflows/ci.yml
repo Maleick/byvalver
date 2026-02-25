@@ -77,6 +77,17 @@ jobs:
             --artifacts-dir ci-artifacts \
             | tee "ci-artifacts/verify-denulled-${{ matrix.arch }}.log"
 
+      - name: Run deterministic equivalence verification (verify_functionality.py + verify_semantic.py)
+        if: always()
+        run: |
+          set -o pipefail
+          mkdir -p ci-artifacts
+          bash tests/run_tests.sh \
+            --mode verify-equivalence \
+            --arch "${{ matrix.arch }}" \
+            --artifacts-dir ci-artifacts \
+            | tee "ci-artifacts/verify-equivalence-${{ matrix.arch }}.log"
+
       - name: Upload per-arch verification artifacts
         uses: actions/upload-artifact@v4
         if: always()

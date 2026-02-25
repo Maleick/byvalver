@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # byvalver test runner
-# Usage: bash tests/run_tests.sh [--mode full|baseline|verify-denulled] [--arch x86|x64|arm|all] [--verbose]
+# Usage: bash tests/run_tests.sh [--mode full|baseline|verify-denulled|verify-equivalence] [--arch x86|x64|arm|all] [--verbose]
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ usage() {
 Usage: bash tests/run_tests.sh [options]
 
 Options:
-  --mode MODE             full (default), baseline, or verify-denulled
+  --mode MODE             full (default), baseline, verify-denulled, or verify-equivalence
   --arch ARCH             x86 | x64 | arm | all (default)
   --profiles CSV          profile override (e.g. null-only,http-newline)
   --artifacts-dir PATH    output directory for verification logs (default: ci-artifacts)
@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$MODE" != "full" && "$MODE" != "baseline" && "$MODE" != "verify-denulled" ]]; then
+if [[ "$MODE" != "full" && "$MODE" != "baseline" && "$MODE" != "verify-denulled" && "$MODE" != "verify-equivalence" ]]; then
   echo "Invalid --mode value: $MODE"
   exit 1
 fi
@@ -230,6 +230,7 @@ preflight_check() {
   check_tool xxd "Install xxd (vim-common on Linux, brew install vim on macOS)."
   check_tool pkg-config "Install pkg-config (apt install pkg-config / brew install pkg-config)."
   check_tool python3 "Install python3 (apt install python3 / brew install python)."
+  check_tool objdump "Install binutils (apt install binutils / brew install binutils)."
 
   if pkg-config --exists capstone > /dev/null 2>&1; then
     log_pass "preflight: found Capstone via pkg-config"
@@ -509,6 +510,108 @@ run_verify_denulled_mode() {
   return "$mode_failed"
 }
 
+functionality_arch_for() {
+  local target_arch="$1"
+  case "$target_arch" in
+    x64)
+      echo "x64"
+      ;;
+    x86|arm)
+      # verify_functionality.py accepts x86/x64; keep ARM checks deterministic via x86 analysis mode.
+      echo "x86"
+      ;;
+    *)
+      echo "x86"
+      ;;
+  esac
+}
+
+run_verify_equivalence_mode() {
+  local mode_failed=0
+  local target_arch fixture_rows fixture_row fixture_id fixture_path fixture_profiles
+  local fixture_abs safe_id output transform_log func_log sem_log func_arch
+
+  echo ""
+  echo "[1/1] Deterministic functionality and semantic verification"
+
+  mkdir -p "$ARTIFACTS_DIR"
+  resolve_target_arches
+  : > "$RESULT_ROWS_FILE"
+
+  for target_arch in "${TARGET_ARCHES[@]}"; do
+    mapfile -t fixture_rows < <(manifest_representatives_for_arch "$target_arch") || {
+      log_fail "manifest representative selection failed for arch=$target_arch"
+      record_verify_result "verify-equivalence" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "manifest representative selection failed"
+      emit_arch_mode_summary "$target_arch" "verify-equivalence"
+      mode_failed=1
+      continue
+    }
+
+    if [[ ${#fixture_rows[@]} -eq 0 ]]; then
+      log_fail "no representative fixtures found for arch=$target_arch"
+      record_verify_result "verify-equivalence" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "no representative fixtures found"
+      emit_arch_mode_summary "$target_arch" "verify-equivalence"
+      mode_failed=1
+      continue
+    fi
+
+    for fixture_row in "${fixture_rows[@]}"; do
+      IFS=$'\t' read -r fixture_id fixture_path fixture_profiles <<<"$fixture_row"
+
+      fixture_abs="$fixture_path"
+      if [[ "$fixture_abs" != /* ]]; then
+        fixture_abs="$PROJECT_ROOT/$fixture_path"
+      fi
+
+      if [[ ! -r "$fixture_abs" ]]; then
+        log_fail "check=fixture-selection arch=$target_arch fixture_id=$fixture_id path=$fixture_abs missing"
+        record_verify_result "verify-equivalence" "$target_arch" "fixture-selection" "n/a" "$fixture_id" "$fixture_abs" "n/a" "FAIL" "n/a" "fixture missing or unreadable"
+        mode_failed=1
+        continue
+      fi
+
+      safe_id="$(sanitize_name "$fixture_id")"
+      output="$TMPDIR/${target_arch}_${safe_id}.bin"
+      transform_log="$ARTIFACTS_DIR/verify-${target_arch}-equivalence-transform-${safe_id}.log"
+
+      if run_cmd_logged "$transform_log" "$BIN" --arch "$target_arch" "$fixture_abs" "$output"; then
+        log_pass "check=transform arch=$target_arch fixture_id=$fixture_id"
+        record_verify_result "verify-equivalence" "$target_arch" "transform" "n/a" "$fixture_id" "$fixture_abs" "$output" "PASS" "$transform_log" "transformation completed"
+      else
+        log_fail "check=transform arch=$target_arch fixture_id=$fixture_id failed (see $transform_log)"
+        record_verify_result "verify-equivalence" "$target_arch" "transform" "n/a" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$transform_log" "transformation failed"
+        mode_failed=1
+        continue
+      fi
+
+      func_arch="$(functionality_arch_for "$target_arch")"
+      func_log="$ARTIFACTS_DIR/verify-${target_arch}-functionality-${safe_id}.log"
+      if run_cmd_logged "$func_log" python3 "$PROJECT_ROOT/verify_functionality.py" "$fixture_abs" "$output" --arch "$func_arch"; then
+        log_pass "check=functionality arch=$target_arch fixture_id=$fixture_id analysis_arch=$func_arch"
+        record_verify_result "verify-equivalence" "$target_arch" "functionality" "$func_arch" "$fixture_id" "$fixture_abs" "$output" "PASS" "$func_log" "functionality verification passed"
+      else
+        log_fail "check=functionality arch=$target_arch fixture_id=$fixture_id failed (see $func_log)"
+        record_verify_result "verify-equivalence" "$target_arch" "functionality" "$func_arch" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$func_log" "functionality verification failed"
+        mode_failed=1
+      fi
+
+      sem_log="$ARTIFACTS_DIR/verify-${target_arch}-semantic-${safe_id}.log"
+      if run_cmd_logged "$sem_log" python3 "$PROJECT_ROOT/verify_semantic.py" "$fixture_abs" "$output" --method pattern; then
+        log_pass "check=semantic arch=$target_arch fixture_id=$fixture_id"
+        record_verify_result "verify-equivalence" "$target_arch" "semantic" "pattern" "$fixture_id" "$fixture_abs" "$output" "PASS" "$sem_log" "semantic verification passed"
+      else
+        log_fail "check=semantic arch=$target_arch fixture_id=$fixture_id failed (see $sem_log)"
+        record_verify_result "verify-equivalence" "$target_arch" "semantic" "pattern" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$sem_log" "semantic verification failed"
+        mode_failed=1
+      fi
+    done
+
+    emit_arch_mode_summary "$target_arch" "verify-equivalence"
+  done
+
+  return "$mode_failed"
+}
+
 echo "========================================"
 echo " byvalver test suite"
 echo "========================================"
@@ -532,7 +635,7 @@ else
   exit 1
 fi
 
-if [[ "$MODE" == "verify-denulled" ]]; then
+if [[ "$MODE" == "verify-denulled" || "$MODE" == "verify-equivalence" ]]; then
   echo ""
   echo "[1/4] Verification-mode prerequisites"
   if verify_binary_available; then
@@ -543,7 +646,17 @@ if [[ "$MODE" == "verify-denulled" ]]; then
     exit 1
   fi
 
-  run_verify_denulled_mode
+  case "$MODE" in
+    verify-denulled)
+      run_verify_denulled_mode
+      ;;
+    verify-equivalence)
+      run_verify_equivalence_mode
+      ;;
+    *)
+      log_fail "unexpected verification mode: $MODE"
+      ;;
+  esac
 
   echo ""
   echo "========================================"

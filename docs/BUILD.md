@@ -99,6 +99,26 @@ VERBOSE=1 make ci-baseline
 See `docs/CONTRIBUTOR_BASELINE.md` for baseline behavior, expected outputs, and
 troubleshooting guidance.
 
+### Host-vs-Docker Reproducibility Parity
+
+Use this command to validate deterministic host-vs-Docker verification outcomes
+for representative fixtures:
+
+```bash
+bash tests/run_tests.sh --mode verify-parity --arch all --artifacts-dir ci-artifacts
+```
+
+Parity artifacts are written to:
+- `ci-artifacts/parity-host/` (host verification summaries/logs)
+- `ci-artifacts/parity-docker/` (Docker verification summaries/logs)
+- `ci-artifacts/parity-compare/` (per-arch/mode parity comparison summaries)
+
+Interpretation:
+- `parity matched`: host and Docker verification outcomes are equivalent.
+- `parity mismatch`: release gate blocker; inspect `parity-compare` JSON reports.
+- `host/docker verify-equivalence failed`: required verification checks failed and
+  release-gate paths should fail closed.
+
 ### Build Variants
 
 #### Debug Build

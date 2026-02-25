@@ -38,6 +38,9 @@ bash tests/run_tests.sh
 python3 verify_denulled.py output.bin
 python3 verify_functionality.py input.bin output.bin
 python3 verify_semantic.py input.bin output.bin
+
+# Verify host-vs-Docker reproducibility parity (representative fixtures)
+bash tests/run_tests.sh --mode verify-parity --arch all --artifacts-dir ci-artifacts
 ```
 
 The canonical contributor baseline runbook is documented in
@@ -63,6 +66,15 @@ Suggested triage order:
 1. Check `summary-<arch>-verify-denulled.json` and `summary-<arch>-verify-equivalence.json` for failing check groups.
 2. Open the corresponding raw log (`verify-...log`) for the failed fixture/check pair.
 3. Reproduce locally with `bash tests/run_tests.sh --mode verify-denulled|verify-equivalence --arch <arch>`.
+
+Phase 5 adds host-vs-Docker parity artifact groups:
+- Host summaries/logs: `ci-artifacts/parity-host/`
+- Docker summaries/logs: `ci-artifacts/parity-docker/`
+- Parity comparisons: `ci-artifacts/parity-compare/summary-<arch>-<mode>-parity.json`
+
+`verify-parity` exits non-zero when:
+- any required verification group fails in host or Docker runs, or
+- parity comparisons detect host-vs-Docker mismatches.
 
 ## Architecture Diagnostics (Phase 4)
 

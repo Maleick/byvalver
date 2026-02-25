@@ -50,6 +50,33 @@ fixtures:
     ci_representative: true
     profiles: null-only
 
+  - fixture_id: arm-branch-edge-forward
+    arch: arm
+    path: assets/tests/test_bins/arm_branch_edge_forward.bin
+    expected_outcome: transformed_or_declined_safely
+    owner: phase-04
+    notes: Deterministic ARM forward branch edge-case fixture for target-preserving rewrite validation.
+    ci_representative: false
+    profiles: null-only
+
+  - fixture_id: arm-branch-edge-backward
+    arch: arm
+    path: assets/tests/test_bins/arm_branch_edge_backward.bin
+    expected_outcome: transformed_or_declined_safely
+    owner: phase-04
+    notes: Deterministic ARM backward branch edge-case fixture for target-preserving rewrite validation.
+    ci_representative: false
+    profiles: null-only
+
+  - fixture_id: arm-branch-edge-min-boundary
+    arch: arm
+    path: assets/tests/test_bins/arm_branch_edge_min_boundary.bin
+    expected_outcome: safe_decline
+    owner: phase-04
+    notes: Deterministic ARM minimum imm24 branch fixture that must decline unsafe conditional-alt rewrite.
+    ci_representative: false
+    profiles: null-only
+
   - fixture_id: rep-x64-xor-output
     arch: x64
     path: assets/tests/xor_output.bin

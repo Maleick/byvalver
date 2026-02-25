@@ -122,17 +122,50 @@ int decode_arm_branch_offset(uint32_t instruction, int32_t *word_offset_out) {
     return 1;
 }
 
+#define ARM_BRANCH_WORD_OFFSET_MIN (-8388608)
+#define ARM_BRANCH_WORD_OFFSET_MAX (8388607)
+
+int is_arm_branch_word_offset_encodable(int32_t word_offset) {
+    return word_offset >= ARM_BRANCH_WORD_OFFSET_MIN &&
+           word_offset <= ARM_BRANCH_WORD_OFFSET_MAX;
+}
+
 int encode_arm_branch_instruction(uint8_t cond, int32_t word_offset, uint32_t *instruction_out) {
     if (!instruction_out || cond > 0xF) {
         return 0;
     }
-    if (word_offset < -(1 << 23) || word_offset > ((1 << 23) - 1)) {
+    if (!is_arm_branch_word_offset_encodable(word_offset)) {
         return 0;
     }
 
     *instruction_out = ((uint32_t)cond << 28) |
                        0x0A000000U |
                        ((uint32_t)word_offset & 0x00FFFFFFU);
+    return 1;
+}
+
+int plan_arm_branch_conditional_alt_offsets(int32_t original_word_offset,
+                                            int32_t *skip_word_offset_out,
+                                            int32_t *taken_word_offset_out) {
+    int32_t rewritten_word_offset;
+
+    if (!skip_word_offset_out || !taken_word_offset_out) {
+        return 0;
+    }
+    if (!is_arm_branch_word_offset_encodable(original_word_offset)) {
+        return 0;
+    }
+    if (original_word_offset <= ARM_BRANCH_WORD_OFFSET_MIN) {
+        return 0;
+    }
+
+    rewritten_word_offset = original_word_offset - 1;
+    if (!is_arm_branch_word_offset_encodable(rewritten_word_offset)) {
+        return 0;
+    }
+
+    *skip_word_offset_out = 0;
+    *taken_word_offset_out = rewritten_word_offset;
     return 1;
 }
 
@@ -162,7 +195,7 @@ int invert_arm_condition(uint8_t cond, uint8_t *inverted_out) {
 
 int build_arm_branch_conditional_alt(uint32_t original_branch, uint32_t *skip_out, uint32_t *branch_out) {
     uint8_t cond, inverted_cond;
-    int32_t word_offset;
+    int32_t original_word_offset, skip_word_offset, taken_word_offset;
 
     if (!skip_out || !branch_out) {
         return 0;
@@ -172,13 +205,16 @@ int build_arm_branch_conditional_alt(uint32_t original_branch, uint32_t *skip_ou
     if (!invert_arm_condition(cond, &inverted_cond)) {
         return 0;
     }
-    if (!decode_arm_branch_offset(original_branch, &word_offset)) {
+    if (!decode_arm_branch_offset(original_branch, &original_word_offset)) {
         return 0;
     }
-    if (!encode_arm_branch_instruction(inverted_cond, 0, skip_out)) {
+    if (!plan_arm_branch_conditional_alt_offsets(original_word_offset, &skip_word_offset, &taken_word_offset)) {
         return 0;
     }
-    return encode_arm_branch_instruction(cond, word_offset - 1, branch_out);
+    if (!encode_arm_branch_instruction(inverted_cond, skip_word_offset, skip_out)) {
+        return 0;
+    }
+    return encode_arm_branch_instruction(cond, taken_word_offset, branch_out);
 }
 
 uint8_t get_arm_reg_index(arm_reg reg) {
@@ -261,8 +297,76 @@ void generate_arm_mov_mvn(buffer_t *b, cs_insn *insn) {
     buffer_append(b, (uint8_t*)&instruction, 4);
 }
 
-void test_arm_strategies() {
+static int expect_true(const char *label, int condition) {
+    if (!condition) {
+        printf("  [FAIL] %s\n", label);
+        return 0;
+    }
+    printf("  [PASS] %s\n", label);
+    return 1;
+}
+
+static int test_branch_alt_edge_cases(void) {
+    struct {
+        const char *name;
+        int32_t original_offset;
+        int expect_rewrite;
+    } cases[] = {
+        { "forward-offset rewrite", 4, 1 },
+        { "backward-offset rewrite", -8, 1 },
+        { "upper-boundary rewrite", ARM_BRANCH_WORD_OFFSET_MAX, 1 },
+        { "min-boundary safe decline", ARM_BRANCH_WORD_OFFSET_MIN, 0 }
+    };
+
+    int failures = 0;
+    for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        uint32_t original_branch = 0;
+        uint32_t skip_branch = 0;
+        uint32_t taken_branch = 0;
+        int rewritten = 0;
+
+        if (!encode_arm_branch_instruction(0x1, cases[i].original_offset, &original_branch)) {
+            printf("  [FAIL] %s (encode input branch)\n", cases[i].name);
+            failures++;
+            continue;
+        }
+
+        rewritten = build_arm_branch_conditional_alt(original_branch, &skip_branch, &taken_branch);
+        if (cases[i].expect_rewrite) {
+            int32_t skip_offset = 0;
+            int32_t taken_offset = 0;
+
+            if (!expect_true(cases[i].name, rewritten)) {
+                failures++;
+                continue;
+            }
+
+            if (!decode_arm_branch_offset(skip_branch, &skip_offset) ||
+                !decode_arm_branch_offset(taken_branch, &taken_offset)) {
+                printf("  [FAIL] %s (decode rewritten branches)\n", cases[i].name);
+                failures++;
+                continue;
+            }
+
+            if (!expect_true("skip offset is zero", skip_offset == 0)) {
+                failures++;
+            }
+            if (!expect_true("taken offset preserves target", taken_offset == (cases[i].original_offset - 1))) {
+                failures++;
+            }
+        } else {
+            if (!expect_true(cases[i].name, !rewritten)) {
+                failures++;
+            }
+        }
+    }
+
+    return failures;
+}
+
+int test_arm_strategies(void) {
     printf("Testing ARM strategies...\n");
+    int failures = 0;
 
     // Set up bad bytes (null byte)
     g_bad_byte_config.bad_bytes[0] = 1;
@@ -276,7 +380,7 @@ void test_arm_strategies() {
 
     if (cs_open(CS_ARCH_ARM, CS_MODE_ARM, &handle) != CS_ERR_OK) {
         printf("Failed to open Capstone\n");
-        return;
+        return 1;
     }
 
     cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
@@ -285,7 +389,7 @@ void test_arm_strategies() {
     if (count == 0) {
         printf("Failed to disassemble\n");
         cs_close(&handle);
-        return;
+        return 1;
     }
 
     printf("Instruction: %s %s\n", insn->mnemonic, insn->op_str);
@@ -353,13 +457,21 @@ void test_arm_strategies() {
         }
     }
 
+    printf("Branch edge-case checks:\n");
+    failures += test_branch_alt_edge_cases();
+
     cs_free(insn, count);
     cs_close(&handle);
     free(output.data);
+    return failures;
 }
 
-int main() {
-    test_arm_strategies();
+int main(void) {
+    int failures = test_arm_strategies();
     printf("\nARM strategy test completed!\n");
+    if (failures != 0) {
+        printf("Encountered %d branch edge-case failure(s)\n", failures);
+        return 1;
+    }
     return 0;
 }

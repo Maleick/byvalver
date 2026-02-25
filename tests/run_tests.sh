@@ -79,13 +79,59 @@ run_cmd() {
   fi
 }
 
+preflight_check() {
+  local missing=0
+
+  check_tool() {
+    local tool="$1"
+    local install_hint="$2"
+    if command -v "$tool" > /dev/null 2>&1; then
+      log_pass "preflight: found $tool"
+    else
+      log_fail "preflight: missing $tool"
+      echo "  install hint: $install_hint"
+      missing=1
+    fi
+  }
+
+  check_tool gcc "Install build-essential (Ubuntu/Debian) or Xcode Command Line Tools (macOS)."
+  check_tool make "Install build-essential (Ubuntu/Debian) or Xcode Command Line Tools (macOS)."
+  check_tool nasm "Install nasm (apt install nasm / brew install nasm)."
+  check_tool xxd "Install xxd (vim-common on Linux, brew install vim on macOS)."
+  check_tool pkg-config "Install pkg-config (apt install pkg-config / brew install pkg-config)."
+  check_tool python3 "Install python3 (apt install python3 / brew install python)."
+
+  if pkg-config --exists capstone > /dev/null 2>&1; then
+    log_pass "preflight: found Capstone via pkg-config"
+  else
+    log_fail "preflight: missing Capstone pkg-config entry"
+    echo "  install hint: install libcapstone-dev (Ubuntu/Debian) or capstone (Homebrew)."
+    missing=1
+  fi
+
+  return "$missing"
+}
+
 echo "========================================"
 echo " byvalver test suite"
 echo "========================================"
 echo " mode: $MODE"
 echo " arch: $ARCH"
 echo " verbose: $VERBOSE"
+echo " output: concise by default, verbose when --verbose is set"
 echo ""
+
+# ----------------------------------------------------------
+# 0. Preflight checks
+# ----------------------------------------------------------
+echo "[0/4] Preflight checks"
+if preflight_check; then
+  :
+else
+  echo ""
+  echo "Preflight failed -- cannot continue."
+  exit 1
+fi
 
 # ----------------------------------------------------------
 # 1. Build verification

@@ -3,12 +3,24 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".planning/**"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".planning/**"
 
 jobs:
-  build-and-test:
+  baseline:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86, x64, arm]
 
     steps:
       - name: Checkout
@@ -31,12 +43,30 @@ jobs:
           bin/byvalver --help
           bin/byvalver --version
 
-      - name: Run test suite
-        run: bash tests/run_tests.sh
+      - name: Run baseline tests
+        run: |
+          set -o pipefail
+          mkdir -p ci-artifacts
+          bash tests/run_tests.sh --mode baseline --arch "${{ matrix.arch }}" | tee "ci-artifacts/baseline-${{ matrix.arch }}.log"
 
-      - name: Upload build artifact
+      - name: Upload per-arch baseline artifacts
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
-          name: byvalver-linux-x64
-          path: bin/byvalver
+          name: baseline-${{ matrix.arch }}
+          path: |
+            ci-artifacts/baseline-${{ matrix.arch }}.log
+            bin/byvalver
+
+  baseline-summary:
+    runs-on: ubuntu-latest
+    needs: baseline
+    if: always()
+    steps:
+      - name: Summarize matrix result
+        run: |
+          echo "Baseline matrix result: ${{ needs.baseline.result }}"
+          if [ "${{ needs.baseline.result }}" != "success" ]; then
+            echo "At least one architecture baseline run failed."
+            exit 1
+          fi

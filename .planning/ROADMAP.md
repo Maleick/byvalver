@@ -29,9 +29,9 @@ This roadmap hardens byvalver's existing transformation engine by making verific
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Define fixture taxonomy and normalize sample metadata/documentation.
-- [ ] 01-02: Update CI workflow to run baseline build/smoke jobs using canonical fixture paths.
-- [ ] 01-03: Publish contributor runbook for local build + baseline verification entry point.
+- [ ] 01-01-PLAN.md - Canonicalize fixture taxonomy, metadata sidecars, and fixture governance rules.
+- [ ] 01-02-PLAN.md - Implement fail-late architecture CI baseline matrix using canonical fixture paths.
+- [ ] 01-03-PLAN.md - Publish one-command local CI-parity baseline runbook and make target.
 
 ### Phase 2: Verification Automation and Reporting
 **Goal**: PRs provide objective evidence that transformations remain bad-byte-safe and semantically equivalent.

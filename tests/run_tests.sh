@@ -18,6 +18,7 @@ ARCH="all"
 VERBOSE="${VERBOSE:-0}"
 ARTIFACTS_DIR="$PROJECT_ROOT/ci-artifacts"
 PROFILE_SET=""
+RESULT_ROWS_FILE="$TMPDIR/verify-results.tsv"
 
 cleanup() {
   rm -rf "$TMPDIR"
@@ -111,6 +112,101 @@ run_cmd_logged() {
     cat "$log_file"
   fi
   return 1
+}
+
+record_verify_result() {
+  local mode="$1"
+  local arch="$2"
+  local check="$3"
+  local profile="$4"
+  local fixture_id="$5"
+  local fixture_path="$6"
+  local output_path="$7"
+  local status="$8"
+  local log_path="$9"
+  local message="${10}"
+
+  message="${message//$'\t'/ }"
+  message="${message//$'\n'/ }"
+  message="${message//$'\r'/ }"
+
+  printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" \
+    "$mode" "$arch" "$check" "$profile" "$fixture_id" "$fixture_path" "$output_path" "$status" "$log_path" "$message" \
+    >> "$RESULT_ROWS_FILE"
+}
+
+emit_arch_mode_summary() {
+  local target_arch="$1"
+  local target_mode="$2"
+  local output_json="$ARTIFACTS_DIR/summary-${target_arch}-${target_mode}.json"
+
+  python3 - "$RESULT_ROWS_FILE" "$target_arch" "$target_mode" "$output_json" <<'PY'
+import csv
+import json
+import sys
+from collections import Counter
+from datetime import datetime, timezone
+
+rows_path, target_arch, target_mode, output_json = sys.argv[1:5]
+field_names = [
+    "mode",
+    "arch",
+    "check",
+    "profile",
+    "fixture_id",
+    "fixture_path",
+    "output_path",
+    "status",
+    "log_path",
+    "message",
+]
+
+checks = []
+status_counts = Counter()
+
+try:
+    with open(rows_path, "r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle, fieldnames=field_names, delimiter="\t")
+        for row in reader:
+            if row["mode"] != target_mode or row["arch"] != target_arch:
+                continue
+
+            status = row["status"].strip().upper()
+            status_counts[status] += 1
+
+            checks.append(
+                {
+                    "check": row["check"],
+                    "profile": row["profile"],
+                    "fixture_id": row["fixture_id"],
+                    "fixture_path": row["fixture_path"],
+                    "output_path": row["output_path"],
+                    "status": status,
+                    "log_path": row["log_path"],
+                    "message": row["message"],
+                }
+            )
+except FileNotFoundError:
+    checks = []
+
+summary = {
+    "mode": target_mode,
+    "arch": target_arch,
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "totals": {
+        "checks": len(checks),
+        "pass": status_counts.get("PASS", 0),
+        "fail": status_counts.get("FAIL", 0),
+        "skip": status_counts.get("SKIP", 0),
+    },
+    "checks": checks,
+}
+
+with open(output_json, "w", encoding="utf-8") as handle:
+    json.dump(summary, handle, indent=2)
+PY
+
+  log_pass "wrote summary json $output_json"
 }
 
 preflight_check() {
@@ -334,16 +430,21 @@ run_verify_denulled_mode() {
 
   mkdir -p "$ARTIFACTS_DIR"
   resolve_target_arches
+  : > "$RESULT_ROWS_FILE"
 
   for target_arch in "${TARGET_ARCHES[@]}"; do
     mapfile -t fixture_rows < <(manifest_representatives_for_arch "$target_arch") || {
       log_fail "manifest representative selection failed for arch=$target_arch"
+      record_verify_result "verify-denulled" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "manifest representative selection failed"
+      emit_arch_mode_summary "$target_arch" "verify-denulled"
       mode_failed=1
       continue
     }
 
     if [[ ${#fixture_rows[@]} -eq 0 ]]; then
       log_fail "no representative fixtures found for arch=$target_arch"
+      record_verify_result "verify-denulled" "$target_arch" "fixture-selection" "n/a" "manifest" "$MANIFEST" "n/a" "FAIL" "n/a" "no representative fixtures found"
+      emit_arch_mode_summary "$target_arch" "verify-denulled"
       mode_failed=1
       continue
     fi
@@ -358,6 +459,7 @@ run_verify_denulled_mode() {
 
       if [[ ! -r "$fixture_abs" ]]; then
         log_fail "fixture_id=$fixture_id missing/unreadable path=$fixture_abs"
+        record_verify_result "verify-denulled" "$target_arch" "fixture-selection" "n/a" "$fixture_id" "$fixture_abs" "n/a" "FAIL" "n/a" "fixture missing or unreadable"
         mode_failed=1
         continue
       fi
@@ -368,8 +470,10 @@ run_verify_denulled_mode() {
 
       if run_cmd_logged "$transform_log" "$BIN" --arch "$target_arch" "$fixture_abs" "$output"; then
         log_pass "fixture_id=$fixture_id arch=$target_arch transformed"
+        record_verify_result "verify-denulled" "$target_arch" "transform" "n/a" "$fixture_id" "$fixture_abs" "$output" "PASS" "$transform_log" "transformation completed"
       else
         log_fail "fixture_id=$fixture_id arch=$target_arch transformation failed (see $transform_log)"
+        record_verify_result "verify-denulled" "$target_arch" "transform" "n/a" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$transform_log" "transformation failed"
         mode_failed=1
         continue
       fi
@@ -377,6 +481,7 @@ run_verify_denulled_mode() {
       required_profiles="$(required_profiles_for_arch "$target_arch")"
       if ! selected_profiles="$(select_profiles_for_fixture "$required_profiles" "$fixture_profiles")"; then
         log_fail "fixture_id=$fixture_id arch=$target_arch has no matching profiles (required=$required_profiles fixture=$fixture_profiles)"
+        record_verify_result "verify-denulled" "$target_arch" "profile-selection" "n/a" "$fixture_id" "$fixture_abs" "$output" "FAIL" "n/a" "no matching profiles"
         mode_failed=1
         continue
       fi
@@ -389,12 +494,16 @@ run_verify_denulled_mode() {
         verify_log="$ARTIFACTS_DIR/verify-${target_arch}-denulled-${profile}-${safe_id}.log"
         if run_cmd_logged "$verify_log" python3 "$PROJECT_ROOT/verify_denulled.py" --profile "$profile" "$output"; then
           log_pass "fixture_id=$fixture_id arch=$target_arch --profile $profile"
+          record_verify_result "verify-denulled" "$target_arch" "denulled" "$profile" "$fixture_id" "$fixture_abs" "$output" "PASS" "$verify_log" "verification passed"
         else
           log_fail "fixture_id=$fixture_id arch=$target_arch --profile $profile failed (see $verify_log)"
+          record_verify_result "verify-denulled" "$target_arch" "denulled" "$profile" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$verify_log" "verification failed"
           mode_failed=1
         fi
       done
     done
+
+    emit_arch_mode_summary "$target_arch" "verify-denulled"
   done
 
   return "$mode_failed"

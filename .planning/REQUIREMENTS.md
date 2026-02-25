@@ -11,7 +11,7 @@ Requirements for the next stabilization release (v4.3 track).
 
 - [x] **TEST-01**: CI runs build and CLI smoke checks for supported stable architectures on every PR and push.
 - [x] **TEST-02**: Repository includes a categorized fixture corpus for x86, x64, and ARM samples with documented expected outcomes.
-- [ ] **TEST-03**: CI executes bad-byte verification for configured byte profiles using `verify_denulled.py` across representative fixtures.
+- [x] **TEST-03**: CI executes bad-byte verification for configured byte profiles using `verify_denulled.py` across representative fixtures.
 - [ ] **TEST-04**: CI executes semantic/functional verification using `verify_functionality.py` and `verify_semantic.py` for representative fixtures.
 - [ ] **TEST-05**: CI publishes a per-architecture pass/fail summary artifact that contributors can inspect after each run.
 
@@ -59,7 +59,7 @@ Which phases cover which requirements.
 |-------------|-------|--------|
 | TEST-01 | Phase 1 | Complete |
 | TEST-02 | Phase 1 | Complete |
-| TEST-03 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Complete |
 | TEST-04 | Phase 2 | Pending |
 | TEST-05 | Phase 2 | Pending |
 | ARM-01 | Phase 3 | Pending |

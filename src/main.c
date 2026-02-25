@@ -23,6 +23,11 @@
 #endif
 
 size_t find_entry_point(const uint8_t *shellcode, size_t size);
+const char *byval_arch_name(byval_arch_t arch);
+int detect_likely_arch_mismatch(const uint8_t *shellcode, size_t size, byval_arch_t target_arch,
+                                byval_arch_t *suggested_arch_out,
+                                double *target_coverage_out,
+                                double *suggested_coverage_out);
 
 // Helper function to format shellcode based on output format
 static char* format_shellcode(const uint8_t *data, size_t size, const char *format) {
@@ -165,6 +170,26 @@ int process_single_file(const char *input_file, const char *output_file,
         *input_size_out = file_size;
     }
 
+    // Warn before destructive processing if decode coverage strongly suggests a different architecture.
+    if (!config->quiet) {
+        byval_arch_t suggested_arch = config->target_arch;
+        double target_coverage = 0.0;
+        double suggested_coverage = 0.0;
+        if (detect_likely_arch_mismatch(shellcode, (size_t)file_size, config->target_arch,
+                                        &suggested_arch, &target_coverage, &suggested_coverage)) {
+            fprintf(stderr,
+                    "Warning: input likely targets '%s' while '--arch %s' is selected.\n",
+                    byval_arch_name(suggested_arch), byval_arch_name(config->target_arch));
+            fprintf(stderr,
+                    "  heuristic: decode coverage %s=%.1f%%, %s=%.1f%%\n",
+                    byval_arch_name(config->target_arch), target_coverage * 100.0,
+                    byval_arch_name(suggested_arch), suggested_coverage * 100.0);
+            fprintf(stderr,
+                    "  next steps: retry with --arch %s or run --dry-run first. Continuing in warn-and-continue mode.\n",
+                    byval_arch_name(suggested_arch));
+        }
+    }
+
     // In dry-run mode, just exit after reading the file successfully
     if (config->dry_run) {
         free(shellcode);
@@ -173,14 +198,7 @@ int process_single_file(const char *input_file, const char *output_file,
 
     // Display architecture information
     if (!config->quiet) {
-        const char *arch_name;
-        switch (config->target_arch) {
-            case BYVAL_ARCH_X86: arch_name = "x86 (32-bit)"; break;
-            case BYVAL_ARCH_X64: arch_name = "x64 (64-bit)"; break;
-            case BYVAL_ARCH_ARM: arch_name = "ARM (32-bit)"; break;
-            case BYVAL_ARCH_ARM64: arch_name = "ARM64 (AArch64)"; break;
-            default: arch_name = "Unknown"; break;
-        }
+        const char *arch_name = byval_arch_name(config->target_arch);
         fprintf(stderr, "╔════════════════════════════════════════════════════════╗\n");
         fprintf(stderr, "║  BYVALVER BAD-BYTE ELIMINATION ENGINE                 ║\n");
         fprintf(stderr, "╚════════════════════════════════════════════════════════╝\n");

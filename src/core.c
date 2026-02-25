@@ -99,6 +99,137 @@ void get_capstone_arch_mode(byval_arch_t arch, cs_arch *cs_arch_out, cs_mode *cs
     }
 }
 
+const char *byval_arch_name(byval_arch_t arch) {
+    switch (arch) {
+        case BYVAL_ARCH_X86: return "x86";
+        case BYVAL_ARCH_X64: return "x64";
+        case BYVAL_ARCH_ARM: return "arm";
+        case BYVAL_ARCH_ARM64: return "arm64";
+        default: return "unknown";
+    }
+}
+
+static int score_arch_decode_coverage(const uint8_t *shellcode, size_t size, byval_arch_t arch,
+                                      double *coverage_out, size_t *instruction_count_out) {
+    csh handle;
+    cs_insn *insn_array = NULL;
+    size_t count = 0;
+    size_t covered_bytes = 0;
+    cs_arch cs_arch;
+    cs_mode cs_mode;
+
+    if (!shellcode || size == 0 || !coverage_out || !instruction_count_out) {
+        return 0;
+    }
+
+    *coverage_out = 0.0;
+    *instruction_count_out = 0;
+
+    get_capstone_arch_mode(arch, &cs_arch, &cs_mode);
+    if (cs_open(cs_arch, cs_mode, &handle) != CS_ERR_OK) {
+        return 0;
+    }
+
+    count = cs_disasm(handle, shellcode, size, 0, 0, &insn_array);
+    if (count == 0 || !insn_array) {
+        cs_close(&handle);
+        return 1;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        covered_bytes += insn_array[i].size;
+    }
+    if (covered_bytes > size) {
+        covered_bytes = size;
+    }
+
+    *coverage_out = (double)covered_bytes / (double)size;
+    *instruction_count_out = count;
+
+    cs_free(insn_array, count);
+    cs_close(&handle);
+    return 1;
+}
+
+int detect_likely_arch_mismatch(const uint8_t *shellcode, size_t size, byval_arch_t target_arch,
+                                byval_arch_t *suggested_arch_out,
+                                double *target_coverage_out,
+                                double *suggested_coverage_out) {
+    byval_arch_t candidates[3];
+    int candidate_count = 0;
+    double target_coverage = 0.0;
+    size_t target_insn_count = 0;
+    double best_coverage = 0.0;
+    size_t best_insn_count = 0;
+    byval_arch_t best_arch = target_arch;
+
+    if (!shellcode || size < 16 || !suggested_arch_out || !target_coverage_out || !suggested_coverage_out) {
+        return 0;
+    }
+    if (!score_arch_decode_coverage(shellcode, size, target_arch, &target_coverage, &target_insn_count)) {
+        return 0;
+    }
+
+    switch (target_arch) {
+        case BYVAL_ARCH_X86:
+            candidates[candidate_count++] = BYVAL_ARCH_X64;
+            candidates[candidate_count++] = BYVAL_ARCH_ARM;
+            candidates[candidate_count++] = BYVAL_ARCH_ARM64;
+            break;
+        case BYVAL_ARCH_X64:
+            candidates[candidate_count++] = BYVAL_ARCH_X86;
+            candidates[candidate_count++] = BYVAL_ARCH_ARM;
+            candidates[candidate_count++] = BYVAL_ARCH_ARM64;
+            break;
+        case BYVAL_ARCH_ARM:
+            candidates[candidate_count++] = BYVAL_ARCH_ARM64;
+            candidates[candidate_count++] = BYVAL_ARCH_X86;
+            candidates[candidate_count++] = BYVAL_ARCH_X64;
+            break;
+        case BYVAL_ARCH_ARM64:
+            candidates[candidate_count++] = BYVAL_ARCH_ARM;
+            candidates[candidate_count++] = BYVAL_ARCH_X86;
+            candidates[candidate_count++] = BYVAL_ARCH_X64;
+            break;
+        default:
+            return 0;
+    }
+
+    for (int i = 0; i < candidate_count; i++) {
+        double candidate_coverage = 0.0;
+        size_t candidate_insn_count = 0;
+        if (!score_arch_decode_coverage(shellcode, size, candidates[i], &candidate_coverage, &candidate_insn_count)) {
+            continue;
+        }
+
+        if (candidate_coverage > best_coverage) {
+            best_coverage = candidate_coverage;
+            best_insn_count = candidate_insn_count;
+            best_arch = candidates[i];
+        }
+    }
+
+    *target_coverage_out = target_coverage;
+    *suggested_coverage_out = best_coverage;
+    *suggested_arch_out = best_arch;
+
+    // Conservative thresholding: only warn when an alternate decode is significantly better.
+    if (best_arch == target_arch) {
+        return 0;
+    }
+    if (best_insn_count < 2) {
+        return 0;
+    }
+    if (best_coverage < 0.55) {
+        return 0;
+    }
+    if ((best_coverage - target_coverage) < 0.30) {
+        return 0;
+    }
+
+    return 1;
+}
+
 // Set the batch statistics context
 void set_batch_stats_context(batch_stats_t *stats) {
     g_batch_stats_context = stats;

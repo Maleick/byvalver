@@ -8,6 +8,18 @@
 #include "core.h"  // For bad_byte_context_t
 #include <capstone/capstone.h>
 
+static uint8_t arm_condition_from_insn(cs_insn *insn) {
+    uint32_t raw;
+    if (!insn || insn->size < 4) {
+        return 0xE;  // AL
+    }
+    raw = (uint32_t)insn->bytes[0] |
+          ((uint32_t)insn->bytes[1] << 8) |
+          ((uint32_t)insn->bytes[2] << 16) |
+          ((uint32_t)insn->bytes[3] << 24);
+    return (uint8_t)((raw >> 28) & 0xF);
+}
+
 // ============================================================================
 // ARM MOV Strategies
 // ============================================================================
@@ -218,6 +230,167 @@ static strategy_t arm_add_sub_strategy = {
     .target_arch = BYVAL_ARCH_ARM
 };
 
+/**
+ * Strategy: ARM ADD immediate split
+ * Transform ADD Rd, Rn, #imm -> ADD Rd, Rn, #part1 ; ADD Rd, Rd, #part2
+ */
+static int can_handle_arm_add_split(cs_insn *insn) {
+    uint32_t imm, part1, part2;
+    uint8_t cond, rd, rn;
+    uint32_t instruction1, instruction2;
+    extern bad_byte_context_t g_bad_byte_context;
+
+    if (insn->id != ARM_INS_ADD) return 0;
+    if (insn->detail->arm.op_count != 3) return 0;
+    if (insn->detail->arm.operands[0].type != ARM_OP_REG ||
+        insn->detail->arm.operands[1].type != ARM_OP_REG ||
+        insn->detail->arm.operands[2].type != ARM_OP_IMM) {
+        return 0;
+    }
+    if (!arm_has_bad_bytes(insn, &g_bad_byte_context.config)) {
+        return 0;
+    }
+
+    imm = (uint32_t)insn->detail->arm.operands[2].imm;
+    if (imm == 0 || !find_arm_addsub_split_immediate(imm, &part1, &part2)) {
+        return 0;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    rd = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].reg);
+
+    if (!encode_arm_dp_immediate(cond, 0x4, rn, rd, part1, 0, &instruction1)) return 0;
+    if (!encode_arm_dp_immediate(cond, 0x4, rd, rd, part2, 0, &instruction2)) return 0;
+
+    return is_bad_byte_free(instruction1) && is_bad_byte_free(instruction2);
+}
+
+static size_t get_size_arm_add_split(cs_insn *insn) {
+    (void)insn;
+    return 8;
+}
+
+static void generate_arm_add_split(struct buffer *b, cs_insn *insn) {
+    uint32_t imm, part1, part2;
+    uint8_t cond, rd, rn;
+    uint32_t instruction1, instruction2;
+
+    imm = (uint32_t)insn->detail->arm.operands[2].imm;
+    if (imm == 0 || !find_arm_addsub_split_immediate(imm, &part1, &part2)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    rd = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].reg);
+
+    if (!encode_arm_dp_immediate(cond, 0x4, rn, rd, part1, 0, &instruction1) ||
+        !encode_arm_dp_immediate(cond, 0x4, rd, rd, part2, 0, &instruction2) ||
+        !is_bad_byte_free(instruction1) ||
+        !is_bad_byte_free(instruction2)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    buffer_append(b, (uint8_t*)&instruction1, 4);
+    buffer_append(b, (uint8_t*)&instruction2, 4);
+}
+
+static strategy_t arm_add_split_strategy = {
+    .name = "arm_add_split",
+    .can_handle = can_handle_arm_add_split,
+    .get_size = get_size_arm_add_split,
+    .generate = generate_arm_add_split,
+    .priority = 14,
+    .target_arch = BYVAL_ARCH_ARM
+};
+
+/**
+ * Strategy: ARM SUB immediate split
+ * Transform SUB Rd, Rn, #imm -> SUB Rd, Rn, #part1 ; SUB Rd, Rd, #part2
+ */
+static int can_handle_arm_sub_split(cs_insn *insn) {
+    uint32_t imm, part1, part2;
+    uint8_t cond, rd, rn;
+    uint32_t instruction1, instruction2;
+    extern bad_byte_context_t g_bad_byte_context;
+
+    if (insn->id != ARM_INS_SUB) return 0;
+    if (insn->detail->arm.op_count != 3) return 0;
+    if (insn->detail->arm.operands[0].type != ARM_OP_REG ||
+        insn->detail->arm.operands[1].type != ARM_OP_REG ||
+        insn->detail->arm.operands[2].type != ARM_OP_IMM) {
+        return 0;
+    }
+    if (!arm_has_bad_bytes(insn, &g_bad_byte_context.config)) {
+        return 0;
+    }
+
+    if (insn->detail->arm.operands[2].imm < 0) {
+        return 0;  // keep scope conservative for this phase
+    }
+    imm = (uint32_t)insn->detail->arm.operands[2].imm;
+    if (imm == 0 || !find_arm_addsub_split_immediate(imm, &part1, &part2)) {
+        return 0;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    rd = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].reg);
+
+    if (!encode_arm_dp_immediate(cond, 0x2, rn, rd, part1, 0, &instruction1)) return 0;
+    if (!encode_arm_dp_immediate(cond, 0x2, rd, rd, part2, 0, &instruction2)) return 0;
+
+    return is_bad_byte_free(instruction1) && is_bad_byte_free(instruction2);
+}
+
+static size_t get_size_arm_sub_split(cs_insn *insn) {
+    (void)insn;
+    return 8;
+}
+
+static void generate_arm_sub_split(struct buffer *b, cs_insn *insn) {
+    uint32_t imm, part1, part2;
+    uint8_t cond, rd, rn;
+    uint32_t instruction1, instruction2;
+
+    if (insn->detail->arm.operands[2].imm < 0) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+    imm = (uint32_t)insn->detail->arm.operands[2].imm;
+    if (imm == 0 || !find_arm_addsub_split_immediate(imm, &part1, &part2)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    cond = arm_condition_from_insn(insn);
+    rd = get_arm_reg_index(insn->detail->arm.operands[0].reg);
+    rn = get_arm_reg_index(insn->detail->arm.operands[1].reg);
+
+    if (!encode_arm_dp_immediate(cond, 0x2, rn, rd, part1, 0, &instruction1) ||
+        !encode_arm_dp_immediate(cond, 0x2, rd, rd, part2, 0, &instruction2) ||
+        !is_bad_byte_free(instruction1) ||
+        !is_bad_byte_free(instruction2)) {
+        buffer_append(b, insn->bytes, insn->size);
+        return;
+    }
+
+    buffer_append(b, (uint8_t*)&instruction1, 4);
+    buffer_append(b, (uint8_t*)&instruction2, 4);
+}
+
+static strategy_t arm_sub_split_strategy = {
+    .name = "arm_sub_split",
+    .can_handle = can_handle_arm_sub_split,
+    .get_size = get_size_arm_sub_split,
+    .generate = generate_arm_sub_split,
+    .priority = 14,
+    .target_arch = BYVAL_ARCH_ARM
+};
+
 // ============================================================================
 // ARM LDR/STR Strategies
 // ============================================================================
@@ -325,6 +498,8 @@ void register_arm_mov_strategies(void) {
 void register_arm_arithmetic_strategies(void) {
     register_strategy(&arm_add_original_strategy);
     register_strategy(&arm_add_sub_strategy);
+    register_strategy(&arm_add_split_strategy);
+    register_strategy(&arm_sub_split_strategy);
 }
 
 void register_arm_memory_strategies(void) {

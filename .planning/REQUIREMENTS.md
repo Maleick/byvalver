@@ -53,30 +53,30 @@ Explicitly excluded from v4.3 stabilization scope.
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
+Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| TEST-03 | TBD | Pending |
-| TEST-04 | TBD | Pending |
-| TEST-05 | TBD | Pending |
-| ARM-01 | TBD | Pending |
-| ARM-02 | TBD | Pending |
-| ARM-03 | TBD | Pending |
-| ARM-04 | TBD | Pending |
-| ARM-05 | TBD | Pending |
-| ARM-06 | TBD | Pending |
-| REL-01 | TBD | Pending |
-| REL-02 | TBD | Pending |
-| REL-03 | TBD | Pending |
+| TEST-01 | Phase 1 | Pending |
+| TEST-02 | Phase 1 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| TEST-04 | Phase 2 | Pending |
+| TEST-05 | Phase 2 | Pending |
+| ARM-01 | Phase 3 | Pending |
+| ARM-02 | Phase 3 | Pending |
+| ARM-03 | Phase 4 | Pending |
+| ARM-04 | Phase 3 | Pending |
+| ARM-05 | Phase 4 | Pending |
+| ARM-06 | Phase 4 | Pending |
+| REL-01 | Phase 5 | Pending |
+| REL-02 | Phase 1 | Pending |
+| REL-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after initial definition*
+*Last updated: 2026-02-25 after roadmap creation*

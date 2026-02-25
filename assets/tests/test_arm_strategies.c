@@ -82,6 +82,32 @@ int find_arm_addsub_split_immediate(uint32_t target, uint32_t *part1_out, uint32
     return 0;
 }
 
+int find_arm_displacement_split(int32_t displacement, int32_t *pre_adjust_out, int32_t *residual_out) {
+    if (!pre_adjust_out || !residual_out) {
+        return 0;
+    }
+    if (displacement == 0 || displacement < -4095 || displacement > 4095) {
+        return 0;
+    }
+
+    for (int32_t pre = -256; pre <= 256; pre++) {
+        int32_t residual = displacement - pre;
+        if (pre == 0) {
+            continue;
+        }
+        if (residual < -4095 || residual > 4095) {
+            continue;
+        }
+        if (!is_bad_byte_free((uint32_t)pre) || !is_bad_byte_free((uint32_t)residual)) {
+            continue;
+        }
+        *pre_adjust_out = pre;
+        *residual_out = residual;
+        return 1;
+    }
+    return 0;
+}
+
 uint8_t get_arm_reg_index(arm_reg reg) {
     switch (reg) {
         case ARM_REG_R0: return 0;
@@ -221,6 +247,18 @@ void test_arm_strategies() {
         printf("find_arm_addsub_split_immediate(0x%X): %d\n", split_target, can_split);
         if (can_split) {
             printf("split parts: 0x%X + 0x%X = 0x%X\n", split_part1, split_part2, split_part1 + split_part2);
+        }
+    }
+
+    // Displacement split helper smoke check
+    {
+        int32_t pre_adjust = 0;
+        int32_t residual = 0;
+        int32_t displacement = 0x123;
+        int can_split_disp = find_arm_displacement_split(displacement, &pre_adjust, &residual);
+        printf("find_arm_displacement_split(0x%X): %d\n", displacement, can_split_disp);
+        if (can_split_disp) {
+            printf("displacement split: %d + %d = %d\n", pre_adjust, residual, pre_adjust + residual);
         }
     }
 

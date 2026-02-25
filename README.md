@@ -1212,6 +1212,7 @@ See [docs/AGENT_MENAGERIE.md](docs/AGENT_MENAGERIE.md) for architecture details 
 
 - Modern `C` with modularity
 - Canonical local CI-parity baseline: `make ci-baseline` (see [docs/CONTRIBUTOR_BASELINE.md](docs/CONTRIBUTOR_BASELINE.md))
+- Canonical local release gate: `make release-gate` (see [docs/RELEASE.md](docs/RELEASE.md))
 - Test suite: `bash tests/run_tests.sh` (see [tests/README.md](tests/README.md))
 - Code style: Clang-Format (config: [.clang-format](.clang-format)), run `make format`
 - Analysis: Cppcheck, Valgrind
@@ -1228,6 +1229,7 @@ Full documentation is available in the [docs/](docs/) directory:
 | [docs/USAGE.md](docs/USAGE.md) | Comprehensive usage guide with examples |
 | [docs/BUILD.md](docs/BUILD.md) | Build instructions and platform-specific notes |
 | [docs/CONTRIBUTOR_BASELINE.md](docs/CONTRIBUTOR_BASELINE.md) | One-command local baseline workflow matching CI gates |
+| [docs/RELEASE.md](docs/RELEASE.md) | Release checklist and strict reproducibility gate policy |
 | [docs/TUI_README.md](docs/TUI_README.md) | Interactive TUI documentation |
 | [docs/DENULL_STRATS.md](docs/DENULL_STRATS.md) | Denullification strategy catalog |
 | [docs/OBFUSCATION_STRATS.md](docs/OBFUSCATION_STRATS.md) | Obfuscation technique documentation |

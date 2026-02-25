@@ -10,10 +10,15 @@ This directory contains test infrastructure for verifying byvalver builds and tr
 tests/
   run_tests.sh          -- Master test runner
   fixtures/
-    x86/                -- x86 test binaries (copy from assets/tests/)
-    x64/                -- x64 test binaries
-    arm/                -- ARM test binaries
+    README.md           -- Canonical fixture taxonomy and policy
+    manifest.yaml       -- Fixture metadata (expected outcomes + ownership)
+    x86/                -- x86 curated fixture binaries
+    x64/                -- x64 curated fixture binaries
+    arm/                -- ARM curated fixture binaries
 ```
+
+The canonical fixture catalog lives under `tests/fixtures/` and is architecture
+first. Expected outcomes and ownership are tracked in `tests/fixtures/manifest.yaml`.
 
 ## Running Tests
 
@@ -44,5 +49,9 @@ python3 verify_semantic.py input.bin output.bin
 
 ## Adding Test Fixtures
 
-Place binary test files in the appropriate architecture subdirectory under `fixtures/`.
-Small, representative samples are preferred to keep the test suite fast.
+Place binary test files in the appropriate architecture subdirectory under
+`tests/fixtures/` and add corresponding metadata to `tests/fixtures/manifest.yaml`.
+Small, representative samples are preferred to keep the test suite fast and
+deterministic.
+
+See `tests/fixtures/README.md` for full fixture taxonomy and governance details.

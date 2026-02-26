@@ -1,0 +1,94 @@
+{
+  "schema_version": 2,
+  "mode": "verify-equivalence",
+  "arch": "x64",
+  "generated_at": "2026-02-26T16:58:28.139557+00:00",
+  "tuple_fields": [
+    "arch",
+    "fixture_id",
+    "check",
+    "status",
+    "message",
+    "log_path"
+  ],
+  "required_checks": [
+    "fixture-selection",
+    "functionality",
+    "semantic",
+    "transform"
+  ],
+  "totals": {
+    "checks": 3,
+    "pass": 3,
+    "fail": 0,
+    "skip": 0
+  },
+  "tuples": [
+    {
+      "arch": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "check": "functionality",
+      "status": "PASS",
+      "message": "functionality verification passed",
+      "log_path": "ci-artifacts/phase6-stability/verify-x64-functionality-rep-x64-xor-output.log"
+    },
+    {
+      "arch": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "check": "semantic",
+      "status": "PASS",
+      "message": "semantic verification passed",
+      "log_path": "ci-artifacts/phase6-stability/verify-x64-semantic-rep-x64-xor-output.log"
+    },
+    {
+      "arch": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "check": "transform",
+      "status": "PASS",
+      "message": "transformation completed",
+      "log_path": "ci-artifacts/phase6-stability/verify-x64-equivalence-transform-rep-x64-xor-output.log"
+    }
+  ],
+  "failed_required_tuples": [],
+  "checks": [
+    {
+      "check": "functionality",
+      "profile": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "fixture_path": "assets/tests/xor_output.bin",
+      "output_path": "tmp://x64/rep-x64-xor-output.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-stability/verify-x64-functionality-rep-x64-xor-output.log",
+      "message": "functionality verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "semantic",
+      "profile": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "fixture_path": "assets/tests/xor_output.bin",
+      "output_path": "tmp://x64/rep-x64-xor-output.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-stability/verify-x64-semantic-rep-x64-xor-output.log",
+      "message": "semantic verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-x64-xor-output",
+      "fixture_path": "assets/tests/xor_output.bin",
+      "output_path": "tmp://x64/rep-x64-xor-output.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-stability/verify-x64-equivalence-transform-rep-x64-xor-output.log",
+      "message": "transformation completed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    }
+  ]
+}

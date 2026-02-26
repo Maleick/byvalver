@@ -1,0 +1,15 @@
+{
+  "host_summary": "/opt/byvalver/ci-artifacts/release-gate/parity-host/summary-arm-verify-denulled.json",
+  "docker_summary": "/opt/byvalver/ci-artifacts/release-gate/parity-docker/summary-arm-verify-denulled.json",
+  "status": "PASS",
+  "mismatches": [],
+  "required_checks": [
+    "denulled",
+    "fixture-selection",
+    "profile-selection",
+    "transform"
+  ],
+  "host_failed_required_tuples": [],
+  "docker_failed_required_tuples": [],
+  "failed_required_tuples": []
+}

@@ -1,0 +1,133 @@
+{
+  "mode": "verify-equivalence",
+  "arch": "arm",
+  "generated_at": "2026-02-26T16:53:33.731089+00:00",
+  "totals": {
+    "checks": 12,
+    "pass": 8,
+    "fail": 4,
+    "skip": 0
+  },
+  "checks": [
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-addsub-split.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-equivalence-transform-rep-arm-addsub-split.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-addsub-split.bin",
+      "status": "FAIL",
+      "log_path": "/tmp/parity-docker/verify-arm-functionality-rep-arm-addsub-split.log",
+      "message": "functionality verification failed"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-addsub-split.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-semantic-rep-arm-addsub-split.log",
+      "message": "semantic verification passed"
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-branch-conditional.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-equivalence-transform-rep-arm-branch-conditional.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-branch-conditional.bin",
+      "status": "FAIL",
+      "log_path": "/tmp/parity-docker/verify-arm-functionality-rep-arm-branch-conditional.log",
+      "message": "functionality verification failed"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-branch-conditional.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-semantic-rep-arm-branch-conditional.log",
+      "message": "semantic verification passed"
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-execve.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-equivalence-transform-rep-arm-execve.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-execve.bin",
+      "status": "FAIL",
+      "log_path": "/tmp/parity-docker/verify-arm-functionality-rep-arm-execve.log",
+      "message": "functionality verification failed"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-execve.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-semantic-rep-arm-execve.log",
+      "message": "semantic verification passed"
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-ldrstr-displacement.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-equivalence-transform-rep-arm-ldrstr-displacement.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-ldrstr-displacement.bin",
+      "status": "FAIL",
+      "log_path": "/tmp/parity-docker/verify-arm-functionality-rep-arm-ldrstr-displacement.log",
+      "message": "functionality verification failed"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "/tmp/tmp.MbzM2puast/arm_rep-arm-ldrstr-displacement.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-semantic-rep-arm-ldrstr-displacement.log",
+      "message": "semantic verification passed"
+    }
+  ]
+}

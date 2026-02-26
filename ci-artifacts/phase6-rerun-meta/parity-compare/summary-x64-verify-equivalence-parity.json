@@ -1,0 +1,40 @@
+{
+  "host_summary": "/opt/byvalver/ci-artifacts/phase6-rerun-meta/parity-host/summary-x64-verify-equivalence.json",
+  "docker_summary": "/opt/byvalver/ci-artifacts/phase6-rerun-meta/parity-docker/summary-x64-verify-equivalence.json",
+  "status": "PASS",
+  "mismatches": [],
+  "required_checks": [
+    "fixture-selection",
+    "functionality",
+    "semantic",
+    "transform"
+  ],
+  "host_failed_required_tuples": [
+    {
+      "arch": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-x64-functionality-rep-x64-xor-output.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch x64 --artifacts-dir ci-artifacts/rerun-x64-verify-equivalence"
+    }
+  ],
+  "docker_failed_required_tuples": [],
+  "failed_required_tuples": [
+    {
+      "arch": "x64",
+      "fixture_id": "rep-x64-xor-output",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-x64-functionality-rep-x64-xor-output.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch x64 --artifacts-dir ci-artifacts/rerun-x64-verify-equivalence",
+      "sources": [
+        "host"
+      ]
+    }
+  ]
+}

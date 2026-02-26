@@ -1,0 +1,40 @@
+{
+  "host_summary": "/opt/byvalver/ci-artifacts/phase6-rerun-meta/parity-host/summary-x86-verify-equivalence.json",
+  "docker_summary": "/opt/byvalver/ci-artifacts/phase6-rerun-meta/parity-docker/summary-x86-verify-equivalence.json",
+  "status": "PASS",
+  "mismatches": [],
+  "required_checks": [
+    "fixture-selection",
+    "functionality",
+    "semantic",
+    "transform"
+  ],
+  "host_failed_required_tuples": [
+    {
+      "arch": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-x86-functionality-rep-x86-small-test.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch x86 --artifacts-dir ci-artifacts/rerun-x86-verify-equivalence"
+    }
+  ],
+  "docker_failed_required_tuples": [],
+  "failed_required_tuples": [
+    {
+      "arch": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-x86-functionality-rep-x86-small-test.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch x86 --artifacts-dir ci-artifacts/rerun-x86-verify-equivalence",
+      "sources": [
+        "host"
+      ]
+    }
+  ]
+}

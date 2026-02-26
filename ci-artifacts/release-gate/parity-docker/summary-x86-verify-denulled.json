@@ -1,0 +1,94 @@
+{
+  "schema_version": 2,
+  "mode": "verify-denulled",
+  "arch": "x86",
+  "generated_at": "2026-02-26T16:59:04.343701+00:00",
+  "tuple_fields": [
+    "arch",
+    "fixture_id",
+    "check",
+    "status",
+    "message",
+    "log_path"
+  ],
+  "required_checks": [
+    "denulled",
+    "fixture-selection",
+    "profile-selection",
+    "transform"
+  ],
+  "totals": {
+    "checks": 3,
+    "pass": 3,
+    "fail": 0,
+    "skip": 0
+  },
+  "tuples": [
+    {
+      "arch": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "check": "denulled",
+      "status": "PASS",
+      "message": "verification passed",
+      "log_path": "/tmp/parity-docker/verify-x86-denulled-http-newline-rep-x86-small-test.log"
+    },
+    {
+      "arch": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "check": "denulled",
+      "status": "PASS",
+      "message": "verification passed",
+      "log_path": "/tmp/parity-docker/verify-x86-denulled-null-only-rep-x86-small-test.log"
+    },
+    {
+      "arch": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "check": "transform",
+      "status": "PASS",
+      "message": "transformation completed",
+      "log_path": "/tmp/parity-docker/verify-x86-denulled-transform-rep-x86-small-test.log"
+    }
+  ],
+  "failed_required_tuples": [],
+  "checks": [
+    {
+      "check": "denulled",
+      "profile": "http-newline",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "assets/tests/small_test.bin",
+      "output_path": "tmp://x86/rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-x86-denulled-http-newline-rep-x86-small-test.log",
+      "message": "verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "denulled",
+      "profile": "null-only",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "assets/tests/small_test.bin",
+      "output_path": "tmp://x86/rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-x86-denulled-null-only-rep-x86-small-test.log",
+      "message": "verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "assets/tests/small_test.bin",
+      "output_path": "tmp://x86/rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-x86-denulled-transform-rep-x86-small-test.log",
+      "message": "transformation completed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    }
+  ]
+}

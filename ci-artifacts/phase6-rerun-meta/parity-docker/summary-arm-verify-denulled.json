@@ -1,0 +1,93 @@
+{
+  "mode": "verify-denulled",
+  "arch": "arm",
+  "generated_at": "2026-02-26T16:53:32.713879+00:00",
+  "totals": {
+    "checks": 8,
+    "pass": 8,
+    "fail": 0,
+    "skip": 0
+  },
+  "checks": [
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-addsub-split.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-transform-rep-arm-addsub-split.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "denulled",
+      "profile": "null-only",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-addsub-split.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-null-only-rep-arm-addsub-split.log",
+      "message": "verification passed"
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-branch-conditional.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-transform-rep-arm-branch-conditional.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "denulled",
+      "profile": "null-only",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-branch-conditional.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-null-only-rep-arm-branch-conditional.log",
+      "message": "verification passed"
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-execve.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-transform-rep-arm-execve.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "denulled",
+      "profile": "null-only",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-execve.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-null-only-rep-arm-execve.log",
+      "message": "verification passed"
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-ldrstr-displacement.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-transform-rep-arm-ldrstr-displacement.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "denulled",
+      "profile": "null-only",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "/opt/byvalver/assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "/tmp/tmp.6wyrEOYKyg/arm_rep-arm-ldrstr-displacement.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-arm-denulled-null-only-rep-arm-ldrstr-displacement.log",
+      "message": "verification passed"
+    }
+  ]
+}

@@ -1,0 +1,324 @@
+{
+  "schema_version": 2,
+  "mode": "verify-equivalence",
+  "arch": "arm",
+  "generated_at": "2026-02-26T16:53:33.415364+00:00",
+  "tuple_fields": [
+    "arch",
+    "fixture_id",
+    "check",
+    "status",
+    "message",
+    "log_path"
+  ],
+  "required_checks": [
+    "fixture-selection",
+    "functionality",
+    "semantic",
+    "transform"
+  ],
+  "totals": {
+    "checks": 12,
+    "pass": 8,
+    "fail": 4,
+    "skip": 0
+  },
+  "tuples": [
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-addsub-split",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-addsub-split.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-addsub-split",
+      "check": "semantic",
+      "status": "PASS",
+      "message": "semantic verification passed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-addsub-split.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-addsub-split",
+      "check": "transform",
+      "status": "PASS",
+      "message": "transformation completed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-addsub-split.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-branch-conditional",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-branch-conditional.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-branch-conditional",
+      "check": "semantic",
+      "status": "PASS",
+      "message": "semantic verification passed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-branch-conditional.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-branch-conditional",
+      "check": "transform",
+      "status": "PASS",
+      "message": "transformation completed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-branch-conditional.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-execve",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-execve.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-execve",
+      "check": "semantic",
+      "status": "PASS",
+      "message": "semantic verification passed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-execve.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-execve",
+      "check": "transform",
+      "status": "PASS",
+      "message": "transformation completed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-execve.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-ldrstr-displacement.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "check": "semantic",
+      "status": "PASS",
+      "message": "semantic verification passed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-ldrstr-displacement.log"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "check": "transform",
+      "status": "PASS",
+      "message": "transformation completed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-ldrstr-displacement.log"
+    }
+  ],
+  "failed_required_tuples": [
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-addsub-split",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-addsub-split.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-branch-conditional",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-branch-conditional.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-execve",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-execve.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "arch": "arm",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "check": "functionality",
+      "status": "FAIL",
+      "message": "functionality verification failed",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-ldrstr-displacement.log",
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    }
+  ],
+  "checks": [
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "tmp://arm/rep-arm-addsub-split.bin",
+      "status": "FAIL",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-addsub-split.log",
+      "message": "functionality verification failed",
+      "required": true,
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "tmp://arm/rep-arm-addsub-split.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-addsub-split.log",
+      "message": "semantic verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-addsub-split",
+      "fixture_path": "assets/tests/test_bins/arm_addsub_split.bin",
+      "output_path": "tmp://arm/rep-arm-addsub-split.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-addsub-split.log",
+      "message": "transformation completed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "tmp://arm/rep-arm-branch-conditional.bin",
+      "status": "FAIL",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-branch-conditional.log",
+      "message": "functionality verification failed",
+      "required": true,
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "tmp://arm/rep-arm-branch-conditional.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-branch-conditional.log",
+      "message": "semantic verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-branch-conditional",
+      "fixture_path": "assets/tests/test_bins/arm_branch_conditional_alt.bin",
+      "output_path": "tmp://arm/rep-arm-branch-conditional.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-branch-conditional.log",
+      "message": "transformation completed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "tmp://arm/rep-arm-execve.bin",
+      "status": "FAIL",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-execve.log",
+      "message": "functionality verification failed",
+      "required": true,
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "tmp://arm/rep-arm-execve.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-execve.log",
+      "message": "semantic verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-execve",
+      "fixture_path": "assets/tests/test_bins/arm_execve_test.bin",
+      "output_path": "tmp://arm/rep-arm-execve.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-execve.log",
+      "message": "transformation completed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "tmp://arm/rep-arm-ldrstr-displacement.bin",
+      "status": "FAIL",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-functionality-rep-arm-ldrstr-displacement.log",
+      "message": "functionality verification failed",
+      "required": true,
+      "failure_class": "functionality-verification-failure",
+      "rerun_command": "bash tests/run_tests.sh --mode verify-equivalence --arch arm --artifacts-dir ci-artifacts/rerun-arm-verify-equivalence"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "tmp://arm/rep-arm-ldrstr-displacement.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-semantic-rep-arm-ldrstr-displacement.log",
+      "message": "semantic verification passed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    },
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-arm-ldrstr-displacement",
+      "fixture_path": "assets/tests/test_bins/arm_ldrstr_displacement_split.bin",
+      "output_path": "tmp://arm/rep-arm-ldrstr-displacement.bin",
+      "status": "PASS",
+      "log_path": "ci-artifacts/phase6-rerun-meta/parity-host/verify-arm-equivalence-transform-rep-arm-ldrstr-displacement.log",
+      "message": "transformation completed",
+      "required": true,
+      "failure_class": "none",
+      "rerun_command": ""
+    }
+  ]
+}

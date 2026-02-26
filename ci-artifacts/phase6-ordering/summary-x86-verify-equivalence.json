@@ -1,0 +1,43 @@
+{
+  "mode": "verify-equivalence",
+  "arch": "x86",
+  "generated_at": "2026-02-26T16:48:29.119290+00:00",
+  "totals": {
+    "checks": 3,
+    "pass": 2,
+    "fail": 1,
+    "skip": 0
+  },
+  "checks": [
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "/opt/byvalver/assets/tests/small_test.bin",
+      "output_path": "/var/folders/qg/hhhn2lfj0zl1kwg2h4mcmj180000gn/T/tmp.p00m8qNeOp/x86_rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/opt/byvalver/ci-artifacts/phase6-ordering/verify-x86-equivalence-transform-rep-x86-small-test.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "/opt/byvalver/assets/tests/small_test.bin",
+      "output_path": "/var/folders/qg/hhhn2lfj0zl1kwg2h4mcmj180000gn/T/tmp.p00m8qNeOp/x86_rep-x86-small-test.bin",
+      "status": "FAIL",
+      "log_path": "/opt/byvalver/ci-artifacts/phase6-ordering/verify-x86-functionality-rep-x86-small-test.log",
+      "message": "functionality verification failed"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "/opt/byvalver/assets/tests/small_test.bin",
+      "output_path": "/var/folders/qg/hhhn2lfj0zl1kwg2h4mcmj180000gn/T/tmp.p00m8qNeOp/x86_rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/opt/byvalver/ci-artifacts/phase6-ordering/verify-x86-semantic-rep-x86-small-test.log",
+      "message": "semantic verification passed"
+    }
+  ]
+}

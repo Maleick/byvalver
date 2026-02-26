@@ -1,0 +1,15 @@
+{
+  "host_summary": "/opt/byvalver/ci-artifacts/phase6-rerun-meta/parity-host/summary-x86-verify-denulled.json",
+  "docker_summary": "/opt/byvalver/ci-artifacts/phase6-rerun-meta/parity-docker/summary-x86-verify-denulled.json",
+  "status": "PASS",
+  "mismatches": [],
+  "required_checks": [
+    "denulled",
+    "fixture-selection",
+    "profile-selection",
+    "transform"
+  ],
+  "host_failed_required_tuples": [],
+  "docker_failed_required_tuples": [],
+  "failed_required_tuples": []
+}

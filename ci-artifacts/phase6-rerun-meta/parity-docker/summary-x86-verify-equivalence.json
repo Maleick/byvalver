@@ -1,0 +1,43 @@
+{
+  "mode": "verify-equivalence",
+  "arch": "x86",
+  "generated_at": "2026-02-26T16:53:31.033381+00:00",
+  "totals": {
+    "checks": 3,
+    "pass": 2,
+    "fail": 1,
+    "skip": 0
+  },
+  "checks": [
+    {
+      "check": "transform",
+      "profile": "n/a",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "/opt/byvalver/assets/tests/small_test.bin",
+      "output_path": "/tmp/tmp.H1r2gjE4uO/x86_rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-x86-equivalence-transform-rep-x86-small-test.log",
+      "message": "transformation completed"
+    },
+    {
+      "check": "functionality",
+      "profile": "x86",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "/opt/byvalver/assets/tests/small_test.bin",
+      "output_path": "/tmp/tmp.H1r2gjE4uO/x86_rep-x86-small-test.bin",
+      "status": "FAIL",
+      "log_path": "/tmp/parity-docker/verify-x86-functionality-rep-x86-small-test.log",
+      "message": "functionality verification failed"
+    },
+    {
+      "check": "semantic",
+      "profile": "pattern",
+      "fixture_id": "rep-x86-small-test",
+      "fixture_path": "/opt/byvalver/assets/tests/small_test.bin",
+      "output_path": "/tmp/tmp.H1r2gjE4uO/x86_rep-x86-small-test.bin",
+      "status": "PASS",
+      "log_path": "/tmp/parity-docker/verify-x86-semantic-rep-x86-small-test.log",
+      "message": "semantic verification passed"
+    }
+  ]
+}

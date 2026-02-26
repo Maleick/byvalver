@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.3
-milestone_name: stabilization
-status: milestone_complete
-last_updated: "2026-02-25T22:45:00.000Z"
+milestone: v4.4
+milestone_name: equivalence-reliability
+status: defining_requirements
+last_updated: "2026-02-25T23:05:00.000Z"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  total_phases: 3
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -18,31 +18,32 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** Given an input payload and bad-byte policy, byvalver must produce functionally equivalent shellcode that is verifiably free of forbidden bytes.
-**Current focus:** Plan next milestone after v4.3 archive/tag completion.
+**Current focus:** Define v4.4 requirements, then roadmap phases 6+.
 
 ## Current Position
 
-Milestone: v4.3 stabilization (shipped)
-Status: Archive complete and ready for next milestone definition
-Last activity: 2026-02-25 - Completed milestone archival and release tag creation
+Phase: Not started (defining requirements)
+Plan: -
+Status: Defining requirements for v4.4 milestone
+Last activity: 2026-02-25 - Started v4.4 milestone kickoff
 
-Progress: ██████████ 100%
+Progress: ░░░░░░░░░░ 0%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Total tasks completed: 39
-- Milestone execution window: 2026-02-25
+- Prior milestone (v4.3): 13 plans, 39 tasks
+- Current milestone (v4.4): planning started
 
-**By Milestone:**
+**By Cycle:**
 
-| Milestone | Phases | Plans | Tasks |
-|-----------|--------|-------|-------|
-| v4.3 stabilization | 5 | 13 | 39 |
+| Milestone | Status | Notes |
+|-----------|--------|-------|
+| v4.3 stabilization | Complete | Archived and tagged |
+| v4.4 equivalence reliability | In planning | Requirements + roadmap in progress |
 
 **Recent Trend:**
-- Fixture/CI baseline to verification automation to ARM reliability to release gating completed in one milestone cycle.
+- Milestone closeout complete; planning context reset for next execution cycle.
 
 ## Accumulated Context
 
@@ -51,20 +52,22 @@ Progress: ██████████ 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting next work:
 
-- [Milestone]: v4.3 closed with full phase completion (13/13 plan summaries present).
+- [Scope]: v4.4 focuses on equivalence reliability, ARM64 expansion, and architecture assist improvements.
+- [Policy]: research-first flow selected before requirements/roadmap definition.
 - [Release policy]: required parity/equivalence mismatches remain hard-fail release blockers.
-- [Continuity]: begin next cycle with `$gsd-new-milestone` and regenerate fresh requirements.
 
 ### Pending Todos
 
-- Define v4.x next milestone scope and acceptance requirements.
+- Generate v4.4 research pack (`STACK`, `FEATURES`, `ARCHITECTURE`, `PITFALLS`, `SUMMARY`).
+- Define v4.4 requirements and phase traceability.
+- Build roadmap starting at Phase 6.
 
 ### Blockers/Concerns
 
-- No planning blocker; technical blocker remains failing representative `verify-equivalence` checks in release-gate runs.
+- Technical blocker: failing representative `verify-equivalence` checks in release-gate runs.
 
 ## Session Continuity
 
 Last session: 2026-02-25
-Stopped at: v4.3 milestone completion
-Resume file: .planning/MILESTONES.md
+Stopped at: v4.4 milestone kickoff
+Resume file: .planning/PROJECT.md

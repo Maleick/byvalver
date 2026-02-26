@@ -126,6 +126,43 @@ record_verify_result() {
   local log_path="$9"
   local message="${10}"
 
+  arch="$(echo "$arch" | tr '[:upper:]' '[:lower:]')"
+  status="$(echo "$status" | tr '[:lower:]' '[:upper:]')"
+
+  if [[ -z "$profile" ]]; then
+    profile="n/a"
+  fi
+
+  if [[ -n "$fixture_path" && "$fixture_path" == "$PROJECT_ROOT/"* ]]; then
+    fixture_path="${fixture_path#"$PROJECT_ROOT/"}"
+  fi
+
+  if [[ -n "$log_path" && "$log_path" == "$PROJECT_ROOT/"* ]]; then
+    log_path="${log_path#"$PROJECT_ROOT/"}"
+  fi
+
+  if [[ -n "$output_path" && "$output_path" == "$TMPDIR/"* ]]; then
+    output_path="tmp://${arch}/${fixture_id}.bin"
+  fi
+
+  check="${check//$'\t'/ }"
+  check="${check//$'\n'/ }"
+  check="${check//$'\r'/ }"
+  profile="${profile//$'\t'/ }"
+  profile="${profile//$'\n'/ }"
+  profile="${profile//$'\r'/ }"
+  fixture_id="${fixture_id//$'\t'/ }"
+  fixture_id="${fixture_id//$'\n'/ }"
+  fixture_id="${fixture_id//$'\r'/ }"
+  fixture_path="${fixture_path//$'\t'/ }"
+  fixture_path="${fixture_path//$'\n'/ }"
+  fixture_path="${fixture_path//$'\r'/ }"
+  output_path="${output_path//$'\t'/ }"
+  output_path="${output_path//$'\n'/ }"
+  output_path="${output_path//$'\r'/ }"
+  log_path="${log_path//$'\t'/ }"
+  log_path="${log_path//$'\n'/ }"
+  log_path="${log_path//$'\r'/ }"
   message="${message//$'\t'/ }"
   message="${message//$'\n'/ }"
   message="${message//$'\r'/ }"
@@ -161,7 +198,22 @@ field_names = [
     "message",
 ]
 
+
+def normalize_text(value):
+    text = "" if value is None else str(value)
+    text = text.replace("\t", " ").replace("\n", " ").replace("\r", " ")
+    return " ".join(text.split())
+
+
+def normalize_status(value):
+    status = normalize_text(value).upper()
+    if status in {"PASS", "FAIL", "SKIP"}:
+        return status
+    return "UNKNOWN"
+
+
 checks = []
+tuples = []
 status_counts = Counter()
 
 try:
@@ -171,34 +223,68 @@ try:
             if row["mode"] != target_mode or row["arch"] != target_arch:
                 continue
 
-            status = row["status"].strip().upper()
+            status = normalize_status(row["status"])
             status_counts[status] += 1
 
-            checks.append(
+            check = {
+                "check": normalize_text(row["check"]),
+                "profile": normalize_text(row["profile"]) or "n/a",
+                "fixture_id": normalize_text(row["fixture_id"]),
+                "fixture_path": normalize_text(row["fixture_path"]),
+                "output_path": normalize_text(row["output_path"]),
+                "status": status,
+                "log_path": normalize_text(row["log_path"]) or "n/a",
+                "message": normalize_text(row["message"]),
+            }
+            checks.append(check)
+
+            tuples.append(
                 {
-                    "check": row["check"],
-                    "profile": row["profile"],
-                    "fixture_id": row["fixture_id"],
-                    "fixture_path": row["fixture_path"],
-                    "output_path": row["output_path"],
-                    "status": status,
-                    "log_path": row["log_path"],
-                    "message": row["message"],
+                    "arch": target_arch,
+                    "fixture_id": check["fixture_id"],
+                    "check": check["check"],
+                    "status": check["status"],
+                    "message": check["message"],
+                    "log_path": check["log_path"],
                 }
             )
 except FileNotFoundError:
     checks = []
+    tuples = []
+
+checks.sort(
+    key=lambda item: (
+        item["fixture_id"],
+        item["check"],
+        item["profile"],
+        item["status"],
+        item["message"],
+        item["log_path"],
+    )
+)
+tuples.sort(
+    key=lambda item: (
+        item["fixture_id"],
+        item["check"],
+        item["status"],
+        item["message"],
+        item["log_path"],
+    )
+)
 
 summary = {
+    "schema_version": 2,
     "mode": target_mode,
     "arch": target_arch,
     "generated_at": datetime.now(timezone.utc).isoformat(),
+    "tuple_fields": ["arch", "fixture_id", "check", "status", "message", "log_path"],
     "totals": {
-        "checks": len(checks),
+        "checks": len(tuples),
         "pass": status_counts.get("PASS", 0),
         "fail": status_counts.get("FAIL", 0),
         "skip": status_counts.get("SKIP", 0),
     },
+    "tuples": tuples,
     "checks": checks,
 }
 

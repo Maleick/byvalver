@@ -259,16 +259,27 @@ manifest_representatives_for_arch() {
   local target_arch="$1"
 
   python3 - "$MANIFEST" "$target_arch" <<'PY'
-import re
 import sys
 
 manifest_path = sys.argv[1]
 target_arch = sys.argv[2]
 
-required_fields = ["fixture_id", "arch", "path", "expected_outcome", "owner", "notes"]
+required_fields = [
+    "fixture_id",
+    "arch",
+    "path",
+    "expected_outcome",
+    "owner",
+    "notes",
+    "ci_representative",
+    "profiles",
+]
 entries = []
 current = None
 in_fixtures = False
+seen_fixture_ids = set()
+selected_ids = set()
+selected_paths = set()
 
 try:
     with open(manifest_path, "r", encoding="utf-8") as handle:
@@ -311,28 +322,59 @@ except FileNotFoundError:
 
 selected = []
 for entry in entries:
+    fixture_id = entry.get("fixture_id", "<unknown>")
+
     missing = [field for field in required_fields if not entry.get(field)]
     if missing:
         print(
-            f"manifest entry missing required fields {','.join(missing)} for fixture_id={entry.get('fixture_id', '<unknown>')}",
+            f"manifest entry missing required fields {','.join(missing)} for fixture_id={fixture_id}",
             file=sys.stderr,
         )
         sys.exit(2)
 
-    representative = entry.get("ci_representative", "false").lower() == "true"
+    if fixture_id in seen_fixture_ids:
+        print(f"manifest duplicate fixture_id detected: {fixture_id}", file=sys.stderr)
+        sys.exit(2)
+    seen_fixture_ids.add(fixture_id)
+
+    representative_raw = entry.get("ci_representative", "").strip().lower()
+    if representative_raw not in ("true", "false"):
+        print(
+            f"manifest entry has invalid ci_representative value for fixture_id={fixture_id}: {entry.get('ci_representative')}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    representative = representative_raw == "true"
     if not representative or entry["arch"] != target_arch:
         continue
 
-    fixture_profiles = entry.get("profiles", "").strip()
+    fixture_path = entry["path"]
+    if fixture_id in selected_ids:
+        print(
+            f"manifest representative fixture_id is duplicated for arch={target_arch}: {fixture_id}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    if fixture_path in selected_paths:
+        print(
+            f"manifest representative path is duplicated for arch={target_arch}: {fixture_path}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    selected_ids.add(fixture_id)
+    selected_paths.add(fixture_path)
+
+    fixture_profiles = entry["profiles"].strip()
     selected.append(
         {
-            "fixture_id": entry["fixture_id"],
-            "path": entry["path"],
+            "fixture_id": fixture_id,
+            "path": fixture_path,
             "profiles": fixture_profiles,
         }
     )
 
-selected.sort(key=lambda item: item["fixture_id"])
+selected.sort(key=lambda item: (item["fixture_id"], item["path"]))
 
 if not selected:
     print(f"no representative fixtures selected for arch={target_arch}", file=sys.stderr)

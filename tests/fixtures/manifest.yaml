@@ -9,9 +9,9 @@ schema:
     - expected_outcome
     - owner
     - notes
-  optional_fields:
     - ci_representative
     - profiles
+  optional_fields: []
 
 fixtures:
   - fixture_id: rep-arm-execve

@@ -9,9 +9,9 @@ Requirements for milestone v4.4 Equivalence Reliability.
 
 ### Release Reliability
 
-- [ ] **REL-04**: Release gate produces deterministic `verify-equivalence` outcomes for representative x86/x64/arm fixtures across repeated runs.
-- [ ] **REL-05**: Release-gate artifacts identify failing architecture, fixture, check type, and include deterministic local rerun commands.
-- [ ] **REL-06**: Local `make release-gate` and CI `release-gate` enforce the same required checks and status logic for representative fixtures.
+- [x] **REL-04**: Release gate produces deterministic `verify-equivalence` outcomes for representative x86/x64/arm fixtures across repeated runs.
+- [x] **REL-05**: Release-gate artifacts identify failing architecture, fixture, check type, and include deterministic local rerun commands.
+- [x] **REL-06**: Local `make release-gate` and CI `release-gate` enforce the same required checks and status logic for representative fixtures.
 
 ### ARM64 Strategy Expansion
 
@@ -53,9 +53,9 @@ Which phases cover which requirements.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REL-04 | Phase 6 | Pending |
-| REL-05 | Phase 6 | Pending |
-| REL-06 | Phase 6 | Pending |
+| REL-04 | Phase 6 | Complete |
+| REL-05 | Phase 6 | Complete |
+| REL-06 | Phase 6 | Complete |
 | ARM64-01 | Phase 7 | Pending |
 | ARM64-02 | Phase 7 | Pending |
 | ARM64-03 | Phase 7 | Pending |

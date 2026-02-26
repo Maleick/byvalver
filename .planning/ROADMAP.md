@@ -75,6 +75,6 @@ Plans:
 | 3. ARM Strategy Expansion | v4.3 | 3/3 | Complete | 2026-02-25 |
 | 4. ARM Diagnostic Safety Nets | v4.3 | 2/2 | Complete | 2026-02-25 |
 | 5. Reproducible Release Gate | v4.3 | 2/2 | Complete | 2026-02-25 |
-| 6. Equivalence Gate Determinism and Triage | v4.4 | 0/3 | Not started | - |
+| 6. Equivalence Gate Determinism and Triage | v4.4 | Complete    | 2026-02-26 | - |
 | 7. ARM64 Core Strategy Expansion | v4.4 | 0/3 | Not started | - |
 | 8. Architecture Assist and Operator Guidance | v4.4 | 0/2 | Not started | - |

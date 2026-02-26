@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.4
-milestone_name: equivalence-reliability
-status: roadmap_ready
-last_updated: "2026-02-26T10:40:00.000Z"
+milestone: v4.3
+milestone_name: Equivalence Reliability
+status: unknown
+last_updated: "2026-02-26T17:01:31.166Z"
 progress:
-  total_phases: 8
-  completed_phases: 5
-  total_plans: 21
-  completed_plans: 13
+  total_phases: 6
+  completed_phases: 6
+  total_plans: 16
+  completed_plans: 16
 ---
 
 # Project State

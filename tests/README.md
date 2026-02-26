@@ -46,6 +46,36 @@ bash tests/run_tests.sh --mode verify-parity --arch all --artifacts-dir ci-artif
 The canonical contributor baseline runbook is documented in
 `docs/CONTRIBUTOR_BASELINE.md`.
 
+## Deterministic `verify-equivalence` Contract
+
+`verify-equivalence` in Phase 6 is intentionally deterministic at representative scope.
+Runner behavior is fixed so the same inputs yield the same tuple outcomes.
+
+Deterministic scope rules:
+- Fixture scope is manifest-governed only: `tests/fixtures/manifest.yaml`.
+- A fixture is eligible only when `ci_representative: true` is explicitly set.
+- Representative entries must include required metadata (`fixture_id`, `arch`, `path`,
+  `expected_outcome`, `owner`, `notes`, `ci_representative`, `profiles`).
+- Representatives are executed in stable sorted order (`fixture_id`, then `path`).
+
+Deterministic rerun command:
+
+```bash
+bash tests/run_tests.sh --mode verify-equivalence --arch <x86|x64|arm> --artifacts-dir ci-artifacts/<run-id>
+```
+
+Machine-readable tuple contract (per summary JSON):
+- `arch`
+- `fixture_id`
+- `check`
+- `status`
+- `message`
+- `log_path`
+
+The tuple contract is emitted in `summary-<arch>-verify-equivalence.json` under
+`tuple_fields` and `tuples`. This schema is used for release-gate triage and
+must remain stable across equivalent reruns.
+
 ## Verification Artifacts (CI Triage)
 
 Phase 2 CI verification publishes per-architecture artifacts with stable names so

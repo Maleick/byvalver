@@ -212,9 +212,38 @@ def normalize_status(value):
     return "UNKNOWN"
 
 
+def required_checks_for_mode(mode):
+    mode_map = {
+        "verify-denulled": {"fixture-selection", "transform", "profile-selection", "denulled"},
+        "verify-equivalence": {"fixture-selection", "transform", "functionality", "semantic"},
+    }
+    return mode_map.get(mode, set())
+
+
+def classify_failure(check_name, status):
+    if status != "FAIL":
+        return "none"
+
+    classes = {
+        "fixture-selection": "fixture-selection-failure",
+        "profile-selection": "profile-selection-failure",
+        "transform": "transformation-failure",
+        "denulled": "bad-byte-verification-failure",
+        "functionality": "functionality-verification-failure",
+        "semantic": "semantic-verification-failure",
+    }
+    return classes.get(check_name, "unknown-failure")
+
+
+def rerun_command_for(mode, arch):
+    return f"bash tests/run_tests.sh --mode {mode} --arch {arch} --artifacts-dir ci-artifacts/rerun-{arch}-{mode}"
+
+
 checks = []
 tuples = []
+failed_required_tuples = []
 status_counts = Counter()
+required_checks = required_checks_for_mode(target_mode)
 
 try:
     with open(rows_path, "r", encoding="utf-8") as handle:
@@ -225,32 +254,57 @@ try:
 
             status = normalize_status(row["status"])
             status_counts[status] += 1
+            check_name = normalize_text(row["check"])
+            fixture_id = normalize_text(row["fixture_id"])
+            message = normalize_text(row["message"])
+            log_path = normalize_text(row["log_path"]) or "n/a"
+            is_required = check_name in required_checks
+            failure_class = classify_failure(check_name, status)
+            rerun_command = rerun_command_for(target_mode, target_arch) if is_required and status == "FAIL" else ""
 
             check = {
-                "check": normalize_text(row["check"]),
+                "check": check_name,
                 "profile": normalize_text(row["profile"]) or "n/a",
-                "fixture_id": normalize_text(row["fixture_id"]),
+                "fixture_id": fixture_id,
                 "fixture_path": normalize_text(row["fixture_path"]),
                 "output_path": normalize_text(row["output_path"]),
                 "status": status,
-                "log_path": normalize_text(row["log_path"]) or "n/a",
-                "message": normalize_text(row["message"]),
+                "log_path": log_path,
+                "message": message,
+                "required": is_required,
+                "failure_class": failure_class,
+                "rerun_command": rerun_command,
             }
             checks.append(check)
 
             tuples.append(
                 {
                     "arch": target_arch,
-                    "fixture_id": check["fixture_id"],
-                    "check": check["check"],
+                    "fixture_id": fixture_id,
+                    "check": check_name,
                     "status": check["status"],
-                    "message": check["message"],
-                    "log_path": check["log_path"],
+                    "message": message,
+                    "log_path": log_path,
                 }
             )
+
+            if is_required and status == "FAIL":
+                failed_required_tuples.append(
+                    {
+                        "arch": target_arch,
+                        "fixture_id": fixture_id,
+                        "check": check_name,
+                        "status": status,
+                        "message": message,
+                        "log_path": log_path,
+                        "failure_class": failure_class,
+                        "rerun_command": rerun_command,
+                    }
+                )
 except FileNotFoundError:
     checks = []
     tuples = []
+    failed_required_tuples = []
 
 checks.sort(
     key=lambda item: (
@@ -271,6 +325,14 @@ tuples.sort(
         item["log_path"],
     )
 )
+failed_required_tuples.sort(
+    key=lambda item: (
+        item["fixture_id"],
+        item["check"],
+        item["failure_class"],
+        item["log_path"],
+    )
+)
 
 summary = {
     "schema_version": 2,
@@ -278,6 +340,7 @@ summary = {
     "arch": target_arch,
     "generated_at": datetime.now(timezone.utc).isoformat(),
     "tuple_fields": ["arch", "fixture_id", "check", "status", "message", "log_path"],
+    "required_checks": sorted(required_checks),
     "totals": {
         "checks": len(tuples),
         "pass": status_counts.get("PASS", 0),
@@ -285,6 +348,7 @@ summary = {
         "skip": status_counts.get("SKIP", 0),
     },
     "tuples": tuples,
+    "failed_required_tuples": failed_required_tuples,
     "checks": checks,
 }
 
@@ -888,12 +952,19 @@ import sys
 host_path, docker_path, out_path = sys.argv[1:4]
 mismatches = []
 
+
+def normalize_text(value):
+    text = "" if value is None else str(value)
+    return " ".join(text.replace("\t", " ").replace("\n", " ").replace("\r", " ").split())
+
+
 def load(path, label):
     if not os.path.exists(path):
         mismatches.append(f"{label} summary missing: {path}")
         return None
     with open(path, "r", encoding="utf-8") as handle:
         return json.load(handle)
+
 
 def normalize(payload):
     totals = payload.get("totals", {})
@@ -908,15 +979,52 @@ def normalize(payload):
     for check in payload.get("checks", []):
         checks.append(
             {
-                "check": str(check.get("check", "")),
-                "profile": str(check.get("profile", "")),
-                "fixture_id": str(check.get("fixture_id", "")),
-                "status": str(check.get("status", "")).upper(),
+                "check": normalize_text(check.get("check", "")),
+                "profile": normalize_text(check.get("profile", "")),
+                "fixture_id": normalize_text(check.get("fixture_id", "")),
+                "status": normalize_text(check.get("status", "")).upper(),
             }
         )
-
     checks.sort(key=lambda item: (item["check"], item["profile"], item["fixture_id"], item["status"]))
-    return {"totals": normalized_totals, "checks": checks}
+
+    failed_required_tuples = []
+    for item in payload.get("failed_required_tuples", []):
+        failed_required_tuples.append(
+            {
+                "arch": normalize_text(item.get("arch", "")),
+                "fixture_id": normalize_text(item.get("fixture_id", "")),
+                "check": normalize_text(item.get("check", "")),
+                "status": normalize_text(item.get("status", "")).upper(),
+                "message": normalize_text(item.get("message", "")),
+                "log_path": normalize_text(item.get("log_path", "")),
+                "failure_class": normalize_text(item.get("failure_class", "")),
+                "rerun_command": normalize_text(item.get("rerun_command", "")),
+            }
+        )
+    failed_required_tuples.sort(
+        key=lambda item: (
+            item["arch"],
+            item["fixture_id"],
+            item["check"],
+            item["failure_class"],
+            item["log_path"],
+        )
+    )
+
+    required_checks_raw = payload.get("required_checks", [])
+    required_checks_declared = bool(required_checks_raw)
+    required_checks = sorted({normalize_text(check) for check in required_checks_raw if normalize_text(check)})
+    if not required_checks:
+        required_checks = sorted({item["check"] for item in checks if item["check"]})
+
+    return {
+        "totals": normalized_totals,
+        "checks": checks,
+        "failed_required_tuples": failed_required_tuples,
+        "required_checks": required_checks,
+        "required_checks_declared": required_checks_declared,
+    }
+
 
 host_payload = load(host_path, "host")
 docker_payload = load(docker_path, "docker")
@@ -926,11 +1034,22 @@ result = {
     "docker_summary": docker_path,
     "status": "FAIL",
     "mismatches": [],
+    "required_checks": [],
+    "host_failed_required_tuples": [],
+    "docker_failed_required_tuples": [],
+    "failed_required_tuples": [],
 }
 
 if host_payload is not None and docker_payload is not None:
     host = normalize(host_payload)
     docker = normalize(docker_payload)
+
+    result["host_failed_required_tuples"] = host["failed_required_tuples"]
+    result["docker_failed_required_tuples"] = docker["failed_required_tuples"]
+
+    if host["required_checks_declared"] and docker["required_checks_declared"] and host["required_checks"] != docker["required_checks"]:
+        mismatches.append(f"required_checks differ: host={host['required_checks']} docker={docker['required_checks']}")
+    result["required_checks"] = sorted(set(host["required_checks"] + docker["required_checks"]))
 
     if host["totals"] != docker["totals"]:
         mismatches.append(f"totals differ: host={host['totals']} docker={docker['totals']}")
@@ -944,6 +1063,35 @@ if host_payload is not None and docker_payload is not None:
             mismatches.append(f"check results only in host: {only_host}")
         if only_docker:
             mismatches.append(f"check results only in docker: {only_docker}")
+
+    merged_failed = {}
+    for source, tuples in (("host", host["failed_required_tuples"]), ("docker", docker["failed_required_tuples"])):
+        for item in tuples:
+            key = (
+                item["arch"],
+                item["fixture_id"],
+                item["check"],
+                item["status"],
+                item["failure_class"],
+                item["rerun_command"],
+            )
+            current = merged_failed.get(key)
+            if current is None:
+                current = dict(item)
+                current["sources"] = []
+                merged_failed[key] = current
+            if source not in current["sources"]:
+                current["sources"].append(source)
+    result["failed_required_tuples"] = sorted(
+        merged_failed.values(),
+        key=lambda item: (
+            item["arch"],
+            item["fixture_id"],
+            item["check"],
+            item["failure_class"],
+            item["log_path"],
+        ),
+    )
 
     if not mismatches:
         result["status"] = "PASS"

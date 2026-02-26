@@ -54,13 +54,54 @@ jobs:
               print("- No parity comparison files were generated.")
               raise SystemExit(0)
 
-          print("| Artifact | Status | Mismatches |")
-          print("|---|---|---:|")
+          print("| Artifact | Status | Mismatches | Failed Required Tuples |")
+          print("|---|---|---:|---:|")
 
           for path in files:
               with open(path, "r", encoding="utf-8") as handle:
                   payload = json.load(handle)
               status = payload.get("status", "UNKNOWN")
               mismatch_count = len(payload.get("mismatches", []))
-              print(f"| `{os.path.basename(path)}` | {status} | {mismatch_count} |")
+              failed_tuples = payload.get("failed_required_tuples", [])
+              print(f"| `{os.path.basename(path)}` | {status} | {mismatch_count} | {len(failed_tuples)} |")
+
+          print("")
+          print("### Artifact Pointers")
+          print("- Host summaries/logs: `ci-artifacts/release-gate/parity-host/`")
+          print("- Docker summaries/logs: `ci-artifacts/release-gate/parity-docker/`")
+          print("- Parity comparisons: `ci-artifacts/release-gate/parity-compare/`")
+
+          for path in files:
+              with open(path, "r", encoding="utf-8") as handle:
+                  payload = json.load(handle)
+
+              required_checks = payload.get("required_checks", [])
+              failed_tuples = payload.get("failed_required_tuples", [])
+              mismatches = payload.get("mismatches", [])
+
+              print("")
+              print(f"### {os.path.basename(path)}")
+              if required_checks:
+                  print(f"- Required checks: `{', '.join(required_checks)}`")
+              if mismatches:
+                  print("- Parity mismatches:")
+                  for mismatch in mismatches:
+                      print(f"  - `{mismatch}`")
+
+              if not failed_tuples:
+                  print("- No failed required tuples recorded.")
+                  continue
+
+              print("")
+              print("| Arch | Fixture | Check | Failure Class | Sources | Log Path | Rerun |")
+              print("|---|---|---|---|---|---|---|")
+              for item in failed_tuples:
+                  sources = ",".join(item.get("sources", [])) or "n/a"
+                  arch = item.get("arch", "n/a")
+                  fixture_id = item.get("fixture_id", "n/a")
+                  check = item.get("check", "n/a")
+                  failure_class = item.get("failure_class", "n/a")
+                  log_path = item.get("log_path", "n/a")
+                  rerun = item.get("rerun_command", "n/a")
+                  print(f"| `{arch}` | `{fixture_id}` | `{check}` | `{failure_class}` | `{sources}` | `{log_path}` | `{rerun}` |")
           PY

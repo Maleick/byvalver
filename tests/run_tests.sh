@@ -728,12 +728,8 @@ run_verify_denulled_mode() {
 functionality_arch_for() {
   local target_arch="$1"
   case "$target_arch" in
-    x64)
-      echo "x64"
-      ;;
-    x86|arm)
-      # verify_functionality.py accepts x86/x64; keep ARM checks deterministic via x86 analysis mode.
-      echo "x86"
+    x86|x64|arm)
+      echo "$target_arch"
       ;;
     *)
       echo "x86"
@@ -817,12 +813,12 @@ run_verify_equivalence_mode() {
       fi
 
       sem_log="$ARTIFACTS_DIR/verify-${target_arch}-semantic-${safe_id}.log"
-      if run_cmd_logged "$sem_log" python3 "$PROJECT_ROOT/verify_semantic.py" "$fixture_abs" "$output" --method pattern; then
+      if run_cmd_logged "$sem_log" python3 "$PROJECT_ROOT/verify_semantic.py" "$fixture_abs" "$output" --method pattern --arch "$target_arch"; then
         log_pass "check=semantic arch=$target_arch fixture_id=$fixture_id"
-        record_verify_result "verify-equivalence" "$target_arch" "semantic" "pattern" "$fixture_id" "$fixture_abs" "$output" "PASS" "$sem_log" "semantic verification passed"
+        record_verify_result "verify-equivalence" "$target_arch" "semantic" "$target_arch" "$fixture_id" "$fixture_abs" "$output" "PASS" "$sem_log" "semantic verification passed"
       else
         log_fail "check=semantic arch=$target_arch fixture_id=$fixture_id failed (see $sem_log)"
-        record_verify_result "verify-equivalence" "$target_arch" "semantic" "pattern" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$sem_log" "semantic verification failed"
+        record_verify_result "verify-equivalence" "$target_arch" "semantic" "$target_arch" "$fixture_id" "$fixture_abs" "$output" "FAIL" "$sem_log" "semantic verification failed"
         mode_failed=1
       fi
     done
@@ -850,7 +846,7 @@ run_verify_parity_mode() {
   local mode_failed=0
   local artifacts_root host_artifacts docker_artifacts compare_artifacts
   local verify_mode target_arch host_summary docker_summary compare_json
-  local host_mode_log docker_mode_log docker_build_log
+  local host_mode_log docker_mode_log docker_image_build_log docker_build_log
   local summary_path docker_mode_cmd
 
   echo ""
@@ -887,6 +883,14 @@ run_verify_parity_mode() {
       log_fail "failed to build host binary for parity mode (see $host_mode_log)"
       return 1
     fi
+  fi
+
+  docker_image_build_log="$artifacts_root/parity-docker-image-build.log"
+  if run_cmd_logged "$docker_image_build_log" docker compose build parity; then
+    log_pass "docker parity image rebuilt from current workspace"
+  else
+    log_fail "docker parity image build failed (see $docker_image_build_log)"
+    mode_failed=1
   fi
 
   docker_build_log="$artifacts_root/parity-docker-build.log"

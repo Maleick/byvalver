@@ -105,7 +105,7 @@ Use this command to validate deterministic host-vs-Docker verification outcomes
 for representative fixtures:
 
 ```bash
-bash tests/run_tests.sh --mode verify-parity --arch all --artifacts-dir ci-artifacts
+make release-gate
 ```
 
 Parity artifacts are written to:
@@ -118,6 +118,13 @@ Interpretation:
 - `parity mismatch`: release gate blocker; inspect `parity-compare` JSON reports.
 - `host/docker verify-equivalence failed`: required verification checks failed and
   release-gate paths should fail closed.
+
+Phase 6 required-check contract (shared by local and CI release-gate entry points):
+- `verify-denulled`: `fixture-selection`, `transform`, `profile-selection`, `denulled`
+- `verify-equivalence`: `fixture-selection`, `transform`, `functionality`, `semantic`
+
+Local and CI now use the same entry path (`make release-gate`), and failing required
+tuples include deterministic rerun metadata in summary artifacts.
 
 ### Build Variants
 

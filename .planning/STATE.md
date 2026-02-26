@@ -1,13 +1,13 @@
 ---
 gsd_state_version: 1.0
-milestone: v4.3
-milestone_name: Equivalence Reliability
-status: unknown
-last_updated: "2026-02-26T17:01:31.166Z"
+milestone: none
+milestone_name: none
+status: milestone_completed
+last_updated: "2026-02-26T17:15:00Z"
 progress:
-  total_phases: 6
+  total_phases: 8
   completed_phases: 6
-  total_plans: 16
+  total_plans: 21
   completed_plans: 16
 ---
 
@@ -18,56 +18,42 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Given an input payload and bad-byte policy, byvalver must produce functionally equivalent shellcode that is verifiably free of forbidden bytes.
-**Current focus:** Begin Phase 6 planning for deterministic equivalence gate reliability.
+**Current focus:** Define and start the next milestone after v4.4 closeout.
 
 ## Current Position
 
-Phase: 6 of 8 (Equivalence Gate Determinism and Triage)
-Plan: Not planned yet (06-01, 06-02, 06-03 pending)
-Status: Ready for phase discussion and planning
-Last activity: 2026-02-26 - Created v4.4 roadmap and requirement traceability
+Milestone: v4.4 Equivalence Reliability (closed 2026-02-26)
+Closure mode: shipped with accepted gaps
+Last activity: archived v4.4 roadmap/requirements/audit and updated milestone records
 
-Progress: ██████░░░░ 62%
+Progress: ████████░░ 76%
 
 ## Performance Metrics
 
-**Velocity:**
-- Prior milestone (v4.3): 13 plans, 39 tasks
-- Current milestone (v4.4): 0/8 plans complete (initialization complete)
-
-**By Milestone:**
-
-| Milestone | Phase Window | Plans Complete | Status |
-|-----------|--------------|----------------|--------|
-| v4.3 stabilization | 1-5 | 13/13 | Complete |
-| v4.4 equivalence reliability | 6-8 | 0/8 | Not started |
-
-**Recent Trend:**
-- Milestone initialization complete with research-first outputs and mapped requirements.
+**Recent milestone outcomes:**
+- v4.3 stabilization: 13/13 plans complete
+- v4.4 Equivalence Reliability: 3/8 plans delivered, 5 deferred as accepted gaps
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting next work:
-
-- [Scope]: v4.4 focuses on equivalence reliability, ARM64 expansion, and architecture assist improvements.
-- [Policy]: research-first flow selected before requirements/roadmap definition.
-- [Release policy]: required parity/equivalence mismatches remain hard-fail release blockers.
+Decisions are tracked in PROJECT.md. Current high-impact decisions:
+- v4.4 closed by explicit user decision despite `gaps_found` audit status.
+- Deferred requirements were preserved as carry-forward scope for next milestone.
 
 ### Pending Todos
 
-- Execute discuss-phase for Phase 6 and lock implementation decisions.
-- Plan Phase 6 tasks (`06-01` to `06-03`) with verifier-compatible must-haves.
-- Keep `assets/shellcodes/...` dirty carryover isolated from planning commits.
+- Start next milestone definition with fresh requirements and roadmap.
+- Re-scope deferred requirements (`ARM64-01/02/03`, `ARCH-01/02/03`) into executable phases.
 
 ### Blockers/Concerns
 
-- Technical blocker: failing representative `verify-equivalence` checks in release-gate runs.
+- No active implementation blocker for closeout.
+- Working tree still contains unrelated dirty `assets/shellcodes/...` carryover.
 
 ## Session Continuity
 
 Last session: 2026-02-26
-Stopped at: v4.4 milestone initialized
-Resume file: .planning/ROADMAP.md
+Stopped at: v4.4 milestone archived
+Resume file: .planning/MILESTONES.md

@@ -234,15 +234,17 @@ ci-baseline:
 	fi
 
 RELEASE_GATE_ARTIFACTS ?= ci-artifacts/release-gate
+RELEASE_GATE_MODE ?= release-gate
+RELEASE_GATE_ARCH ?= all
 
 release-gate:
 	@echo "[RELEASE-GATE] Running strict release gate checks..."
 	@$(MAKE) check-deps
 	@mkdir -p "$(RELEASE_GATE_ARTIFACTS)"
 	@if [ "$(VERBOSE)" = "1" ]; then \
-		bash tests/run_tests.sh --mode release-gate --arch all --artifacts-dir "$(RELEASE_GATE_ARTIFACTS)" --verbose; \
+		bash tests/run_tests.sh --mode "$(RELEASE_GATE_MODE)" --arch "$(RELEASE_GATE_ARCH)" --artifacts-dir "$(RELEASE_GATE_ARTIFACTS)" --verbose; \
 	else \
-		bash tests/run_tests.sh --mode release-gate --arch all --artifacts-dir "$(RELEASE_GATE_ARTIFACTS)"; \
+		bash tests/run_tests.sh --mode "$(RELEASE_GATE_MODE)" --arch "$(RELEASE_GATE_ARCH)" --artifacts-dir "$(RELEASE_GATE_ARTIFACTS)"; \
 	fi
 
 # Check dependencies

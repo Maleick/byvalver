@@ -26,7 +26,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p ci-artifacts/release-gate
-          bash tests/run_tests.sh --mode release-gate --arch all --artifacts-dir ci-artifacts/release-gate | tee ci-artifacts/release-gate/release-gate.log
+          make release-gate RELEASE_GATE_ARTIFACTS=ci-artifacts/release-gate | tee ci-artifacts/release-gate/release-gate.log
 
       - name: Upload release gate artifacts
         if: always()

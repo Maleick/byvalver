@@ -131,3 +131,10 @@ config.local
 # Debug and testing specific
 *.dSYM/
 *.pdb
+
+# ── Tool/agent artifacts ──
+.gsd/
+.bg-shell/
+.serena/
+.codex/
+.claude/settings.local.json
